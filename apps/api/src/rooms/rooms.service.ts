@@ -4,11 +4,15 @@ import type { CreateRoomResponse, DateResult, RoomDetail } from '@whenever/share
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
 
 @Injectable()
 export class RoomsService {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
     const roomId = newRoomId();
@@ -152,6 +156,7 @@ export class RoomsService {
       `UPDATE rooms SET deadline = $1 WHERE id = $2`,
       [deadline, roomId],
     );
+    this.realtime.emitDeadlineUpdated(roomId, deadline);
     return { deadline };
   }
 

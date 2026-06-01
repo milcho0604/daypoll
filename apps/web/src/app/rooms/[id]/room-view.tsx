@@ -13,9 +13,11 @@ import {
   updateAvailabilities,
   updateDeadline,
 } from '@/lib/rooms';
+import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS_DEFAULT = 4000;
+const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
 
 type Me = { participantId: number; nickname: string; dateIds: number[] };
 
@@ -40,6 +42,7 @@ export default function RoomView({
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [live, setLive] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
@@ -77,7 +80,7 @@ export default function RoomView({
     };
   }, [clientToken, roomId]);
 
-  // 폴링 (결과 + 마감 갱신)
+  // 결과/마감 갱신 — 소켓 push + 폴링 fallback
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -96,19 +99,55 @@ export default function RoomView({
         /* silent */
       }
     };
-    const id = setInterval(tick, POLL_INTERVAL_MS);
+
+    // 소켓 연결 + 채널 구독
+    const socket = getSocket();
+    const onConnect = () => {
+      setLive(true);
+      joinRoomChannel(roomId);
+    };
+    const onDisconnect = () => setLive(false);
+    const onResults = () => tick();
+    const onDeadline = (payload: { deadline: string | null }) => {
+      setRoom((prev) => ({ ...prev, deadline: payload.deadline }));
+      setNow(Date.now());
+    };
+    const onDeleted = () => {
+      // 방이 어드민에 의해 삭제됨 — 홈으로 보낼지, 토스트로 알릴지. 일단 페이지 새로고침.
+      window.location.reload();
+    };
+
+    if (socket.connected) onConnect();
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('room:results_updated', onResults);
+    socket.on('room:deadline_updated', onDeadline);
+    socket.on('room:deleted', onDeleted);
+
+    // 폴링 — 소켓이 살아있으면 30초로 늦춤, 끊기면 4초
+    const id = setInterval(
+      tick,
+      live ? POLL_INTERVAL_MS_WHEN_LIVE : POLL_INTERVAL_MS_DEFAULT,
+    );
     pollingRef.current = id;
-    // 페이지 가시성 변할 때 즉시 한 번
+
     const onVisible = () => {
       if (!document.hidden) tick();
     };
     document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       cancelled = true;
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('room:results_updated', onResults);
+      socket.off('room:deadline_updated', onDeadline);
+      socket.off('room:deleted', onDeleted);
+      leaveRoomChannel(roomId);
     };
-  }, [roomId]);
+  }, [roomId, live]);
 
   // D-day 1초마다 갱신 (마감 임박 표시용)
   useEffect(() => {
@@ -247,6 +286,16 @@ export default function RoomView({
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">{room.title}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1">
+            <span
+              aria-hidden
+              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                live ? 'bg-emerald-500' : 'bg-zinc-400'
+              }`}
+            />
+            <span className="text-xs">{live ? 'LIVE' : 'polling'}</span>
+          </span>
+          <span aria-hidden>·</span>
           <span>참여자 {room.participantCount}명</span>
           <span aria-hidden>·</span>
           <DeadlineLabel deadline={room.deadline} now={now} />

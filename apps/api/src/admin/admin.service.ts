@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_POOL } from '../database/database.module';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 export interface AdminStats {
   totalRooms: number;
@@ -31,7 +32,10 @@ export interface AdminRoomList {
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   async getStats(): Promise<AdminStats> {
     const kpi = await this.pool.query<{
@@ -223,6 +227,7 @@ export class AdminService {
   async deleteRoom(roomId: string): Promise<{ deleted: boolean }> {
     const res = await this.pool.query(`DELETE FROM rooms WHERE id = $1`, [roomId]);
     if (res.rowCount === 0) throw new NotFoundException('room not found');
+    this.realtime.emitRoomDeleted(roomId);
     return { deleted: true };
   }
 

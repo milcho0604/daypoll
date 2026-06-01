@@ -12,10 +12,14 @@ import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newToken } from '../common/ids';
 import { hashPin, verifyPin } from '../common/pin';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 @Injectable()
 export class ParticipantsService {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   async join(
     roomId: string,
@@ -34,6 +38,7 @@ export class ParticipantsService {
        RETURNING id::text`,
       [roomId, nickname.trim(), clientToken, pinHash],
     );
+    this.realtime.emitResultsUpdated(roomId); // 참여자 수 변경
     return { participantId: Number(res.rows[0].id), clientToken };
   }
 
@@ -118,6 +123,7 @@ export class ParticipantsService {
       }
     });
 
+    this.realtime.emitResultsUpdated(roomId);
     return { dateIds: filtered };
   }
 
@@ -142,6 +148,7 @@ export class ParticipantsService {
       [participantId, roomId],
     );
     if (del.rowCount === 0) throw new NotFoundException('participant not found');
+    this.realtime.emitResultsUpdated(roomId);
     return { deleted: true };
   }
 

@@ -5,6 +5,7 @@ import { HealthController } from './health/health.controller';
 import { RoomsModule } from './rooms/rooms.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { AdminModule } from './admin/admin.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
       envFilePath: ['.env', '../../.env'],
     }),
     DatabaseModule,
+    RealtimeModule,
     RoomsModule,
     ParticipantsModule,
     AdminModule,
