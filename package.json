@@ -1,0 +1,20 @@
+{
+  "name": "whenever",
+  "version": "0.0.1",
+  "private": true,
+  "description": "회원가입 없이 링크 하나로 날짜를 맞추는 웹앱",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @whenever/api dev",
+    "dev:web": "pnpm --filter @whenever/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20"
+  }
+}
