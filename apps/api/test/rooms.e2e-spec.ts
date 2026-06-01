@@ -440,6 +440,139 @@ describe('rooms + participants e2e', () => {
     });
   });
 
+  // ---------- 강퇴 ----------
+  describe('DELETE /rooms/:id/participants/:pid (creator)', () => {
+    it('creator can kick, vote disappears', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'kick', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      const creator = create.body.creatorToken;
+      const detail = await request(server()).get(`/rooms/${id}`);
+      const dateId = detail.body.dates[0].id;
+      const me = await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'alice' });
+      await request(server())
+        .put(`/rooms/${id}/participants/me/availabilities`)
+        .set('x-client-token', me.body.clientToken)
+        .send({ dateIds: [dateId] });
+
+      const kick = await request(server())
+        .delete(`/rooms/${id}/participants/${me.body.participantId}`)
+        .set('x-creator-token', creator);
+      expect(kick.status).toBe(200);
+
+      const after = await request(server()).get(`/rooms/${id}`);
+      expect(after.body.participantCount).toBe(0);
+      expect(after.body.results[0].votes).toBe(0);
+    });
+
+    it('403 without creator token', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'kick', dates: ['2026-05-15'] });
+      const me = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'alice' });
+      const r = await request(server()).delete(
+        `/rooms/${create.body.roomId}/participants/${me.body.participantId}`,
+      );
+      expect(r.status).toBe(403);
+    });
+  });
+
+  // ---------- PIN 복원 ----------
+  describe('POST /rooms/:id/participants/recover (PIN)', () => {
+    it('joins with pin, recovers a fresh client_token', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      const join = await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(join.status).toBe(201);
+
+      const recover = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(recover.status).toBe(201);
+      expect(recover.body.participantId).toBe(join.body.participantId);
+      expect(recover.body.clientToken).not.toBe(join.body.clientToken);
+    });
+
+    it('403 on wrong pin', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin', dates: ['2026-05-15'] });
+      await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+      const r = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants/recover`)
+        .send({ nickname: 'memo', pin: '9999' });
+      expect(r.status).toBe(403);
+    });
+
+    it('403 if pin was never set', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'no-pin', dates: ['2026-05-15'] });
+      await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'a' });
+      const r = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants/recover`)
+        .send({ nickname: 'a', pin: '1234' });
+      expect(r.status).toBe(403);
+    });
+
+    it('400 on malformed pin', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin', dates: ['2026-05-15'] });
+      const r = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'a', pin: 'abc' });
+      expect(r.status).toBe(400);
+    });
+  });
+
+  // ---------- .ics 내보내기 ----------
+  describe('GET /rooms/:id/winner.ics', () => {
+    it('returns VCALENDAR with the top date', async () => {
+      const c = await request(server())
+        .post('/rooms')
+        .send({ title: 'cal', dates: ['2026-07-20', '2026-07-21'] });
+      const id = c.body.roomId;
+      const dates = (await request(server()).get(`/rooms/${id}`)).body.dates;
+      const p = await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'a' });
+      await request(server())
+        .put(`/rooms/${id}/participants/me/availabilities`)
+        .set('x-client-token', p.body.clientToken)
+        .send({ dateIds: [dates[0].id] });
+
+      const r = await request(server()).get(`/rooms/${id}/winner.ics`);
+      expect(r.status).toBe(200);
+      expect(r.headers['content-type']).toContain('text/calendar');
+      expect(r.text).toContain('BEGIN:VCALENDAR');
+      expect(r.text).toContain('DTSTART;VALUE=DATE:20260720');
+      expect(r.text).toContain('SUMMARY:cal');
+      expect(r.text).toContain('END:VEVENT');
+    });
+
+    it('404 when no votes', async () => {
+      const c = await request(server())
+        .post('/rooms')
+        .send({ title: 'empty', dates: ['2026-07-20'] });
+      const r = await request(server()).get(`/rooms/${c.body.roomId}/winner.ics`);
+      expect(r.status).toBe(404);
+    });
+  });
+
   // ---------- sanity DB ----------
   it('sanity: TRUNCATE works between tests', async () => {
     const r = await getTestPool().query('SELECT COUNT(*)::int AS c FROM rooms');

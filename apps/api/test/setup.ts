@@ -8,6 +8,8 @@ export const TEST_DB_URL =
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.CORS_ORIGIN = 'http://localhost:3000';
 process.env.API_PORT = '0';
+process.env.ADMIN_TOKEN =
+  process.env.ADMIN_TOKEN ?? 'test-admin-token-32-chars-XXXXXX';
 
 let _pool: Pool | null = null;
 

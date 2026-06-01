@@ -14,7 +14,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "migrate": "node scripts/migrate.mjs",
     "cleanup": "node scripts/cleanup-old-rooms.mjs"
   },
