@@ -6,6 +6,7 @@ import {
   HEADER_CREATOR_TOKEN,
   JoinRoomRequest,
   JoinRoomResponse,
+  RecoverParticipantRequest,
   RoomDetail,
   UpdateAvailabilitiesRequest,
   UpdateDeadlineRequest,
@@ -30,6 +31,16 @@ export function getResults(roomId: string, signal?: AbortSignal) {
 
 export function joinRoom(roomId: string, body: JoinRoomRequest) {
   return api<JoinRoomResponse>(`/rooms/${roomId}/participants`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export function recoverParticipant(
+  roomId: string,
+  body: RecoverParticipantRequest,
+) {
+  return api<JoinRoomResponse>(`/rooms/${roomId}/participants/recover`, {
     method: 'POST',
     body,
   });

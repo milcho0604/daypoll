@@ -9,6 +9,7 @@ import {
   getRoom,
   joinRoom,
   kickParticipant,
+  recoverParticipant,
   updateAvailabilities,
   updateDeadline,
 } from '@/lib/rooms';
@@ -31,6 +32,9 @@ export default function RoomView({
   const [me, setMe] = useState<Me | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [nickname, setNickname] = useState('');
+  const [usePin, setUsePin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [showRecover, setShowRecover] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -135,10 +139,17 @@ export default function RoomView({
   async function onJoin(e: React.FormEvent) {
     e.preventDefault();
     if (!nickname.trim()) return;
+    if (usePin && !/^\d{4}$/.test(pin)) {
+      setError('PIN은 4자리 숫자여야 합니다.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const r = await joinRoom(roomId, { nickname: nickname.trim() });
+      const r = await joinRoom(roomId, {
+        nickname: nickname.trim(),
+        pin: usePin ? pin : undefined,
+      });
       writeTokens(roomId, { clientToken: r.clientToken });
       setClientToken(r.clientToken);
       setMe({ participantId: r.participantId, nickname: nickname.trim(), dateIds: [] });
@@ -172,6 +183,24 @@ export default function RoomView({
         results: res.results,
         participantCount: res.participantCount,
       }));
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRecover(nickname: string, pin: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await recoverParticipant(roomId, { nickname, pin });
+      writeTokens(roomId, { clientToken: r.clientToken });
+      setClientToken(r.clientToken);
+      setShowRecover(false);
+      const m = await getMe(roomId, r.clientToken);
+      setMe(m);
+      setSelected(new Set(m?.dateIds ?? []));
     } catch (err) {
       setError(extractMsg(err));
     } finally {
@@ -240,23 +269,52 @@ export default function RoomView({
         <section className="mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-base font-semibold">닉네임 입력</h2>
           <p className="mt-1 text-sm text-zinc-500">방에서 너를 어떻게 부를지 정해줘.</p>
-          <form onSubmit={onJoin} className="mt-4 flex gap-2">
+          <form onSubmit={onJoin} className="mt-4 flex flex-col gap-3">
             <input
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               placeholder="예: 민철"
               maxLength={20}
-              className="h-12 flex-1 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
+              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
               required
             />
-            <button
-              type="submit"
-              disabled={busy || !nickname.trim()}
-              className="h-12 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
-            >
-              들어가기
-            </button>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={usePin}
+                onChange={(e) => setUsePin(e.target.checked)}
+                className="h-5 w-5 rounded border-zinc-300"
+              />
+              4자리 PIN 설정 (다른 기기에서 같은 사람으로 복원하고 싶을 때)
+            </label>
+            {usePin && (
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d{4}"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="0000"
+                className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
+              />
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRecover(true)}
+                className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                다른 기기에서 들어왔어요 (PIN 복원)
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !nickname.trim() || (usePin && pin.length !== 4)}
+                className="h-12 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+              >
+                들어가기
+              </button>
+            </div>
           </form>
         </section>
       ) : (
@@ -396,7 +454,81 @@ export default function RoomView({
           onSave={onSaveDeadline}
         />
       )}
+
+      {showRecover && (
+        <RecoverModal
+          onClose={() => setShowRecover(false)}
+          onSubmit={onRecover}
+          busy={busy}
+        />
+      )}
     </main>
+  );
+}
+
+function RecoverModal({
+  onClose,
+  onSubmit,
+  busy,
+}: {
+  onClose: () => void;
+  onSubmit: (nickname: string, pin: string) => void;
+  busy: boolean;
+}) {
+  const [nickname, setNickname] = useState('');
+  const [pin, setPin] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (nickname.trim() && /^\d{4}$/.test(pin)) onSubmit(nickname.trim(), pin);
+        }}
+        className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl"
+      >
+        <h3 className="text-base font-semibold">PIN 으로 복원</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          이 방에 처음 들어올 때 닉네임과 함께 설정한 PIN으로 본인 표를 되찾아옵니다.
+        </p>
+        <div className="mt-4 flex flex-col gap-3">
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="닉네임"
+            maxLength={20}
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base dark:border-zinc-700 dark:bg-zinc-950"
+            required
+          />
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="\d{4}"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            placeholder="0000"
+            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest dark:border-zinc-700 dark:bg-zinc-950"
+            required
+          />
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={busy || !nickname.trim() || pin.length !== 4}
+            className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900"
+          >
+            {busy ? '복원 중…' : '복원'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

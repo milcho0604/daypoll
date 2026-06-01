@@ -44,6 +44,12 @@ export interface CreateRoomResponse {
 
 export interface JoinRoomRequest {
   nickname: string;
+  pin?: string; // 4자리 숫자, 선택 사항
+}
+
+export interface RecoverParticipantRequest {
+  nickname: string;
+  pin: string;
 }
 
 export interface JoinRoomResponse {

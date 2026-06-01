@@ -11,24 +11,59 @@ import type { JoinRoomResponse } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newToken } from '../common/ids';
+import { hashPin, verifyPin } from '../common/pin';
 
 @Injectable()
 export class ParticipantsService {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async join(roomId: string, nickname: string): Promise<JoinRoomResponse> {
+  async join(
+    roomId: string,
+    nickname: string,
+    pin?: string,
+  ): Promise<JoinRoomResponse> {
     const roomRes = await this.pool.query('SELECT 1 FROM rooms WHERE id = $1', [roomId]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
     const clientToken = newToken();
+    const pinHash = pin ? hashPin(pin) : null;
     const res = await this.pool.query<{ id: string }>(
-      `INSERT INTO participants (room_id, nickname, client_token)
-       VALUES ($1, $2, $3)
+      `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
+       VALUES ($1, $2, $3, $4)
        RETURNING id::text`,
-      [roomId, nickname.trim(), clientToken],
+      [roomId, nickname.trim(), clientToken, pinHash],
     );
     return { participantId: Number(res.rows[0].id), clientToken };
+  }
+
+  async recover(
+    roomId: string,
+    nickname: string,
+    pin: string,
+  ): Promise<JoinRoomResponse> {
+    const candidates = await this.pool.query<{
+      id: string;
+      pin_hash: string | null;
+    }>(
+      `SELECT id::text, pin_hash FROM participants
+       WHERE room_id = $1 AND nickname = $2 AND pin_hash IS NOT NULL
+       ORDER BY created_at ASC`,
+      [roomId, nickname.trim()],
+    );
+    for (const row of candidates.rows) {
+      if (verifyPin(pin, row.pin_hash)) {
+        // PIN 일치 → 새 client_token 재발급 (다른 기기에서 진입 가능)
+        const newCt = newToken();
+        await this.pool.query(
+          `UPDATE participants SET client_token = $1 WHERE id = $2`,
+          [newCt, row.id],
+        );
+        return { participantId: Number(row.id), clientToken: newCt };
+      }
+    }
+    // 매칭 실패. 닉네임/핀 노출 안 되도록 단일 메시지.
+    throw new ForbiddenException('nickname or pin does not match');
   }
 
   async updateAvailabilities(

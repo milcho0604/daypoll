@@ -10,7 +10,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { HEADER_CLIENT_TOKEN, HEADER_CREATOR_TOKEN } from '@whenever/shared';
-import { JoinRoomDto } from './dto/join-room.dto';
+import { JoinRoomDto, RecoverParticipantDto } from './dto/join-room.dto';
 import { UpdateAvailabilitiesDto } from './dto/update-availabilities.dto';
 import { ParticipantsService } from './participants.service';
 
@@ -20,7 +20,15 @@ export class ParticipantsController {
 
   @Post()
   join(@Param('roomId') roomId: string, @Body() dto: JoinRoomDto) {
-    return this.participants.join(roomId, dto.nickname);
+    return this.participants.join(roomId, dto.nickname, dto.pin);
+  }
+
+  @Post('recover')
+  recover(
+    @Param('roomId') roomId: string,
+    @Body() dto: RecoverParticipantDto,
+  ) {
+    return this.participants.recover(roomId, dto.nickname, dto.pin);
   }
 
   @Get('me')
