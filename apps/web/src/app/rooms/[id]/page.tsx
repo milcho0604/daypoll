@@ -13,7 +13,22 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const room = await getRoom(id);
-    return { title: `${room.title} · 언제모여` };
+    const description = `${room.title} — 참여자 ${room.participantCount}명. 가능한 날짜에 투표해주세요.`;
+    return {
+      title: `${room.title} · 언제모여`,
+      description,
+      openGraph: {
+        title: `${room.title} · 언제모여`,
+        description,
+        type: 'website',
+        url: `/rooms/${id}`,
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${room.title} · 언제모여`,
+        description,
+      },
+    };
   } catch {
     return { title: '방 · 언제모여' };
   }

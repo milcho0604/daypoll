@@ -12,9 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "언제모여 — 회원가입 없이 날짜 맞추기",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "언제모여 — 회원가입 없이 날짜 맞추기",
+    template: "%s",
+  },
   description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
+  openGraph: {
+    type: "website",
+    siteName: "언제모여",
+    title: "언제모여 — 회원가입 없이 날짜 맞추기",
+    description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "언제모여",
+    description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
+  },
 };
 
 export const viewport: Viewport = {
