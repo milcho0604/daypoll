@@ -8,6 +8,7 @@ import {
   getResults,
   getRoom,
   joinRoom,
+  kickParticipant,
   updateAvailabilities,
   updateDeadline,
 } from '@/lib/rooms';
@@ -178,6 +179,22 @@ export default function RoomView({
     }
   }
 
+  async function onKick(participantId: number, nickname: string) {
+    if (!creatorToken) return;
+    if (!confirm(`${nickname} 을 방에서 내보낼까요? 표도 같이 사라집니다.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await kickParticipant(roomId, creatorToken, participantId);
+      const fresh = await getRoom(roomId);
+      setRoom(fresh);
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onSaveDeadline(value: string | null) {
     if (!creatorToken) return;
     setBusy(true);
@@ -320,9 +337,25 @@ export default function RoomView({
                   />
                 </div>
                 {r.voters && r.voters.length > 0 && (
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {r.voters.join(', ')}
-                  </p>
+                  <ul className="mt-2 flex flex-wrap gap-1">
+                    {r.voters.map((v) => (
+                      <li key={v.id}>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          {v.nickname}
+                          {isCreator && (
+                            <button
+                              type="button"
+                              onClick={() => onKick(v.id, v.nickname)}
+                              aria-label={`${v.nickname} 강퇴`}
+                              className="ml-0.5 text-zinc-400 hover:text-red-600"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             ))}

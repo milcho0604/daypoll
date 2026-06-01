@@ -86,6 +86,30 @@ export class ParticipantsService {
     return { dateIds: filtered };
   }
 
+  async removeByCreator(
+    roomId: string,
+    creatorToken: string | undefined,
+    participantId: number,
+  ): Promise<{ deleted: boolean }> {
+    if (!creatorToken) {
+      throw new ForbiddenException('creator token required');
+    }
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      `SELECT creator_token FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
+    if (roomRes.rows[0].creator_token !== creatorToken) {
+      throw new ForbiddenException('not the creator');
+    }
+    const del = await this.pool.query(
+      `DELETE FROM participants WHERE id = $1 AND room_id = $2`,
+      [participantId, roomId],
+    );
+    if (del.rowCount === 0) throw new NotFoundException('participant not found');
+    return { deleted: true };
+  }
+
   async getMine(roomId: string, clientToken: string | undefined) {
     if (!clientToken) {
       return null;

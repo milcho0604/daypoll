@@ -13,11 +13,16 @@ export interface RoomSummary {
   createdAt: string;
 }
 
+export interface Voter {
+  id: number;
+  nickname: string;
+}
+
 export interface DateResult {
   dateId: number;
   date: string;
   votes: number;
-  voters?: string[]; // optional: 누가 가능한지
+  voters: Voter[]; // 누가 가능한지 (id + nickname). 강퇴/내 표 표시에 사용.
 }
 
 export interface RoomDetail extends RoomSummary {

@@ -124,14 +124,17 @@ export class RoomsService {
       date_id: string;
       the_date: string;
       votes: string;
-      voters: string[] | null;
+      voters: { id: number; nickname: string }[] | null;
     }>(
       `SELECT rd.id::text AS date_id,
               to_char(rd.the_date, 'YYYY-MM-DD') AS the_date,
               COUNT(a.participant_id)::text AS votes,
               COALESCE(
-                ARRAY_AGG(p.nickname ORDER BY p.created_at) FILTER (WHERE p.id IS NOT NULL),
-                '{}'
+                jsonb_agg(
+                  jsonb_build_object('id', p.id, 'nickname', p.nickname)
+                  ORDER BY p.created_at
+                ) FILTER (WHERE p.id IS NOT NULL),
+                '[]'::jsonb
               ) AS voters
        FROM room_dates rd
        LEFT JOIN availabilities a ON a.room_date_id = rd.id

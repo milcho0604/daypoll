@@ -1,5 +1,15 @@
-import { Body, Controller, Get, Headers, Param, Post, Put } from '@nestjs/common';
-import { HEADER_CLIENT_TOKEN } from '@whenever/shared';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
+import { HEADER_CLIENT_TOKEN, HEADER_CREATOR_TOKEN } from '@whenever/shared';
 import { JoinRoomDto } from './dto/join-room.dto';
 import { UpdateAvailabilitiesDto } from './dto/update-availabilities.dto';
 import { ParticipantsService } from './participants.service';
@@ -29,5 +39,14 @@ export class ParticipantsController {
     @Body() dto: UpdateAvailabilitiesDto,
   ) {
     return this.participants.updateAvailabilities(roomId, clientToken, dto.dateIds);
+  }
+
+  @Delete(':participantId')
+  remove(
+    @Param('roomId') roomId: string,
+    @Param('participantId', ParseIntPipe) participantId: number,
+    @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
+  ) {
+    return this.participants.removeByCreator(roomId, creatorToken, participantId);
   }
 }

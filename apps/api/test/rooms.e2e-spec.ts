@@ -186,8 +186,11 @@ describe('rooms + participants e2e', () => {
       expect(res.body.results[0]).toMatchObject({
         dateId: d2,
         votes: 2,
-        voters: ['alice', 'bob'],
       });
+      expect(res.body.results[0].voters.map((v: { nickname: string }) => v.nickname)).toEqual([
+        'alice',
+        'bob',
+      ]);
       // 동점 1표는 날짜 빠른 쪽이 위
       expect(res.body.results[1].dateId).toBe(d1);
       expect(res.body.results[2].dateId).toBe(d3);

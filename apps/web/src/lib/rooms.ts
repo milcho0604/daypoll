@@ -75,3 +75,17 @@ export function updateDeadline(
     body,
   });
 }
+
+export function kickParticipant(
+  roomId: string,
+  creatorToken: string,
+  participantId: number,
+) {
+  return api<{ deleted: true }>(
+    `/rooms/${roomId}/participants/${participantId}`,
+    {
+      method: 'DELETE',
+      headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
+    },
+  );
+}
