@@ -4,6 +4,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { RoomsModule } from './rooms/rooms.module';
 import { ParticipantsModule } from './participants/participants.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ParticipantsModule } from './participants/participants.module';
     DatabaseModule,
     RoomsModule,
     ParticipantsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
 })
