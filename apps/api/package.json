@@ -15,7 +15,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "cleanup": "node scripts/cleanup-old-rooms.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
