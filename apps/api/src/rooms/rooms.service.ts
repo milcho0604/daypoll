@@ -97,6 +97,43 @@ export class RoomsService {
     };
   }
 
+  async buildWinnerIcs(roomId: string): Promise<string> {
+    const detail = await this.getDetail(roomId);
+    const winner = detail.results[0];
+    if (!winner || winner.votes === 0) {
+      throw new NotFoundException('no winner yet');
+    }
+    const date = winner.date.replace(/-/g, ''); // YYYYMMDD
+    const endDate = nextDay(winner.date).replace(/-/g, '');
+    const now = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
+    const summary = escapeIcsText(detail.title);
+    const description = escapeIcsText(
+      `Whenever 투표 1위 (${winner.votes}표). 방 ID ${detail.id}.`,
+    );
+
+    return [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//whenever//ko//',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:winner-${detail.id}-${winner.dateId}@whenever`,
+      `DTSTAMP:${now}`,
+      `DTSTART;VALUE=DATE:${date}`,
+      `DTEND;VALUE=DATE:${endDate}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${description}`,
+      'TRANSP:TRANSPARENT',
+      'END:VEVENT',
+      'END:VCALENDAR',
+      '',
+    ].join('\r\n');
+  }
+
   async updateDeadline(roomId: string, creatorToken: string | undefined, deadline: string | null): Promise<{ deadline: string | null }> {
     if (!creatorToken) {
       throw new ForbiddenException('creator token required');
@@ -151,4 +188,18 @@ export class RoomsService {
       voters: r.voters ?? [],
     }));
   }
+}
+
+function nextDay(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + 1));
+  return dt.toISOString().slice(0, 10);
+}
+
+function escapeIcsText(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
 }

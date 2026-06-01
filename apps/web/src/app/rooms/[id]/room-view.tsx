@@ -2,7 +2,7 @@
 
 import type { DateResult, RoomDetail } from '@whenever/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError } from '@/lib/api';
+import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
   getMe,
   getResults,
@@ -359,7 +359,17 @@ export default function RoomView({
       )}
 
       <section className="mt-8">
-        <h2 className="text-base font-semibold">실시간 순위</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">실시간 순위</h2>
+          {sortedResults.length > 0 && sortedResults[0].votes > 0 && (
+            <a
+              href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
+              className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              1위 캘린더에 담기 (.ics)
+            </a>
+          )}
+        </div>
         {sortedResults.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-500">아직 결과가 없습니다.</p>
         ) : (
