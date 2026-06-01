@@ -11,7 +11,10 @@
     "lint": "pnpm -r lint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "test": "bash scripts/test.sh",
+    "test:api": "pnpm --filter @whenever/api test:e2e",
+    "test:web": "bash scripts/web-smoke.sh"
   },
   "packageManager": "pnpm@10.32.1",
   "engines": {
