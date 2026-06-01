@@ -1,0 +1,151 @@
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Pool } from 'pg';
+import type { CreateRoomResponse, DateResult, RoomDetail } from '@whenever/shared';
+import { PG_POOL } from '../database/database.module';
+import { withTransaction } from '../common/db.helpers';
+import { newRoomId, newToken } from '../common/ids';
+import type { CreateRoomDto } from './dto/create-room.dto';
+
+@Injectable()
+export class RoomsService {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+
+  async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
+    const roomId = newRoomId();
+    const creatorToken = newToken();
+
+    await withTransaction(this.pool, async (c) => {
+      await c.query(
+        `INSERT INTO rooms (id, title, creator_token, deadline)
+         VALUES ($1, $2, $3, $4)`,
+        [roomId, dto.title, creatorToken, dto.deadline ?? null],
+      );
+
+      const uniqueDates = Array.from(new Set(dto.dates));
+      for (const d of uniqueDates) {
+        await c.query(
+          `INSERT INTO room_dates (room_id, the_date) VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [roomId, d],
+        );
+      }
+    });
+
+    return { roomId, creatorToken };
+  }
+
+  async getDetail(roomId: string): Promise<RoomDetail> {
+    const roomRes = await this.pool.query<{
+      id: string;
+      title: string;
+      deadline: Date | null;
+      created_at: Date;
+    }>(
+      `SELECT id, title, deadline, created_at FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      throw new NotFoundException('room not found');
+    }
+    const room = roomRes.rows[0];
+
+    const datesRes = await this.pool.query<{ id: string; the_date: string }>(
+      `SELECT id::text, to_char(the_date, 'YYYY-MM-DD') AS the_date
+       FROM room_dates
+       WHERE room_id = $1 ORDER BY the_date ASC`,
+      [roomId],
+    );
+
+    const partCountRes = await this.pool.query<{ c: string }>(
+      `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+      [roomId],
+    );
+
+    const results = await this.computeResults(roomId);
+
+    return {
+      id: room.id,
+      title: room.title,
+      deadline: room.deadline ? room.deadline.toISOString() : null,
+      createdAt: room.created_at.toISOString(),
+      dates: datesRes.rows.map((r) => ({
+        id: Number(r.id),
+        date: r.the_date,
+      })),
+      participantCount: Number(partCountRes.rows[0].c),
+      results,
+    };
+  }
+
+  async getResults(roomId: string): Promise<{ results: DateResult[]; participantCount: number; deadline: string | null }> {
+    const roomRes = await this.pool.query<{ deadline: Date | null }>(
+      `SELECT deadline FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      throw new NotFoundException('room not found');
+    }
+    const partCountRes = await this.pool.query<{ c: string }>(
+      `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+      [roomId],
+    );
+    const results = await this.computeResults(roomId);
+    return {
+      results,
+      participantCount: Number(partCountRes.rows[0].c),
+      deadline: roomRes.rows[0].deadline ? roomRes.rows[0].deadline.toISOString() : null,
+    };
+  }
+
+  async updateDeadline(roomId: string, creatorToken: string | undefined, deadline: string | null): Promise<{ deadline: string | null }> {
+    if (!creatorToken) {
+      throw new ForbiddenException('creator token required');
+    }
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      `SELECT creator_token FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      throw new NotFoundException('room not found');
+    }
+    if (roomRes.rows[0].creator_token !== creatorToken) {
+      throw new ForbiddenException('not the creator');
+    }
+    await this.pool.query(
+      `UPDATE rooms SET deadline = $1 WHERE id = $2`,
+      [deadline, roomId],
+    );
+    return { deadline };
+  }
+
+  private async computeResults(roomId: string): Promise<DateResult[]> {
+    // 기획서 7장 집계 쿼리 + 누가 가능한지 닉네임 배열.
+    const res = await this.pool.query<{
+      date_id: string;
+      the_date: string;
+      votes: string;
+      voters: string[] | null;
+    }>(
+      `SELECT rd.id::text AS date_id,
+              to_char(rd.the_date, 'YYYY-MM-DD') AS the_date,
+              COUNT(a.participant_id)::text AS votes,
+              COALESCE(
+                ARRAY_AGG(p.nickname ORDER BY p.created_at) FILTER (WHERE p.id IS NOT NULL),
+                '{}'
+              ) AS voters
+       FROM room_dates rd
+       LEFT JOIN availabilities a ON a.room_date_id = rd.id
+       LEFT JOIN participants   p ON p.id           = a.participant_id
+       WHERE rd.room_id = $1
+       GROUP BY rd.id, rd.the_date
+       ORDER BY COUNT(a.participant_id) DESC, rd.the_date ASC`,
+      [roomId],
+    );
+    return res.rows.map((r) => ({
+      dateId: Number(r.date_id),
+      date: r.the_date,
+      votes: Number(r.votes),
+      voters: r.voters ?? [],
+    }));
+  }
+}
