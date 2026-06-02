@@ -9,11 +9,29 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 
-const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+// CORS_ORIGIN을 연결 시점에 lazy 평가한다.
+// (모듈 import 시점엔 ConfigModule의 .env 로딩이 아직 안 끝나 process.env가 비어있을 수 있다)
+function allowedOrigins(): string[] {
+  return (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: corsOrigin.split(',').map((s) => s.trim()), credentials: true },
+  cors: {
+    credentials: true,
+    origin: (
+      origin: string | undefined,
+      cb: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      const allowed = allowedOrigins();
+      // origin 없는 요청(서버-서버, 헬스체크 등)은 허용
+      if (!origin || allowed.includes(origin)) cb(null, true);
+      else cb(new Error('Not allowed by CORS'), false);
+    },
+  },
 })
 export class RealtimeGateway implements OnGatewayInit {
   @WebSocketServer()
