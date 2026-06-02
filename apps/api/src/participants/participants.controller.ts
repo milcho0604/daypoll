@@ -63,7 +63,11 @@ export class ParticipantsController {
   ) {
     // 투표 갱신 남용 방지: IP당 1분에 60회.
     this.rl.check(`vote:${ip}`, 60, 60);
-    return this.participants.updateAvailabilities(roomId, clientToken, dto.dateIds);
+    return this.participants.updateAvailabilities(
+      roomId,
+      clientToken,
+      dto.dateIds,
+    );
   }
 
   @Delete(':participantId')
@@ -72,6 +76,10 @@ export class ParticipantsController {
     @Param('participantId', ParseIntPipe) participantId: number,
     @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
   ) {
-    return this.participants.removeByCreator(roomId, creatorToken, participantId);
+    return this.participants.removeByCreator(
+      roomId,
+      creatorToken,
+      participantId,
+    );
   }
 }

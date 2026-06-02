@@ -10,7 +10,9 @@ describe('admin e2e', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const ref = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const ref = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = ref.createNestApplication();
     app.enableShutdownHooks();
     app.useGlobalPipes(

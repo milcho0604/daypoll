@@ -8,7 +8,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
   const config = app.get(ConfigService);
 
-  const corsOrigin = config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000';
+  const corsOrigin =
+    config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000';
   app.enableCors({
     origin: corsOrigin.split(',').map((s) => s.trim()),
     credentials: true,
@@ -25,7 +26,6 @@ async function bootstrap() {
   const port = Number(config.get<string>('API_PORT') ?? 3001);
   await app.listen(port);
 
-  // eslint-disable-next-line no-console
   console.log(`[api] listening on http://localhost:${port}`);
 }
-bootstrap();
+void bootstrap();

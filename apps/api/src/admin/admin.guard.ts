@@ -22,7 +22,10 @@ export class AdminGuard implements CanActivate {
       throw new ServiceUnavailableException('admin disabled');
     }
     const req = ctx.switchToHttp().getRequest<Request>();
-    const headerVal = req.header(ADMIN_TOKEN_HEADER);
+    const headerVal = req.header(ADMIN_TOKEN_HEADER) as
+      | string
+      | string[]
+      | undefined;
     const token = Array.isArray(headerVal) ? headerVal[0] : headerVal;
     if (!secureEquals(token, required)) {
       throw new UnauthorizedException();

@@ -1,4 +1,15 @@
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsISO8601, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsDateString,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateRoomDto {
   @IsString()

@@ -158,8 +158,12 @@ describe('rooms + participants e2e', () => {
   // ---------- participants + voting ----------
 
   describe('participants + voting', () => {
-    async function makeRoom(dates = ['2026-05-15', '2026-05-16', '2026-05-22']) {
-      const r = await request(server()).post('/rooms').send({ title: '모임', dates });
+    async function makeRoom(
+      dates = ['2026-05-15', '2026-05-16', '2026-05-22'],
+    ) {
+      const r = await request(server())
+        .post('/rooms')
+        .send({ title: '모임', dates });
       return r.body as { roomId: string; creatorToken: string };
     }
     async function getDateIds(roomId: string) {
@@ -198,10 +202,9 @@ describe('rooms + participants e2e', () => {
         dateId: d2,
         votes: 2,
       });
-      expect(res.body.results[0].voters.map((v: { nickname: string }) => v.nickname)).toEqual([
-        'alice',
-        'bob',
-      ]);
+      expect(
+        res.body.results[0].voters.map((v: { nickname: string }) => v.nickname),
+      ).toEqual(['alice', 'bob']);
       // 동점 1표는 날짜 빠른 쪽이 위
       expect(res.body.results[1].dateId).toBe(d1);
       expect(res.body.results[2].dateId).toBe(d3);
@@ -229,7 +232,9 @@ describe('rooms + participants e2e', () => {
 
     it('GET me without token returns null inside wrapper', async () => {
       const { roomId } = await makeRoom();
-      const res = await request(server()).get(`/rooms/${roomId}/participants/me`);
+      const res = await request(server()).get(
+        `/rooms/${roomId}/participants/me`,
+      );
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ me: null });
     });
@@ -250,7 +255,10 @@ describe('rooms + participants e2e', () => {
 
       const r = await request(server()).get(`/rooms/${roomId}/results`);
       const votes = Object.fromEntries(
-        r.body.results.map((x: { dateId: number; votes: number }) => [x.dateId, x.votes]),
+        r.body.results.map((x: { dateId: number; votes: number }) => [
+          x.dateId,
+          x.votes,
+        ]),
       );
       expect(votes[d1]).toBe(0);
       expect(votes[d2]).toBe(0);
@@ -422,7 +430,9 @@ describe('rooms + participants e2e', () => {
       const create = await request(server())
         .post('/rooms')
         .send({ title: 'empty', dates: ['2026-05-15'] });
-      const res = await request(server()).get(`/rooms/${create.body.roomId}/results`);
+      const res = await request(server()).get(
+        `/rooms/${create.body.roomId}/results`,
+      );
       expect(res.status).toBe(200);
       expect(res.body.participantCount).toBe(0);
       expect(res.body.results).toHaveLength(1);
@@ -432,11 +442,17 @@ describe('rooms + participants e2e', () => {
     it('orders by votes desc, then date asc', async () => {
       const c = await request(server())
         .post('/rooms')
-        .send({ title: 'order', dates: ['2026-05-15', '2026-05-10', '2026-05-20'] });
+        .send({
+          title: 'order',
+          dates: ['2026-05-15', '2026-05-10', '2026-05-20'],
+        });
       const id = c.body.roomId;
       const detail = await request(server()).get(`/rooms/${id}`);
       const map = Object.fromEntries(
-        detail.body.dates.map((d: { date: string; id: number }) => [d.date, d.id]),
+        detail.body.dates.map((d: { date: string; id: number }) => [
+          d.date,
+          d.id,
+        ]),
       );
 
       // 모두 1표
@@ -445,7 +461,11 @@ describe('rooms + participants e2e', () => {
           .post(`/rooms/${id}/participants`)
           .send({ nickname: n });
         const day =
-          n === 'a' ? map['2026-05-15'] : n === 'b' ? map['2026-05-10'] : map['2026-05-20'];
+          n === 'a'
+            ? map['2026-05-15']
+            : n === 'b'
+              ? map['2026-05-10']
+              : map['2026-05-20'];
         await request(server())
           .put(`/rooms/${id}/participants/me/availabilities`)
           .set('x-client-token', p.body.clientToken)
@@ -589,7 +609,9 @@ describe('rooms + participants e2e', () => {
       const c = await request(server())
         .post('/rooms')
         .send({ title: 'empty', dates: ['2026-07-20'] });
-      const r = await request(server()).get(`/rooms/${c.body.roomId}/winner.ics`);
+      const r = await request(server()).get(
+        `/rooms/${c.body.roomId}/winner.ics`,
+      );
       expect(r.status).toBe(404);
     });
   });

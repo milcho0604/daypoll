@@ -50,7 +50,7 @@ export class RealtimeGateway implements OnGatewayInit {
   ): { ok: boolean; room?: string } {
     const roomId = typeof data?.roomId === 'string' ? data.roomId : '';
     if (!roomId) return { ok: false };
-    client.join(`room:${roomId}`);
+    void client.join(`room:${roomId}`);
     return { ok: true, room: roomId };
   }
 
@@ -61,7 +61,7 @@ export class RealtimeGateway implements OnGatewayInit {
   ): { ok: boolean } {
     const roomId = typeof data?.roomId === 'string' ? data.roomId : '';
     if (!roomId) return { ok: false };
-    client.leave(`room:${roomId}`);
+    void client.leave(`room:${roomId}`);
     return { ok: true };
   }
 
