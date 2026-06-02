@@ -24,7 +24,13 @@ export class ParticipantsController {
   ) {}
 
   @Post()
-  join(@Param('roomId') roomId: string, @Body() dto: JoinRoomDto) {
+  join(
+    @Ip() ip: string,
+    @Param('roomId') roomId: string,
+    @Body() dto: JoinRoomDto,
+  ) {
+    // 입장(참여자 생성) 남용 방지: IP당 1분에 30회.
+    this.rl.check(`participant:join:${ip}`, 30, 60);
     return this.participants.join(roomId, dto.nickname, dto.pin);
   }
 
@@ -50,10 +56,13 @@ export class ParticipantsController {
 
   @Put('me/availabilities')
   updateAvailabilities(
+    @Ip() ip: string,
     @Param('roomId') roomId: string,
     @Headers(HEADER_CLIENT_TOKEN) clientToken: string | undefined,
     @Body() dto: UpdateAvailabilitiesDto,
   ) {
+    // 투표 갱신 남용 방지: IP당 1분에 60회.
+    this.rl.check(`vote:${ip}`, 60, 60);
     return this.participants.updateAvailabilities(roomId, clientToken, dto.dateIds);
   }
 

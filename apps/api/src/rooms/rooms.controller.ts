@@ -4,6 +4,7 @@ import {
   Get,
   Header,
   Headers,
+  Ip,
   Param,
   Patch,
   Post,
@@ -11,16 +12,22 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { HEADER_CREATOR_TOKEN } from '@whenever/shared';
+import { RateLimitService } from '../common/rate-limit.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateDeadlineDto } from './dto/update-deadline.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
 export class RoomsController {
-  constructor(private readonly rooms: RoomsService) {}
+  constructor(
+    private readonly rooms: RoomsService,
+    private readonly rl: RateLimitService,
+  ) {}
 
   @Post()
-  create(@Body() dto: CreateRoomDto) {
+  create(@Ip() ip: string, @Body() dto: CreateRoomDto) {
+    // 방 생성 남용 방지: IP당 1분에 20개.
+    this.rl.check(`room:create:${ip}`, 20, 60);
     return this.rooms.create(dto);
   }
 
