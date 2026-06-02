@@ -1,0 +1,49 @@
+# 운영용 구성: Postgres + NestJS API (둘 다 맥미니 Docker에서).
+# DB는 API와 같은 머신 localhost라 쿼리가 1ms 미만.
+# 외부 노출은 Cloudflare Tunnel(cloudflared, 호스트 서비스)이 localhost:3001만 담당.
+#
+#   cp .env.prod.example .env.prod   # 값 채우기 (.env.prod 는 커밋 금지)
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+
+name: whenever
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: whenever-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-whenever}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-whenever}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # 관리용으로 호스트 localhost에만 노출(선택). 불필요하면 이 두 줄 삭제 가능.
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whenever} -d ${POSTGRES_DB:-whenever}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: whenever-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      API_PORT: 3001
+      DATABASE_URL: postgres://${POSTGRES_USER:-whenever}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whenever}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+    # cloudflared(호스트)가 http://localhost:3001 로 연결 → 127.0.0.1만 바인딩
+    ports:
+      - "127.0.0.1:3001:3001"
+
+volumes:
+  pgdata:
