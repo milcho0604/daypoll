@@ -1,7 +1,7 @@
 'use client';
 
 import type { DateResult, RoomDetail } from '@whenever/shared';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
   getMe,
