@@ -1,0 +1,20 @@
+# 맥미니의 cloudflared 설정 예시.
+# 위치: ~/.cloudflared/config.yml  (macOS: /Users/<you>/.cloudflared/config.yml)
+#
+# 준비:
+#   brew install cloudflared
+#   cloudflared tunnel login
+#   cloudflared tunnel create whenever-api      # → TUNNEL_UUID 와 자격증명 json 생성
+#   cloudflared tunnel route dns whenever-api api.yourdomain.com
+#
+# Socket.IO(WebSocket)는 cloudflared가 자동 지원하므로 별도 설정 불필요.
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /Users/<you>/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  # 백엔드 API (Docker의 api 컨테이너가 127.0.0.1:3001 에 바인딩됨)
+  - hostname: api.yourdomain.com
+    service: http://localhost:3001
+  # 그 외 요청은 404
+  - service: http_status:404
