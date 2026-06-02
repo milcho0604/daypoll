@@ -10,6 +10,8 @@ process.env.CORS_ORIGIN = 'http://localhost:3000';
 process.env.API_PORT = '0';
 process.env.ADMIN_TOKEN =
   process.env.ADMIN_TOKEN ?? 'test-admin-token-32-chars-XXXXXX';
+// e2e에서는 레이트리밋 비활성화 (반복 요청이 정상)
+process.env.RATE_LIMIT_DISABLED = '1';
 
 let _pool: Pool | null = null;
 

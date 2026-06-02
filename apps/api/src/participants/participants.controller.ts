@@ -4,19 +4,24 @@ import {
   Delete,
   Get,
   Headers,
+  Ip,
   Param,
   ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
 import { HEADER_CLIENT_TOKEN, HEADER_CREATOR_TOKEN } from '@whenever/shared';
+import { RateLimitService } from '../common/rate-limit.service';
 import { JoinRoomDto, RecoverParticipantDto } from './dto/join-room.dto';
 import { UpdateAvailabilitiesDto } from './dto/update-availabilities.dto';
 import { ParticipantsService } from './participants.service';
 
 @Controller('rooms/:roomId/participants')
 export class ParticipantsController {
-  constructor(private readonly participants: ParticipantsService) {}
+  constructor(
+    private readonly participants: ParticipantsService,
+    private readonly rl: RateLimitService,
+  ) {}
 
   @Post()
   join(@Param('roomId') roomId: string, @Body() dto: JoinRoomDto) {
@@ -25,9 +30,12 @@ export class ParticipantsController {
 
   @Post('recover')
   recover(
+    @Ip() ip: string,
     @Param('roomId') roomId: string,
     @Body() dto: RecoverParticipantDto,
   ) {
+    // PIN 브루트포스 방지: 같은 IP+방 기준 10분당 10회.
+    this.rl.check(`recover:${ip}:${roomId}`, 10, 600);
     return this.participants.recover(roomId, dto.nickname, dto.pin);
   }
 

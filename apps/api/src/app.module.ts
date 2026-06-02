@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CommonModule } from './common/common.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { RoomsModule } from './rooms/rooms.module';
@@ -13,6 +14,7 @@ import { RealtimeModule } from './realtime/realtime.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    CommonModule,
     DatabaseModule,
     RealtimeModule,
     RoomsModule,
