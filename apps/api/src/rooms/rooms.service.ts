@@ -4,6 +4,7 @@ import type { CreateRoomResponse, DateResult, RoomDetail } from '@whenever/share
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
+import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
 
@@ -149,7 +150,7 @@ export class RoomsService {
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
-    if (roomRes.rows[0].creator_token !== creatorToken) {
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
       throw new ForbiddenException('not the creator');
     }
     await this.pool.query(

@@ -12,6 +12,7 @@ import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newToken } from '../common/ids';
 import { hashPin, verifyPin } from '../common/pin';
+import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 @Injectable()
@@ -140,7 +141,7 @@ export class ParticipantsService {
       [roomId],
     );
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
-    if (roomRes.rows[0].creator_token !== creatorToken) {
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
       throw new ForbiddenException('not the creator');
     }
     const del = await this.pool.query(

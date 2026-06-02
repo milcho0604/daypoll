@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { secureEquals } from '../common/secure-compare';
 
 export const ADMIN_TOKEN_HEADER = 'x-admin-token';
 
@@ -23,7 +24,7 @@ export class AdminGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<Request>();
     const headerVal = req.header(ADMIN_TOKEN_HEADER);
     const token = Array.isArray(headerVal) ? headerVal[0] : headerVal;
-    if (token !== required) {
+    if (!secureEquals(token, required)) {
       throw new UnauthorizedException();
     }
     return true;
