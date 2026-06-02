@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
 import type { CreateRoomResponse, DateResult, RoomDetail } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
@@ -16,6 +22,10 @@ export class RoomsService {
   ) {}
 
   async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
+    // 생성 시점에 이미 지난 마감일이면 만들자마자 잠긴 방이 되므로 거부.
+    if (dto.deadline && new Date(dto.deadline).getTime() <= Date.now()) {
+      throw new BadRequestException('deadline must be in the future');
+    }
     const roomId = newRoomId();
     const creatorToken = newToken();
 
