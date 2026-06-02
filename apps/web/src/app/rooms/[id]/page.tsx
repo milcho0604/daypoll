@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { RoomDetail } from '@whenever/shared';
 import { ApiError } from '@/lib/api';
 import { getRoom } from '@/lib/rooms';
 import RoomView from './room-view';
@@ -40,11 +41,18 @@ export default async function RoomPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // 데이터 페치만 try/catch 안에서 수행하고, 렌더(JSX 반환)는 밖에서 한다.
+  // (try/catch 안에서 JSX를 반환하면 렌더 단계 에러는 못 잡는다 — react-hooks/error-boundaries)
+  let room: RoomDetail | null = null;
+  let notFound = false;
   try {
-    const room = await getRoom(id);
-    return <RoomView roomId={id} initial={room} />;
+    room = await getRoom(id);
   } catch (err) {
-    const notFound = err instanceof ApiError && err.status === 404;
+    notFound = err instanceof ApiError && err.status === 404;
+  }
+
+  if (!room) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12 text-center">
         <h1 className="text-xl font-semibold">
@@ -62,4 +70,6 @@ export default async function RoomPage({
       </main>
     );
   }
+
+  return <RoomView roomId={id} initial={room} />;
 }

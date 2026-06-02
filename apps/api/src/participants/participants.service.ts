@@ -12,6 +12,7 @@ import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newToken } from '../common/ids';
 import { hashPin, verifyPin } from '../common/pin';
+import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 @Injectable()
@@ -26,7 +27,9 @@ export class ParticipantsService {
     nickname: string,
     pin?: string,
   ): Promise<JoinRoomResponse> {
-    const roomRes = await this.pool.query('SELECT 1 FROM rooms WHERE id = $1', [roomId]);
+    const roomRes = await this.pool.query('SELECT 1 FROM rooms WHERE id = $1', [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -109,10 +112,14 @@ export class ParticipantsService {
       [roomId],
     );
     const allowedSet = new Set(allowed.rows.map((r) => Number(r.id)));
-    const filtered = Array.from(new Set(dateIds)).filter((id) => allowedSet.has(id));
+    const filtered = Array.from(new Set(dateIds)).filter((id) =>
+      allowedSet.has(id),
+    );
 
     await withTransaction(this.pool, async (c) => {
-      await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [participantId]);
+      await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
+        participantId,
+      ]);
       for (const id of filtered) {
         await c.query(
           `INSERT INTO availabilities (participant_id, room_date_id)
@@ -140,14 +147,15 @@ export class ParticipantsService {
       [roomId],
     );
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
-    if (roomRes.rows[0].creator_token !== creatorToken) {
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
       throw new ForbiddenException('not the creator');
     }
     const del = await this.pool.query(
       `DELETE FROM participants WHERE id = $1 AND room_id = $2`,
       [participantId, roomId],
     );
-    if (del.rowCount === 0) throw new NotFoundException('participant not found');
+    if (del.rowCount === 0)
+      throw new NotFoundException('participant not found');
     this.realtime.emitResultsUpdated(roomId);
     return { deleted: true };
   }

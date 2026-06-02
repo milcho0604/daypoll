@@ -15,7 +15,9 @@ export function verifyPin(pin: string, stored: string | null): boolean {
   const salt = Buffer.from(saltHex, 'hex');
   const expected = Buffer.from(derivedHex, 'hex');
   const candidate = scryptSync(pin, salt, expected.length);
-  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+  return (
+    candidate.length === expected.length && timingSafeEqual(candidate, expected)
+  );
 }
 
 export const PIN_PATTERN = /^\d{4}$/;

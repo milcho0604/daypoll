@@ -10,7 +10,7 @@ export class HealthController {
   async check() {
     let db: 'ok' | 'down' = 'down';
     try {
-      const r = await this.pool.query('SELECT 1 as ok');
+      const r = await this.pool.query<{ ok: number }>('SELECT 1 as ok');
       if (r.rows[0]?.ok === 1) db = 'ok';
     } catch {
       db = 'down';

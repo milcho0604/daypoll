@@ -1,7 +1,7 @@
 'use client';
 
 import type { DateResult, RoomDetail } from '@whenever/shared';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
   getMe,
@@ -167,6 +167,7 @@ export default function RoomView({
 
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
+    setSavedAt(null); // 선택이 바뀌면 "저장됨" 라벨 해제
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

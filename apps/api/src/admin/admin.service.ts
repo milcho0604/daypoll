@@ -83,7 +83,10 @@ export class AdminService {
       activeRooms: Number(status.rows[0].active),
       closedRooms: Number(status.rows[0].closed),
       roomsWithDeadline: Number(status.rows[0].with_deadline),
-      dailyCreated: daily.rows.map((r) => ({ day: r.day, count: Number(r.count) })),
+      dailyCreated: daily.rows.map((r) => ({
+        day: r.day,
+        count: Number(r.count),
+      })),
     };
   }
 
@@ -102,7 +105,9 @@ export class AdminService {
     const params: unknown[] = [];
     if (q.length > 0) {
       params.push(`%${q}%`);
-      where.push(`(r.title ILIKE $${params.length} OR r.id ILIKE $${params.length})`);
+      where.push(
+        `(r.title ILIKE $${params.length} OR r.id ILIKE $${params.length})`,
+      );
     }
     const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -148,7 +153,9 @@ export class AdminService {
         participantCount: Number(r.participant_count),
         deadline: r.deadline ? r.deadline.toISOString() : null,
         status:
-          r.deadline && r.deadline.getTime() <= Date.now() ? 'closed' : 'active',
+          r.deadline && r.deadline.getTime() <= Date.now()
+            ? 'closed'
+            : 'active',
       })),
     };
   }
@@ -225,13 +232,17 @@ export class AdminService {
   }
 
   async deleteRoom(roomId: string): Promise<{ deleted: boolean }> {
-    const res = await this.pool.query(`DELETE FROM rooms WHERE id = $1`, [roomId]);
+    const res = await this.pool.query(`DELETE FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (res.rowCount === 0) throw new NotFoundException('room not found');
     this.realtime.emitRoomDeleted(roomId);
     return { deleted: true };
   }
 
-  async cleanupOldRooms(olderThanDays: number): Promise<{ removed: number; days: number }> {
+  async cleanupOldRooms(
+    olderThanDays: number,
+  ): Promise<{ removed: number; days: number }> {
     const days = Math.max(1, Math.floor(olderThanDays));
     const res = await this.pool.query(
       `DELETE FROM rooms WHERE created_at < now() - ($1::int * interval '1 day')`,

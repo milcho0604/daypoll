@@ -1,9 +1,20 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
-import type { CreateRoomResponse, DateResult, RoomDetail } from '@whenever/shared';
+import type {
+  CreateRoomResponse,
+  DateResult,
+  RoomDetail,
+} from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
+import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
 
@@ -15,6 +26,10 @@ export class RoomsService {
   ) {}
 
   async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
+    // 생성 시점에 이미 지난 마감일이면 만들자마자 잠긴 방이 되므로 거부.
+    if (dto.deadline && new Date(dto.deadline).getTime() <= Date.now()) {
+      throw new BadRequestException('deadline must be in the future');
+    }
     const roomId = newRoomId();
     const creatorToken = newToken();
 
@@ -44,10 +59,9 @@ export class RoomsService {
       title: string;
       deadline: Date | null;
       created_at: Date;
-    }>(
-      `SELECT id, title, deadline, created_at FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    }>(`SELECT id, title, deadline, created_at FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -81,7 +95,11 @@ export class RoomsService {
     };
   }
 
-  async getResults(roomId: string): Promise<{ results: DateResult[]; participantCount: number; deadline: string | null }> {
+  async getResults(roomId: string): Promise<{
+    results: DateResult[];
+    participantCount: number;
+    deadline: string | null;
+  }> {
     const roomRes = await this.pool.query<{ deadline: Date | null }>(
       `SELECT deadline FROM rooms WHERE id = $1`,
       [roomId],
@@ -97,7 +115,9 @@ export class RoomsService {
     return {
       results,
       participantCount: Number(partCountRes.rows[0].c),
-      deadline: roomRes.rows[0].deadline ? roomRes.rows[0].deadline.toISOString() : null,
+      deadline: roomRes.rows[0].deadline
+        ? roomRes.rows[0].deadline.toISOString()
+        : null,
     };
   }
 
@@ -138,7 +158,11 @@ export class RoomsService {
     ].join('\r\n');
   }
 
-  async updateDeadline(roomId: string, creatorToken: string | undefined, deadline: string | null): Promise<{ deadline: string | null }> {
+  async updateDeadline(
+    roomId: string,
+    creatorToken: string | undefined,
+    deadline: string | null,
+  ): Promise<{ deadline: string | null }> {
     if (!creatorToken) {
       throw new ForbiddenException('creator token required');
     }
@@ -149,13 +173,13 @@ export class RoomsService {
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
-    if (roomRes.rows[0].creator_token !== creatorToken) {
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
       throw new ForbiddenException('not the creator');
     }
-    await this.pool.query(
-      `UPDATE rooms SET deadline = $1 WHERE id = $2`,
-      [deadline, roomId],
-    );
+    await this.pool.query(`UPDATE rooms SET deadline = $1 WHERE id = $2`, [
+      deadline,
+      roomId,
+    ]);
     this.realtime.emitDeadlineUpdated(roomId, deadline);
     return { deadline };
   }

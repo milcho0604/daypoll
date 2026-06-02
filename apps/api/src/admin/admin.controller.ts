@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
+import { CleanupDto } from './dto/cleanup.dto';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
@@ -47,7 +48,7 @@ export class AdminController {
   }
 
   @Post('cleanup')
-  cleanup(@Body() body: { days?: number }) {
-    return this.admin.cleanupOldRooms(body?.days ?? 90);
+  cleanup(@Body() body: CleanupDto) {
+    return this.admin.cleanupOldRooms(body.days ?? 90);
   }
 }
