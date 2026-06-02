@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: whenever
+          POSTGRES_PASSWORD: whenever
+          POSTGRES_DB: whenever_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U whenever -d whenever_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # e2e setup.ts 가 읽는 테스트 DB 주소
+      TEST_DATABASE_URL: postgres://whenever:whenever@localhost:5432/whenever_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Build shared
+        run: pnpm --filter @whenever/shared build
+
+      - name: Migrate test DB
+        run: node apps/api/scripts/migrate.mjs
+        env:
+          DATABASE_URL: postgres://whenever:whenever@localhost:5432/whenever_test
+
+      - name: API unit tests
+        run: pnpm --filter @whenever/api test
+
+      - name: API e2e tests
+        run: pnpm --filter @whenever/api test:e2e
+
+      - name: Build API
+        run: pnpm --filter @whenever/api build
+
+      - name: Build Web
+        run: pnpm --filter @whenever/web build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001

@@ -1,0 +1,49 @@
+name: Deploy (self-hosted / mac mini)
+
+# main 에 머지되면 맥미니의 self-hosted 러너에서 컨테이너를 재배포한다.
+# 러너는 GitHub로 아웃바운드만 하므로 집 NAT/방화벽 뒤에서도 인바운드 오픈 불필요.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 동시에 두 번 배포되지 않도록 직렬화
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write .env.prod from secrets
+        run: |
+          cat > .env.prod <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
+          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+          EOF
+
+      - name: Build & (re)start containers
+        run: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/health >/dev/null 2>&1; then
+              echo "api healthy"; exit 0
+            fi
+            sleep 2
+          done
+          echo "api did not become healthy" >&2
+          docker compose -f docker-compose.prod.yml logs --tail 50 api >&2
+          exit 1
+
+      - name: Prune dangling images
+        if: always()
+        run: docker image prune -f
