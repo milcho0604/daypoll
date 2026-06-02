@@ -67,6 +67,17 @@ describe('rooms + participants e2e', () => {
       expect(res.status).toBe(201);
     });
 
+    it('400 on past deadline', async () => {
+      const res = await request(server())
+        .post('/rooms')
+        .send({
+          title: '이미 지남',
+          dates: ['2026-05-15'],
+          deadline: '2020-01-01T00:00:00.000Z',
+        });
+      expect(res.status).toBe(400);
+    });
+
     it('400 on empty title', async () => {
       const res = await request(server())
         .post('/rooms')
@@ -287,6 +298,14 @@ describe('rooms + participants e2e', () => {
       expect(res.status).toBe(400);
     });
 
+    it('400 on whitespace-only nickname (trim 후 빈 값)', async () => {
+      const { roomId } = await makeRoom();
+      const res = await request(server())
+        .post(`/rooms/${roomId}/participants`)
+        .send({ nickname: '   ' });
+      expect(res.status).toBe(400);
+    });
+
     it('404 join in unknown room', async () => {
       const res = await request(server())
         .post('/rooms/unknown123/participants')
@@ -345,13 +364,15 @@ describe('rooms + participants e2e', () => {
     it('423 Locked on vote after deadline; creator can still unlock', async () => {
       const create = await request(server())
         .post('/rooms')
-        .send({
-          title: 'lock',
-          dates: ['2026-05-15'],
-          deadline: '2020-01-01T00:00:00.000Z', // 과거
-        });
+        .send({ title: 'lock', dates: ['2026-05-15'] });
       const id = create.body.roomId;
       const creatorToken = create.body.creatorToken;
+
+      // 개설자가 마감일을 과거로 당겨 강제 마감
+      await request(server())
+        .patch(`/rooms/${id}/deadline`)
+        .set('x-creator-token', creatorToken)
+        .send({ deadline: '2020-01-01T00:00:00.000Z' });
 
       const me = await request(server())
         .post(`/rooms/${id}/participants`)
@@ -382,11 +403,11 @@ describe('rooms + participants e2e', () => {
     it('joining after deadline is allowed (results-only view)', async () => {
       const create = await request(server())
         .post('/rooms')
-        .send({
-          title: 'late',
-          dates: ['2026-05-15'],
-          deadline: '2020-01-01T00:00:00.000Z',
-        });
+        .send({ title: 'late', dates: ['2026-05-15'] });
+      await request(server())
+        .patch(`/rooms/${create.body.roomId}/deadline`)
+        .set('x-creator-token', create.body.creatorToken)
+        .send({ deadline: '2020-01-01T00:00:00.000Z' });
       const res = await request(server())
         .post(`/rooms/${create.body.roomId}/participants`)
         .send({ nickname: 'latecomer' });

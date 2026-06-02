@@ -126,11 +126,11 @@ describe('admin e2e', () => {
     it('rooms are flagged closed when deadline past', async () => {
       const c = await request(server())
         .post('/rooms')
-        .send({
-          title: 'past',
-          dates: ['2026-05-15'],
-          deadline: '2020-01-01T00:00:00.000Z',
-        });
+        .send({ title: 'past', dates: ['2026-05-15'] });
+      await request(server())
+        .patch(`/rooms/${c.body.roomId}/deadline`)
+        .set('x-creator-token', c.body.creatorToken)
+        .send({ deadline: '2020-01-01T00:00:00.000Z' });
       const r = await withAdmin(request(server()).get('/admin/rooms'));
       const target = r.body.rooms.find(
         (rr: { id: string }) => rr.id === c.body.roomId,
