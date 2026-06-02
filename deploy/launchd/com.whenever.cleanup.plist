@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  매일 04:00 오래된 방(90일) 정리. 설치:
+    cp deploy/launchd/com.whenever.cleanup.plist ~/Library/LaunchAgents/
+    # 아래 <REPO_PATH>, <YOU> 를 실제 경로로 치환
+    launchctl load ~/Library/LaunchAgents/com.whenever.cleanup.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.whenever.cleanup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string><REPO_PATH>/deploy/scripts/cleanup-old-rooms.sh</string>
+    <string>90</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string><REPO_PATH></string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>4</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/<YOU>/whenever-cleanup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/<YOU>/whenever-cleanup.log</string>
+</dict>
+</plist>

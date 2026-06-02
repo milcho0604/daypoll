@@ -99,3 +99,29 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 - **오래된 방 정리**(선택): `node apps/api/scripts/cleanup-old-rooms.mjs --days 90`
 - **월 1회 재시작**: Docker Desktop 자동 시작 + `restart: unless-stopped` + cloudflared 서비스로
   사람 개입 없이 전부 자동 복구된다.
+
+---
+
+## 5. 백업 & 정리 자동화 (launchd)
+
+매일 자동으로 DB 백업 + 오래된 방 정리를 돌리려면 launchd 에이전트를 등록한다.
+
+```bash
+# 1) plist 의 <REPO_PATH>, <YOU> 를 실제 값으로 치환 후 복사
+#    (REPO_PATH 예: /Users/you/daypoll, YOU 예: you)
+cp deploy/launchd/com.whenever.backup.plist  ~/Library/LaunchAgents/
+cp deploy/launchd/com.whenever.cleanup.plist ~/Library/LaunchAgents/
+
+# 2) 로드 (등록 즉시 + 매일 예약)
+launchctl load ~/Library/LaunchAgents/com.whenever.backup.plist
+launchctl load ~/Library/LaunchAgents/com.whenever.cleanup.plist
+
+# 수동 실행/테스트
+bash deploy/scripts/backup-db.sh            # ~/whenever-backups 에 .sql.gz
+bash deploy/scripts/cleanup-old-rooms.sh 90 # 90일 지난 방 삭제
+```
+
+- **백업**: 매일 04:30, `~/whenever-backups/whenever-<날짜>.sql.gz`, 14일 보관 후 자동 삭제
+- **정리**: 매일 04:00, 90일 지난 방 CASCADE 삭제 (api 컨테이너 내부에서 실행)
+- **복원**: `gunzip -c <백업>.sql.gz | docker exec -i whenever-postgres psql -U whenever -d whenever`
+- launchd 는 PATH 가 최소라 plist 에 docker CLI 경로(`/opt/homebrew/bin` 등)를 명시해 둠
