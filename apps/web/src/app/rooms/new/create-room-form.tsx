@@ -33,9 +33,15 @@ export default function CreateRoomForm() {
 
   const canSubmit = title.trim().length > 0 && dates.length > 0 && !submitting;
 
+  const MAX_DATES = 60;
+
   function addDate() {
     if (!pendingDate) return;
-    setDates((prev) => Array.from(new Set([...prev, pendingDate])).sort());
+    setDates((prev) =>
+      prev.length >= MAX_DATES
+        ? prev
+        : Array.from(new Set([...prev, pendingDate])).sort(),
+    );
   }
 
   function removeDate(d: string) {
@@ -91,20 +97,27 @@ export default function CreateRoomForm() {
           <input
             type="date"
             value={pendingDate}
+            min={todayISO()}
             onChange={(e) => setPendingDate(e.target.value)}
             className="h-12 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
           />
           <button
             type="button"
             onClick={addDate}
-            className="h-12 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            disabled={dates.length >= MAX_DATES}
+            className="h-12 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700"
           >
             추가
           </button>
         </div>
         {dates.length === 0 ? (
           <p className="text-xs text-zinc-400">아직 추가된 날짜가 없습니다.</p>
-        ) : (
+        ) : dates.length >= MAX_DATES ? (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            최대 {MAX_DATES}개까지 추가할 수 있어요.
+          </p>
+        ) : null}
+        {dates.length > 0 && (
           <ul className="flex flex-wrap gap-2">
             {dates.map((d) => (
               <li key={d}>

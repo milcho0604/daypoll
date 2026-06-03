@@ -372,7 +372,10 @@ export default function RoomView({
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">가능한 날짜 선택</h2>
             {me && (
-              <span className="text-xs text-zinc-500">{me.nickname}으로 참여 중</span>
+              <span className="text-xs text-zinc-500">
+                {me.nickname}
+                {josaEuro(me.nickname)} 참여 중
+              </span>
             )}
           </div>
           {isLocked && (
@@ -386,7 +389,7 @@ export default function RoomView({
               return (
                 <li key={d.id}>
                   <label
-                    className={`flex h-14 cursor-pointer items-center justify-center rounded-xl border text-sm font-medium transition-colors ${
+                    className={`flex h-14 cursor-pointer items-center justify-center rounded-xl border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-zinc-900 focus-within:ring-offset-2 dark:focus-within:ring-white dark:focus-within:ring-offset-zinc-950 ${
                       checked
                         ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900'
                         : 'border-zinc-200 bg-white hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900'
@@ -654,7 +657,12 @@ function DeadlineModal({
           </button>
           <button
             type="button"
-            onClick={() => onSave(useDeadline ? new Date(value).toISOString() : null)}
+            onClick={() => {
+              if (!useDeadline) return onSave(null);
+              const t = new Date(value).getTime();
+              if (Number.isNaN(t)) return; // 빈/잘못된 입력 무시
+              onSave(new Date(t).toISOString());
+            }}
             className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
           >
             저장
@@ -663,6 +671,17 @@ function DeadlineModal({
       </div>
     </div>
   );
+}
+
+// 받침에 따라 '으로'/'로' 조사 선택. (받침 없거나 ㄹ받침이면 '로')
+function josaEuro(name: string): string {
+  const last = name.trim().slice(-1);
+  const code = last.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) {
+    const jong = (code - 0xac00) % 28;
+    return jong === 0 || jong === 8 ? '로' : '으로';
+  }
+  return '로'; // 비한글은 '로'로 통일
 }
 
 function formatDateKR(iso: string) {
