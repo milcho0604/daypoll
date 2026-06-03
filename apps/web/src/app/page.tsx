@@ -15,7 +15,7 @@ export default function Home() {
       >
         방 만들기
       </Link>
-      <p className="text-xs text-zinc-400">v0.0.1 · 부트스트랩 확인용 페이지</p>
+      <p className="text-xs text-zinc-400">로그인 없이 · 무료 · 모바일 최적화</p>
     </main>
   );
 }
