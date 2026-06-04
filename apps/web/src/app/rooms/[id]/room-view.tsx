@@ -50,7 +50,9 @@ export default function RoomView({
 
   // 토큰 복원
   useEffect(() => {
+    // 토큰은 localStorage(클라이언트 전용)라 마운트 시 동기화한다.
     const t = readTokens(roomId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreatorToken(t.creatorToken);
     setClientToken(t.clientToken);
   }, [roomId]);
