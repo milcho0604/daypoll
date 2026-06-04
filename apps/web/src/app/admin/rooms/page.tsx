@@ -34,6 +34,8 @@ function RoomsList() {
       router.replace('/admin/login');
       return;
     }
+    // 클라이언트 전용 토큰 확인 후 목록 로드.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load, router]);
 

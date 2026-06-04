@@ -11,6 +11,8 @@ export default function AdminTopbar() {
   const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
+    // 로그인 토큰은 localStorage(클라이언트 전용)라 마운트/경로 변경 시 동기화한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasToken(!!getAdminToken());
   }, [pathname]);
 
