@@ -41,6 +41,8 @@ jobs:
         run: |
           ssh -o ConnectTimeout=15 "$SSH_USER@$SSH_HOST" bash -s <<'EOF'
           set -euo pipefail
+          # ssh non-interactive 쉘 은 PATH 가 최소라 docker-compose(/usr/local/bin) 미인식.
+          export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
           cd /Volumes/milcho_ex/project/whenever
           git pull --ff-only
           docker-compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
