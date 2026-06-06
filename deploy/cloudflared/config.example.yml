@@ -8,6 +8,8 @@
 #   cloudflared tunnel route dns whenever-api api.yourdomain.com
 #
 # Socket.IO(WebSocket)는 cloudflared가 자동 지원하므로 별도 설정 불필요.
+# 참고: Cloudflare Free 는 WebSocket idle 6시간 후 끊김. socket.io-client 가 자동 재연결하므로
+#       UX 영향은 거의 없지만, 장시간 연결을 가정한 디버깅 중이라면 이 점 기억할 것.
 
 tunnel: <TUNNEL_UUID>
 credentials-file: /Users/<you>/.cloudflared/<TUNNEL_UUID>.json

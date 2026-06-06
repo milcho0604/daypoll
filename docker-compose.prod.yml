@@ -18,9 +18,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-whenever}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # 관리용으로 호스트 localhost에만 노출(선택). 불필요하면 이 두 줄 삭제 가능.
-    ports:
-      - "127.0.0.1:5433:5432"
+    # 호스트 노출 없음. 백업/유지보수는 `docker exec whenever-postgres ...` 로 충분하며,
+    # 외부 표면을 줄여 사고 가능성을 낮춘다. 디버깅이 필요하면 일시적으로 ports 를 추가.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whenever} -d ${POSTGRES_DB:-whenever}"]
       interval: 5s

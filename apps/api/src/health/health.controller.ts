@@ -1,4 +1,9 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_POOL } from '../database/database.module';
 
@@ -15,6 +20,11 @@ export class HealthController {
     } catch {
       db = 'down';
     }
-    return { status: 'ok', db, ts: new Date().toISOString() };
+    const ts = new Date().toISOString();
+    // DB 죽으면 503 — CD 의 curl -fsS 가 false-negative 안 잡는 것 방지.
+    if (db !== 'ok') {
+      throw new ServiceUnavailableException({ status: 'error', db, ts });
+    }
+    return { status: 'ok', db, ts };
   }
 }

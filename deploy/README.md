@@ -11,7 +11,7 @@
 ```
 
 배포 파이프라인:
-- **CI** (`.github/workflows/ci.yml`): PR/püsh 시 lint + build + test(e2e 포함)
+- **CI** (`.github/workflows/ci.yml`): PR/push 시 lint + build + test(e2e 포함)
 - **Deploy** (`.github/workflows/deploy.yml`): `main` 머지 시 맥미니 self-hosted 러너가
   `docker compose up -d --build` 로 재배포 (마이그레이션은 컨테이너 기동 시 자동)
 - **Vercel**: GitHub 연동으로 프론트 자동 배포
@@ -107,10 +107,12 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 매일 자동으로 DB 백업 + 오래된 방 정리를 돌리려면 launchd 에이전트를 등록한다.
 
 ```bash
-# 1) plist 의 <REPO_PATH>, <YOU> 를 실제 값으로 치환 후 복사
-#    (REPO_PATH 예: /Users/you/daypoll, YOU 예: you)
+# 1) 템플릿 복사 → placeholder 일괄 치환 (REPO_PATH=현재 디렉터리, YOU=$USER)
 cp deploy/launchd/com.whenever.backup.plist  ~/Library/LaunchAgents/
 cp deploy/launchd/com.whenever.cleanup.plist ~/Library/LaunchAgents/
+sed -i '' "s|<REPO_PATH>|$PWD|g; s|<YOU>|$USER|g" \
+  ~/Library/LaunchAgents/com.whenever.backup.plist \
+  ~/Library/LaunchAgents/com.whenever.cleanup.plist
 
 # 2) 로드 (등록 즉시 + 매일 예약)
 launchctl load ~/Library/LaunchAgents/com.whenever.backup.plist
