@@ -24,3 +24,14 @@ export function leaveRoomChannel(roomId: string) {
   const s = getSocket();
   s.emit('room:leave', { roomId });
 }
+
+// 어드민 채널 가입 — admin token 으로 서버에 인증. 성공 시 'admin:event' 수신.
+export function joinAdminChannel(token: string) {
+  const s = getSocket();
+  const ensureAuth = () => s.emit('admin:auth', { token });
+  if (s.connected) ensureAuth();
+  s.on('connect', ensureAuth);
+  return () => {
+    s.off('connect', ensureAuth);
+  };
+}

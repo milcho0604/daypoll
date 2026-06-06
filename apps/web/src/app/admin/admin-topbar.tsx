@@ -38,6 +38,9 @@ export default function AdminTopbar() {
           <Link href="/admin/rooms" className="hover:underline">
             방 목록
           </Link>
+          <Link href="/admin/logs" className="hover:underline">
+            로그
+          </Link>
           {hasToken && (
             <button
               type="button"

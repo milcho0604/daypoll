@@ -78,4 +78,27 @@ export class RealtimeGateway implements OnGatewayInit {
   emitRoomDeleted(roomId: string) {
     this.server.to(`room:${roomId}`).emit('room:deleted', { roomId });
   }
+
+  // 어드민 페이지가 구독하는 채널. 이벤트마다 type 을 분리한다.
+  // 인증은 단순 token-by-event 로 단순화 — 클라이언트가 'admin:auth' 로
+  // 토큰을 보내면 그 소켓만 admin 룸에 합류시킨다.
+  @SubscribeMessage('admin:auth')
+  adminAuth(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { token?: unknown },
+  ): { ok: boolean } {
+    const expected = process.env.ADMIN_TOKEN ?? '';
+    const got = typeof data?.token === 'string' ? data.token : '';
+    if (expected.length >= 8 && got === expected) {
+      void client.join('admin');
+      return { ok: true };
+    }
+    return { ok: false };
+  }
+
+  emitAdminEvent(type: string, payload: Record<string, unknown>) {
+    this.server
+      .to('admin')
+      .emit('admin:event', { type, ts: new Date().toISOString(), ...payload });
+  }
 }

@@ -50,6 +50,7 @@ export class RoomsService {
       }
     });
 
+    this.realtime.emitAdminEvent('room_created', { roomId, title: dto.title });
     return { roomId, creatorToken };
   }
 

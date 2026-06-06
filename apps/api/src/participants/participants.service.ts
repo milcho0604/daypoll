@@ -42,6 +42,10 @@ export class ParticipantsService {
       [roomId, nickname.trim(), clientToken, pinHash],
     );
     this.realtime.emitResultsUpdated(roomId); // 참여자 수 변경
+    this.realtime.emitAdminEvent('participant_joined', {
+      roomId,
+      nickname: nickname.trim(),
+    });
     return { participantId: Number(res.rows[0].id), clientToken };
   }
 
