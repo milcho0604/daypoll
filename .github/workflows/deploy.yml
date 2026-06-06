@@ -31,9 +31,12 @@ jobs:
 
       - name: Build & (re)start containers
         env:
-          # launchd 세션의 runner 는 GUI keychain 접근 불가 → 호스트 docker config 의
-          # credsStore 가 실패한다. 워크플로 임시 docker config 디렉토리로 우회.
+          # launchd 세션의 runner 는 GUI keychain 접근 불가 → 임시 docker config 사용.
           DOCKER_CONFIG: ${{ runner.temp }}/.docker
+          # buildkit 이 syntax=docker/dockerfile:1 외부 풀할 때 credentials 요청 →
+          # legacy builder 강제(syntax 라인은 주석 취급). 우리 Dockerfile 은
+          # mount=cache 같은 buildkit 전용 기능을 안 쓰므로 안전.
+          DOCKER_BUILDKIT: '0'
         run: |
           mkdir -p "$DOCKER_CONFIG"
           echo '{"auths":{}}' > "$DOCKER_CONFIG/config.json"
