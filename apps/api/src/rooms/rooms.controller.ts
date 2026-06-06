@@ -4,14 +4,15 @@ import {
   Get,
   Header,
   Headers,
-  Ip,
   Param,
   Patch,
   Post,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { HEADER_CREATOR_TOKEN } from '@whenever/shared';
+import { clientIp } from '../common/client-ip';
 import { RateLimitService } from '../common/rate-limit.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateDeadlineDto } from './dto/update-deadline.dto';
@@ -25,9 +26,9 @@ export class RoomsController {
   ) {}
 
   @Post()
-  create(@Ip() ip: string, @Body() dto: CreateRoomDto) {
+  create(@Req() req: Request, @Body() dto: CreateRoomDto) {
     // 방 생성 남용 방지: IP당 1분에 20개.
-    this.rl.check(`room:create:${ip}`, 20, 60);
+    this.rl.check(`room:create:${clientIp(req)}`, 20, 60);
     return this.rooms.create(dto);
   }
 
