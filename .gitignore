@@ -14,6 +14,9 @@ build/
 .env.*.local
 .env.prod
 
+# 운영 노트 — 시크릿 값/URL/머신 정보 포함, 커밋 금지
+OPS.md
+
 # logs
 *.log
 npm-debug.log*

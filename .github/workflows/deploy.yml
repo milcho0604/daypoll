@@ -30,7 +30,14 @@ jobs:
           EOF
 
       - name: Build & (re)start containers
-        run: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+        env:
+          # launchd 세션의 runner 는 GUI keychain 접근 불가 → 호스트 docker config 의
+          # credsStore 가 실패한다. 워크플로 임시 docker config 디렉토리로 우회.
+          DOCKER_CONFIG: ${{ runner.temp }}/.docker
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          echo '{"auths":{}}' > "$DOCKER_CONFIG/config.json"
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 
       - name: Wait for API health
         run: |
