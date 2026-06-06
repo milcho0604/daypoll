@@ -1,6 +1,10 @@
-# syntax=docker/dockerfile:1
 # 운영용 NestJS API 이미지. 빌드 컨텍스트는 모노레포 루트.
 #   docker build -f apps/api/Dockerfile .
+#
+# NOTE: `# syntax=docker/dockerfile:1` 라인을 의도적으로 안 둠.
+#   self-hosted runner(launchd 세션) 가 docker.io 의 syntax 이미지를 풀할 때
+#   credential helper(keychain) 호출에서 실패하기 때문.
+#   classic builder 만으로 충분한 단순 Dockerfile 이라 syntax 명시 불필요.
 
 # ---------- builder ----------
 FROM node:20-slim AS builder
