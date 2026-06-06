@@ -5,11 +5,7 @@ import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { createRoom } from '@/lib/rooms';
 import { writeTokens } from '@/lib/tokens';
-
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import DateBuilder from '@/components/date-builder';
 
 function isoToLocalInput(iso: string) {
   // 'YYYY-MM-DDTHH:mm' for <input type="datetime-local">
@@ -18,11 +14,12 @@ function isoToLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const MAX_DATES = 60;
+
 export default function CreateRoomForm() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [dates, setDates] = useState<string[]>([]);
-  const [pendingDate, setPendingDate] = useState(todayISO());
   const [useDeadline, setUseDeadline] = useState(false);
   const [deadline, setDeadline] = useState<string>(() => {
     const d = new Date(Date.now() + 7 * 86400000);
@@ -32,21 +29,6 @@ export default function CreateRoomForm() {
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = title.trim().length > 0 && dates.length > 0 && !submitting;
-
-  const MAX_DATES = 60;
-
-  function addDate() {
-    if (!pendingDate) return;
-    setDates((prev) =>
-      prev.length >= MAX_DATES
-        ? prev
-        : Array.from(new Set([...prev, pendingDate])).sort(),
-    );
-  }
-
-  function removeDate(d: string) {
-    setDates((prev) => prev.filter((x) => x !== d));
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,46 +75,11 @@ export default function CreateRoomForm() {
 
       <section className="flex flex-col gap-3">
         <label className="text-sm font-medium">후보 날짜</label>
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={pendingDate}
-            min={todayISO()}
-            onChange={(e) => setPendingDate(e.target.value)}
-            className="h-12 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
-          />
-          <button
-            type="button"
-            onClick={addDate}
-            disabled={dates.length >= MAX_DATES}
-            className="h-12 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700"
-          >
-            추가
-          </button>
-        </div>
-        {dates.length === 0 ? (
-          <p className="text-xs text-zinc-400">아직 추가된 날짜가 없습니다.</p>
-        ) : dates.length >= MAX_DATES ? (
+        <DateBuilder values={dates} onChange={setDates} max={MAX_DATES} />
+        {dates.length >= MAX_DATES && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
             최대 {MAX_DATES}개까지 추가할 수 있어요.
           </p>
-        ) : null}
-        {dates.length > 0 && (
-          <ul className="flex flex-wrap gap-2">
-            {dates.map((d) => (
-              <li key={d}>
-                <button
-                  type="button"
-                  onClick={() => removeDate(d)}
-                  aria-label={`${d} 제거`}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                >
-                  <span>{d}</span>
-                  <span aria-hidden className="text-zinc-400">×</span>
-                </button>
-              </li>
-            ))}
-          </ul>
         )}
       </section>
 

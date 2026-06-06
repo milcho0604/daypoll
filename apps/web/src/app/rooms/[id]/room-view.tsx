@@ -15,6 +15,7 @@ import {
 } from '@/lib/rooms';
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
+import DateAvailabilityPicker from '@/components/date-availability-picker';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -385,31 +386,12 @@ export default function RoomView({
               투표가 마감되었습니다. 결과만 확인할 수 있어요.
             </p>
           )}
-          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {room.dates.map((d) => {
-              const checked = selected.has(d.id);
-              return (
-                <li key={d.id}>
-                  <label
-                    className={`flex h-14 cursor-pointer items-center justify-center rounded-xl border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-zinc-900 focus-within:ring-offset-2 dark:focus-within:ring-white dark:focus-within:ring-offset-zinc-950 ${
-                      checked
-                        ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900'
-                        : 'border-zinc-200 bg-white hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900'
-                    } ${isLocked ? 'opacity-60 pointer-events-none' : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={checked}
-                      onChange={() => toggle(d.id)}
-                      disabled={isLocked}
-                    />
-                    {formatDateKR(d.date)}
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+          <DateAvailabilityPicker
+            candidates={room.dates}
+            selectedIds={selected}
+            onToggle={toggle}
+            disabled={isLocked}
+          />
         </section>
       )}
 
