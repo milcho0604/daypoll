@@ -15,8 +15,10 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
-# api와 그 의존성(@whenever/shared)만 설치 (web 제외)
-RUN pnpm install --frozen-lockfile --filter @whenever/api...
+# api와 그 의존성(@whenever/shared)만 설치 (web 제외).
+# --ignore-scripts: 이 단계엔 packages/shared 의 소스/tsconfig 가 없어
+# prepare 훅(tsc) 이 실패한다. 아래에서 명시적으로 빌드하므로 안전.
+RUN pnpm install --frozen-lockfile --filter @whenever/api... --ignore-scripts
 
 # 소스 복사 후 shared → api 순서로 빌드
 COPY packages/shared packages/shared
