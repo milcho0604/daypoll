@@ -1,0 +1,133 @@
+name: Certificate expiry check
+
+# 매일 점심 무렵에 TLS / Tailscale auth key 만료일 점검.
+# 30일 이내면 GitHub Issue 자동 생성/갱신 → GitHub 알림으로 이메일/모바일 푸시.
+# 7일 이내면 더 강한 메시지.
+#
+# 사용자가 캘린더에 직접 메모할 필요 없음 — 시스템이 알아서 알려준다.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC = 11:00 KST 매일
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      # Tailscale auth key 발급일 + 90일 (Free 플랜 한계).
+      # TS_AUTHKEY 를 갱신하면 이 값도 갱신해야 한다. (수동 한 줄)
+      TS_AUTHKEY_EXPIRY: '2026-09-05'
+      BACKEND_HOST: 'milcho0604-macmini.tailcdf6c2.ts.net'
+
+    steps:
+      - name: Check TLS certificate
+        id: tls
+        run: |
+          EXPIRY=$(echo | openssl s_client -servername "$BACKEND_HOST" -connect "$BACKEND_HOST:443" 2>/dev/null \
+            | openssl x509 -noout -enddate | cut -d= -f2)
+          EXPIRY_ISO=$(date -d "$EXPIRY" -u +%Y-%m-%d)
+          EXPIRY_TS=$(date -d "$EXPIRY" +%s)
+          NOW_TS=$(date +%s)
+          DAYS=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
+          echo "expiry=$EXPIRY_ISO" >> "$GITHUB_OUTPUT"
+          echo "TLS expires $EXPIRY_ISO — D-$DAYS"
+
+      - name: Check Tailscale auth key
+        id: ts
+        run: |
+          EXPIRY_TS=$(date -d "$TS_AUTHKEY_EXPIRY" +%s)
+          NOW_TS=$(date +%s)
+          DAYS=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
+          echo "expiry=$TS_AUTHKEY_EXPIRY" >> "$GITHUB_OUTPUT"
+          echo "TS_AUTHKEY expires $TS_AUTHKEY_EXPIRY — D-$DAYS"
+
+      - name: Open or update alert issue
+        if: steps.tls.outputs.days < 30 || steps.ts.outputs.days < 30
+        uses: actions/github-script@v7
+        env:
+          TLS_DAYS: ${{ steps.tls.outputs.days }}
+          TLS_EXPIRY: ${{ steps.tls.outputs.expiry }}
+          TS_DAYS: ${{ steps.ts.outputs.days }}
+          TS_EXPIRY: ${{ steps.ts.outputs.expiry }}
+        with:
+          script: |
+            const tlsDays = parseInt(process.env.TLS_DAYS, 10);
+            const tsDays = parseInt(process.env.TS_DAYS, 10);
+            const urgent = tlsDays < 7 || tsDays < 7;
+
+            const lines = [];
+            if (tlsDays < 30) {
+              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Tailscale 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST || 'milcho0604-macmini.tailcdf6c2.ts.net'}/health\` 한 번.`);
+            }
+            if (tsDays < 30) {
+              lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: D-${tsDays} (만료 ${process.env.TS_EXPIRY}). https://login.tailscale.com/admin/settings/keys 새 키 발급 → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
+            }
+
+            const title = urgent ? '🔴 인증서/키 만료 임박 (D-7 이내)' : '🟡 인증서/키 만료 임박 (D-30 이내)';
+            const body = [
+              '## 만료 임박',
+              '',
+              ...lines,
+              '',
+              urgent ? '⚠️ **즉시 조치 필요**' : '여유 있을 때 처리.',
+              '',
+              `> 자동 갱신: 매일 11:00 KST cron 으로 \`.github/workflows/cert-check.yml\` 이 갱신. 조치 후 이 이슈를 close 하세요.`,
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'auto-alert',
+              state: 'open',
+            });
+
+            if (issues.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                title,
+                body,
+              });
+              console.log(`Updated issue #${issues[0].number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['auto-alert'],
+              });
+              console.log(`Created issue #${created.data.number}`);
+            }
+
+      - name: Close alert if everything is healthy
+        if: steps.tls.outputs.days >= 30 && steps.ts.outputs.days >= 30
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'auto-alert',
+              state: 'open',
+            });
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: '✅ 다음 cron 점검에서 모든 항목이 30일 이상 남음. 자동 close.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
