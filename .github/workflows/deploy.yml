@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p "$DOCKER_CONFIG"
           echo '{"auths":{}}' > "$DOCKER_CONFIG/config.json"
-          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+          docker-compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 
       - name: Wait for API health
         run: |
@@ -48,7 +48,7 @@ jobs:
             sleep 2
           done
           echo "api did not become healthy" >&2
-          docker compose -f docker-compose.prod.yml logs --tail 50 api >&2
+          docker-compose -f docker-compose.prod.yml logs --tail 50 api >&2
           exit 1
 
       - name: Prune dangling images
