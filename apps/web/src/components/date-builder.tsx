@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import { ko } from 'date-fns/locale';
-import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
+import { addDays, addMonths, endOfMonth, format, startOfMonth } from 'date-fns';
 import 'react-day-picker/style.css';
 
 type Mode = 'multiple' | 'range' | 'month';
@@ -73,12 +73,25 @@ export default function DateBuilder({
   function applyMonth() {
     const start = startOfMonth(month);
     const end = endOfMonth(month);
+    const effectiveStart =
+      start.getTime() < minOrToday.getTime() ? minOrToday : start;
     const dates: Date[] = [];
-    for (let d = start; d.getTime() <= end.getTime(); d = addDays(d, 1)) {
+    for (let d = effectiveStart; d.getTime() <= end.getTime(); d = addDays(d, 1)) {
       dates.push(d);
     }
     addDates(dates);
   }
+
+  const isPastMonth = endOfMonth(month).getTime() < minOrToday.getTime();
+  const effectiveStart = (() => {
+    const s = startOfMonth(month);
+    return s.getTime() < minOrToday.getTime() ? minOrToday : s;
+  })();
+  const monthDayCount = isPastMonth
+    ? 0
+    : Math.floor(
+        (endOfMonth(month).getTime() - effectiveStart.getTime()) / 86400000,
+      ) + 1;
 
   return (
     <div className="flex flex-col gap-3">
@@ -152,30 +165,46 @@ export default function DateBuilder({
           </>
         )}
         {mode === 'month' && (
-          <>
-            <DayPicker
-              mode="single"
-              locale={ko}
-              month={month}
-              onMonthChange={setMonth}
-              selected={undefined}
-              disabled
-              weekStartsOn={0}
-              showOutsideDays
-            />
-            <div className="flex items-center justify-between gap-2 px-2 pb-2">
-              <p className="text-xs text-zinc-500">
-                {format(month, 'yyyy년 M월', { locale: ko })} 전체 일자 추가
-              </p>
+          <div className="flex flex-col items-center gap-4 px-2 py-4">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={applyMonth}
-                className="h-9 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+                onClick={() => setMonth(addMonths(month, -1))}
+                aria-label="이전 달"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-base text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                이 달 전체 추가
+                ‹
+              </button>
+              <span className="min-w-[6.5rem] text-center text-base font-semibold">
+                {format(month, 'yyyy년 M월', { locale: ko })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMonth(addMonths(month, 1))}
+                aria-label="다음 달"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-base text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                ›
               </button>
             </div>
-          </>
+            <p className="text-center text-xs text-zinc-500">
+              {isPastMonth
+                ? '지난 달은 추가할 수 없습니다.'
+                : `${format(effectiveStart, 'M월 d일', { locale: ko })} ~ ${format(
+                    endOfMonth(month),
+                    'M월 d일',
+                    { locale: ko },
+                  )} (${monthDayCount}일) 추가`}
+            </p>
+            <button
+              type="button"
+              onClick={applyMonth}
+              disabled={isPastMonth || monthDayCount === 0}
+              className="h-10 rounded-full bg-zinc-900 px-5 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700"
+            >
+              이 달 전체 추가
+            </button>
+          </div>
         )}
       </div>
 
