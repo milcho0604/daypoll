@@ -1,69 +1,63 @@
-name: Deploy (self-hosted / mac mini)
+name: Deploy (ubuntu → Tailscale → mac mini ssh)
 
-# main 에 머지되면 맥미니의 self-hosted 러너에서 컨테이너를 재배포한다.
-# 러너는 GitHub로 아웃바운드만 하므로 집 NAT/방화벽 뒤에서도 인바운드 오픈 불필요.
+# 흐름: main 머지 → GitHub-hosted ubuntu runner → Tailscale 가입 →
+#       맥미니에 ssh → git pull + docker-compose up -d --build → /health 검증.
+#
+# 맥미니 self-hosted runner 패턴이 Docker Desktop + launchd 의 keychain
+# 정책에 막혀서, 클라우드 runner 가 Tailscale 로 들어와 명령만 보내는 식으로
+# 변경. 클라우드 runner 는 keychain 이슈가 없다.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# 동시에 두 번 배포되지 않도록 직렬화
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Tailscale up (ephemeral)
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
 
-      - name: Write .env.prod from secrets
+      - name: Setup SSH
         run: |
-          cat > .env.prod <<EOF
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-          CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
-          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # 첫 연결에서 알 수 없는 호스트 키 자동 수락 (Tailscale 안에서만 도달)
+          printf 'StrictHostKeyChecking accept-new\nUserKnownHostsFile %s\n' "$HOME/.ssh/known_hosts" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy on mac mini
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -o ConnectTimeout=15 "$SSH_USER@$SSH_HOST" bash -s <<'EOF'
+          set -euo pipefail
+          cd /Volumes/milcho_ex/project/whenever
+          git pull --ff-only
+          docker-compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
           EOF
 
-      - name: Strip docker credsStore (launchd runner has no keychain UI)
-        run: |
-          python3 - <<'PY'
-          import json, os
-          p = os.path.expanduser("~/.docker/config.json")
-          cfg = {}
-          if os.path.exists(p):
-              with open(p) as f:
-                  cfg = json.load(f)
-          for k in ("credsStore","credentialsStore","credHelpers"):
-              cfg.pop(k, None)
-          cfg.setdefault("auths", {})
-          with open(p, "w") as f:
-              json.dump(cfg, f, indent=2)
-          print(cfg)
-          PY
-
-      - name: Build & (re)start containers
+      - name: Verify health
         env:
-          # buildkit 이 syntax=docker/dockerfile:1 풀 시 cred helper 호출 → 차단.
-          DOCKER_BUILDKIT: '0'
-        run: docker-compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
-
-      - name: Wait for API health
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:3001/health >/dev/null 2>&1; then
-              echo "api healthy"; exit 0
+            if ssh "$SSH_USER@$SSH_HOST" 'curl -fsS http://localhost:3001/health >/dev/null'; then
+              echo "api healthy"
+              exit 0
             fi
             sleep 2
           done
-          echo "api did not become healthy" >&2
-          docker-compose -f docker-compose.prod.yml logs --tail 50 api >&2
+          echo "api did not become healthy in 60s" >&2
+          ssh "$SSH_USER@$SSH_HOST" 'docker-compose -f /Volumes/milcho_ex/project/whenever/docker-compose.prod.yml logs --tail 50 api' >&2
           exit 1
-
-      - name: Prune dangling images
-        if: always()
-        run: docker image prune -f
