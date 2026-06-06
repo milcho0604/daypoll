@@ -70,8 +70,8 @@ export default function DateAvailabilityPicker({
         }
         modifiers={{ candidate: candidateDates }}
         modifiersClassNames={{
-          candidate:
-            'ring-1 ring-inset ring-zinc-300 dark:ring-zinc-700 rounded-full',
+          // 후보일은 굵게 + 밑줄로만 표시. selected 의 둥근 배경과 시각적으로 겹치지 않도록.
+          candidate: 'font-semibold underline decoration-2 underline-offset-4',
         }}
         weekStartsOn={0}
         showOutsideDays
