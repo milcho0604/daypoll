@@ -10,6 +10,13 @@ name: Deploy (ubuntu → Tailscale → mac mini ssh)
 on:
   push:
     branches: [main]
+    # 백엔드/배포 관련 파일이 바뀌었을 때만 트리거 (문서/프론트만 변경 시 낭비 X)
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - 'docker-compose.prod.yml'
+      - 'apps/api/Dockerfile'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 concurrency:
