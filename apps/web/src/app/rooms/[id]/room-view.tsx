@@ -44,7 +44,10 @@ export default function RoomView({
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const RESULTS_PREVIEW = 5;
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
   const isCreator = !!creatorToken;
@@ -411,7 +414,10 @@ export default function RoomView({
           <p className="mt-2 text-sm text-zinc-500">아직 결과가 없습니다.</p>
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
-            {sortedResults.map((r, idx) => (
+            {(showAllResults
+              ? sortedResults
+              : sortedResults.slice(0, RESULTS_PREVIEW)
+            ).map((r, idx) => (
               <li
                 key={r.dateId}
                 className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
@@ -465,6 +471,19 @@ export default function RoomView({
               </li>
             ))}
           </ol>
+        )}
+        {sortedResults.length > RESULTS_PREVIEW && (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowAllResults((v) => !v)}
+              className="inline-flex h-9 items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {showAllResults
+                ? '접기'
+                : `더 보기 (+${sortedResults.length - RESULTS_PREVIEW})`}
+            </button>
+          </div>
         )}
       </section>
 
