@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'date-fns/locale';
+import EmptyState from './empty-state';
 import 'react-day-picker/style.css';
 
 function fromIso(s: string): Date {
@@ -10,8 +11,11 @@ function fromIso(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
+function isoOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export interface DateAvailabilityPickerProps {
-  // 후보 날짜들. id 는 서버 room_date.id, date 는 'YYYY-MM-DD'.
   candidates: { id: number; date: string }[];
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
@@ -19,7 +23,8 @@ export interface DateAvailabilityPickerProps {
 }
 
 // 참여자 방 화면용 — 후보 날짜만 클릭 가능한 캘린더.
-// 후보가 아닌 셀은 disabled, 후보인 셀은 토글로 본인 가능/불가 표시.
+// 드래그(또는 모바일 길게-누르고-스와이프)로 여러 셀을 한 번에 토글 — "이번 주 평일 다 가능"
+// 같은 케이스에서 5번 탭이 1번 드래그로 줄어든다.
 export default function DateAvailabilityPicker({
   candidates,
   selectedIds,
@@ -32,52 +37,115 @@ export default function DateAvailabilityPicker({
     return map;
   }, [candidates]);
 
-  const candidateDates = useMemo(() => candidates.map((c) => fromIso(c.date)), [candidates]);
+  const candidateDates = useMemo(
+    () => candidates.map((c) => fromIso(c.date)),
+    [candidates],
+  );
   const selectedDates = useMemo(() => {
     const out: Date[] = [];
     for (const c of candidates) if (selectedIds.has(c.id)) out.push(fromIso(c.date));
     return out;
   }, [candidates, selectedIds]);
 
-  const initialMonth = candidates.length > 0 ? fromIso(candidates[0].date) : new Date();
+  const initialMonth =
+    candidates.length > 0 ? fromIso(candidates[0].date) : new Date();
   const [month, setMonth] = useState<Date>(initialMonth);
 
+  // 드래그 상태. dragMode: true=가능 표시, false=가능 해제 — 처음 누른 셀의 반대 상태를 모든 셀에 적용.
+  const dragging = useRef(false);
+  const dragMode = useRef<'set' | 'unset' | null>(null);
+  const dragTouched = useRef<Set<number>>(new Set());
+
+  const handlePointer = useCallback(
+    (id: number, type: 'down' | 'enter') => {
+      if (disabled) return;
+      if (type === 'down') {
+        dragging.current = true;
+        dragMode.current = selectedIds.has(id) ? 'unset' : 'set';
+        dragTouched.current = new Set([id]);
+        onToggle(id);
+      } else if (dragging.current && !dragTouched.current.has(id)) {
+        const currentlySelected = selectedIds.has(id);
+        const shouldSelect = dragMode.current === 'set';
+        // 이미 그 상태면 건너뛰기 (drag 흐름에서 토글 되돌리지 않게)
+        if (currentlySelected !== shouldSelect) {
+          dragTouched.current.add(id);
+          onToggle(id);
+        }
+      }
+    },
+    [disabled, selectedIds, onToggle],
+  );
+
+  const endDrag = useCallback(() => {
+    dragging.current = false;
+    dragMode.current = null;
+    dragTouched.current.clear();
+  }, []);
+
   if (candidates.length === 0) {
-    return <p className="mt-3 text-sm text-zinc-500">후보 날짜가 없습니다.</p>;
+    return (
+      <EmptyState
+        emoji="📅"
+        message="아직 후보 날짜가 없어요"
+        className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      />
+    );
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+    <div
+      className="mt-3 select-none rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900"
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      onPointerCancel={endDrag}
+    >
       <DayPicker
         mode="multiple"
         locale={ko}
         month={month}
         onMonthChange={setMonth}
         selected={selectedDates}
-        onDayClick={(d) => {
-          const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          const id = idByIso.get(iso);
-          if (id != null) onToggle(id);
-        }}
-        // 후보 외 모든 날 + 마감 상태이면 전부 비활성화
         disabled={
           disabled
             ? () => true
-            : (d) => {
-                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                return !idByIso.has(iso);
-              }
+            : (d) => !idByIso.has(isoOf(d))
         }
         modifiers={{ candidate: candidateDates }}
         modifiersClassNames={{
-          // 후보일은 굵게 + 밑줄로만 표시. selected 의 둥근 배경과 시각적으로 겹치지 않도록.
           candidate: 'font-semibold underline decoration-2 underline-offset-4',
+        }}
+        components={{
+          DayButton: function CustomDayBtn(p) {
+            const iso = isoOf(p.day.date);
+            const id = idByIso.get(iso);
+            // 후보 외 셀은 원래 disabled 라 그대로 둠 (default click handler).
+            // 후보 셀만 onClick 을 끄고, pointer 이벤트로 직접 토글 → drag 동작.
+            if (id == null) {
+              return <button {...p} />;
+            }
+            return (
+              <button
+                {...p}
+                onClick={(e) => e.preventDefault()}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  // 클릭 가능한 곳만 잡음 — 이미 disabled 셀 제외
+                  (e.target as HTMLElement).releasePointerCapture?.(
+                    e.pointerId,
+                  );
+                  handlePointer(id, 'down');
+                }}
+                onPointerEnter={() => handlePointer(id, 'enter')}
+              />
+            );
+          },
         }}
         weekStartsOn={0}
         showOutsideDays
       />
       <p className="px-2 pb-2 text-xs text-zinc-500">
-        테두리가 표시된 날만 후보. 셀을 눌러 가능/불가 토글.
+        후보일을 누르거나 <strong>드래그</strong>로 여러 날을 한 번에 토글.
       </p>
     </div>
   );

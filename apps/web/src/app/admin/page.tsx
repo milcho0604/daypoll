@@ -22,6 +22,7 @@ import {
   getAdminToken,
 } from '@/lib/admin';
 import { getSocket, joinAdminChannel } from '@/lib/socket';
+import EmptyState from '@/components/empty-state';
 
 const POLL_MS = 30_000;
 const FEED_MAX = 20;
@@ -184,7 +185,7 @@ export default function AdminDashboard() {
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card title="최근 7일 활성 Top 5">
           {stats.topActiveRooms.length === 0 ? (
-            <p className="text-sm text-zinc-500">데이터가 없습니다.</p>
+            <EmptyState emoji="🌱" message="최근 7일 활성 방이 없어요" />
           ) : (
             <ul className="mt-1 flex flex-col gap-2">
               {stats.topActiveRooms.map((r, idx) => (
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
 
         <Card title="실시간 활동 피드">
           {feed.length === 0 && stats.recentActions.length === 0 ? (
-            <p className="text-sm text-zinc-500">아직 활동이 없어요.</p>
+            <EmptyState emoji="📭" message="아직 활동이 없어요" />
           ) : (
             <ul className="mt-1 flex flex-col gap-1.5">
               {(feed.length > 0
@@ -341,13 +342,17 @@ function ChartCard({
 
 function DailyArea({ data }: { data: { day: string; count: number }[] }) {
   const padded = useMemo(() => padDailySeries(data, 30), [data]);
+  const hasData = data.some((d) => d.count > 0);
+  if (!hasData) {
+    return <EmptyState emoji="📊" message="데이터가 모이는 중이에요" />;
+  }
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={padded} margin={{ top: 4, right: 4, bottom: 4, left: -16 }}>
         <defs>
-          <linearGradient id="zincFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#18181b" stopOpacity={0.4} />
-            <stop offset="100%" stopColor="#18181b" stopOpacity={0} />
+          <linearGradient id="amberFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.45} />
+            <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid stroke="#e4e4e7" strokeDasharray="3 3" vertical={false} />
@@ -362,9 +367,9 @@ function DailyArea({ data }: { data: { day: string; count: number }[] }) {
         <Area
           type="monotone"
           dataKey="count"
-          stroke="#18181b"
+          stroke="#f59e0b"
           strokeWidth={2}
-          fill="url(#zincFill)"
+          fill="url(#amberFill)"
           isAnimationActive={false}
         />
       </AreaChart>
@@ -389,7 +394,7 @@ function WeeklyBar({ data }: { data: { dow: number; count: number }[] }) {
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#71717a' }} />
         <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#71717a' }} />
         <Tooltip content={<ChartTooltip />} />
-        <Bar dataKey="count" fill="#18181b" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -414,7 +419,7 @@ function HourlyBar({ data }: { data: { hour: number; count: number }[] }) {
         />
         <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#71717a' }} />
         <Tooltip content={<ChartTooltip suffix="시" />} />
-        <Bar dataKey="count" fill="#18181b" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   );

@@ -16,6 +16,7 @@ import {
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
+import EmptyState from '@/components/empty-state';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -35,6 +36,13 @@ export default function RoomView({
   const [me, setMe] = useState<Me | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [nickname, setNickname] = useState('');
+  // 이전에 다른 방에서 쓴 닉네임을 자동 채워준다 (재방문 마찰 0).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const last = window.localStorage.getItem('whenever_last_nickname');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (last) setNickname(last);
+  }, []);
   const [usePin, setUsePin] = useState(false);
   const [pin, setPin] = useState('');
   const [showRecover, setShowRecover] = useState(false);
@@ -197,6 +205,8 @@ export default function RoomView({
         pin: usePin ? pin : undefined,
       });
       writeTokens(roomId, { clientToken: r.clientToken });
+      // 다음 방 진입 때 자동 채워주기
+      window.localStorage.setItem('whenever_last_nickname', nickname.trim());
       setClientToken(r.clientToken);
       setMe({ participantId: r.participantId, nickname: nickname.trim(), dateIds: [] });
       setSelected(new Set());
@@ -322,9 +332,11 @@ export default function RoomView({
       </header>
 
       {!clientToken ? (
-        <section className="mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-base font-semibold">닉네임 입력</h2>
-          <p className="mt-1 text-sm text-zinc-500">방에서 너를 어떻게 부를지 정해줘.</p>
+        <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-base font-semibold">반가워요 👋</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            친구들이 당신을 뭐라고 부를까요?
+          </p>
           <form onSubmit={onJoin} className="mt-4 flex flex-col gap-3">
             <input
               type="text"
@@ -374,13 +386,13 @@ export default function RoomView({
           </form>
         </section>
       ) : (
-        <section className="mt-4">
+        <section className="mt-4 fade-up">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">가능한 날짜 선택</h2>
+            <h2 className="text-base font-semibold">가능한 날짜를 골라주세요</h2>
             {me && (
-              <span className="text-xs text-zinc-500">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <span aria-hidden>·</span>
                 {me.nickname}
-                {josaEuro(me.nickname)} 참여 중
               </span>
             )}
           </div>
@@ -411,7 +423,7 @@ export default function RoomView({
           )}
         </div>
         {sortedResults.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">아직 결과가 없습니다.</p>
+          <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
             {(showAllResults
@@ -420,28 +432,41 @@ export default function RoomView({
             ).map((r, idx) => (
               <li
                 key={r.dateId}
-                className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                className={`lift rounded-xl border bg-white p-3 transition-colors dark:bg-zinc-900 ${
+                  idx === 0 && r.votes > 0
+                    ? 'border-amber-300 ring-1 ring-amber-200/60 dark:border-amber-700 dark:ring-amber-900/60'
+                    : 'border-zinc-200 dark:border-zinc-800'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                        idx === 0
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                          : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
-                      }`}
-                    >
-                      {idx + 1}
+                    {idx === 0 && r.votes > 0 ? (
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-base shadow-sm">
+                        🏆
+                      </span>
+                    ) : (
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {idx + 1}
+                      </span>
+                    )}
+                    <span className="text-sm font-medium">
+                      {formatDateKR(r.date)}
                     </span>
-                    <span className="text-sm font-medium">{formatDateKR(r.date)}</span>
                   </div>
                   <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {r.votes}표
+                    <strong className="text-zinc-900 dark:text-zinc-100">
+                      {r.votes}
+                    </strong>
+                    표
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                   <div
-                    className="h-full bg-zinc-900 transition-all dark:bg-zinc-100"
+                    className={`h-full transition-all duration-500 ${
+                      idx === 0 && r.votes > 0
+                        ? 'bg-gradient-to-r from-amber-400 to-amber-600'
+                        : 'bg-zinc-900 dark:bg-zinc-100'
+                    }`}
                     style={{
                       width: `${maxVotes ? (r.votes / maxVotes) * 100 : 0}%`,
                     }}
@@ -552,7 +577,7 @@ function RecoverModal({
         }}
         className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl"
       >
-        <h3 className="text-base font-semibold">PIN 으로 복원</h3>
+        <h3 className="text-base font-semibold">PIN으로 복원</h3>
         <p className="mt-1 text-xs text-zinc-500">
           이 방에 처음 들어올 때 닉네임과 함께 설정한 PIN으로 본인 표를 되찾아옵니다.
         </p>
@@ -601,13 +626,21 @@ function RecoverModal({
 function DeadlineLabel({ deadline, now }: { deadline: string | null; now: number }) {
   if (!deadline) return <span>마감 없음</span>;
   const ms = new Date(deadline).getTime() - now;
-  if (ms <= 0) return <span className="text-amber-600 dark:text-amber-300">마감됨</span>;
+  if (ms <= 0)
+    return <span className="font-medium text-zinc-500">마감됨</span>;
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
-  if (days > 0) return <span>D-{days}</span>;
-  if (hours > 0) return <span>{hours}시간 후 마감</span>;
-  return <span>{minutes}분 후 마감</span>;
+  // 24시간 이내면 위험 톤(rose)으로 강조
+  const urgent = ms < 86400000;
+  const cls = urgent
+    ? 'font-semibold text-rose-600 dark:text-rose-400'
+    : days <= 2
+      ? 'font-medium text-amber-600 dark:text-amber-400'
+      : '';
+  if (days > 0) return <span className={cls}>D-{days}</span>;
+  if (hours > 0) return <span className={cls}>{hours}시간 후 마감 ⏰</span>;
+  return <span className={cls}>{minutes}분 후 마감 ⏰</span>;
 }
 
 function DeadlineModal({
@@ -674,17 +707,6 @@ function DeadlineModal({
       </div>
     </div>
   );
-}
-
-// 받침에 따라 '으로'/'로' 조사 선택. (받침 없거나 ㄹ받침이면 '로')
-function josaEuro(name: string): string {
-  const last = name.trim().slice(-1);
-  const code = last.charCodeAt(0);
-  if (code >= 0xac00 && code <= 0xd7a3) {
-    const jong = (code - 0xac00) % 28;
-    return jong === 0 || jong === 8 ? '로' : '으로';
-  }
-  return '로'; // 비한글은 '로'로 통일
 }
 
 function formatDateKR(iso: string) {

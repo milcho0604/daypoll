@@ -1,17 +1,86 @@
 @import "tailwindcss";
 
-/* Geist 폰트를 Tailwind 기본 글꼴로 매핑. body 에 font-sans 적용. */
+/* ─── 폰트: Geist + 한글 시스템 폰트 fallback ─── */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), "Apple SD Gothic Neo", "Pretendard",
+    "Noto Sans KR", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* ─── 디자인 액센트 — 친근한 따뜻 톤 (zinc 베이스에 amber 강조) ─── */
+  --color-accent: #f59e0b; /* amber-500 */
+  --color-accent-soft: #fef3c7; /* amber-100 */
+  --color-success: #10b981; /* emerald-500 */
+  --color-success-soft: #d1fae5; /* emerald-100 */
+  --color-danger: #f43f5e; /* rose-500 */
 }
 
-/* react-day-picker 테마 — 우리 zinc 톤과 통일.
-   기본값은 파란색 + 셀 44px 고정인데, 모바일 좁은 폭에서 미세 오버플로가 나서
-   셀을 살짝 줄이고 색을 zinc 로 맞춘다. */
+/* ─── 시스템 다크 자동 + 라이트 베이스 약간 따뜻하게 ─── */
+:root {
+  color-scheme: light dark;
+  --bg-page: #fafaf9; /* zinc-50 보다 살짝 따뜻 (stone-50) */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: #09090b;
+  }
+}
+
+body {
+  background-color: var(--bg-page);
+}
+
+/* ─── 마이크로 인터랙션 유틸 ─── */
+.lift {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.1);
+}
+.dark .lift:hover {
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+.press {
+  transition: transform 80ms ease-out;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes fade-up {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.fade-up {
+  animation: fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ─── react-day-picker 테마 — amber 액센트로 따뜻하게 ─── */
 .rdp-root {
-  --rdp-accent-color: rgb(24 24 27);                /* zinc-900 */
-  --rdp-accent-background-color: rgb(244 244 245);  /* zinc-100 */
+  --rdp-accent-color: #f59e0b; /* amber-500 */
+  --rdp-accent-background-color: #fef3c7; /* amber-100 */
   --rdp-day-width: 2.5rem;
   --rdp-day-height: 2.5rem;
   --rdp-day_button-width: 2.25rem;
@@ -20,17 +89,22 @@
   --rdp-nav_button-height: 2rem;
   --rdp-weekday-opacity: 0.6;
   --rdp-outside-opacity: 0.4;
-}
-.dark .rdp-root {
-  --rdp-accent-color: rgb(244 244 245);             /* zinc-100 */
-  --rdp-accent-background-color: rgb(39 39 42);     /* zinc-800 */
-}
-/* 어느 폭에서도 캘린더는 부모 가운데 정렬, 가로 오버플로 금지. */
-.rdp-root {
   margin-inline: auto;
   max-width: 100%;
+}
+.dark .rdp-root {
+  --rdp-accent-color: #fbbf24; /* amber-400 */
+  --rdp-accent-background-color: #451a03; /* amber-950 */
 }
 .rdp-months,
 .rdp-month {
   margin-inline: auto;
+}
+
+/* 캘린더 셀 spring 효과 */
+.rdp-day_button {
+  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rdp-day_button:active {
+  transform: scale(0.85);
 }
