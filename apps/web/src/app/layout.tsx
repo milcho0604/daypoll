@@ -21,12 +21,28 @@ export const metadata: Metadata = {
     default: "언제모여 — 회원가입 없이 날짜 맞추기",
     template: "%s",
   },
-  description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
+  description:
+    "친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율, 모임 약속 잡기를 1분 컷으로.",
+  keywords: [
+    "언제모여",
+    "모임 날짜 정하기",
+    "약속 날짜 정하기",
+    "친구 약속",
+    "단톡방 일정 조율",
+    "회원가입 없이 일정 조율",
+    "when2meet 한국어",
+    "daypoll",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     siteName: "언제모여",
+    url: SITE_URL,
     title: "언제모여 — 회원가입 없이 날짜 맞추기",
-    description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
+    description:
+      "친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율 1분 컷.",
     locale: "ko_KR",
   },
   twitter: {
@@ -34,6 +50,8 @@ export const metadata: Metadata = {
     title: "언제모여",
     description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
   },
+  // Search Console / Naver verification 코드 받으면 아래에 채워넣을 자리.
+  // verification: { google: 'xxx', other: { 'naver-site-verification': 'xxx' } },
 };
 
 export const viewport: Viewport = {

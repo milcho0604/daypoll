@@ -12,12 +12,15 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // 개별 방 URL 은 개인 모임용 — 검색 인덱싱 금지 (OG 공유 카드는 정상 동작).
+  const robots = { index: false, follow: false } as const;
   try {
     const room = await getRoom(id);
     const description = `${room.title} — 참여자 ${room.participantCount}명. 가능한 날짜에 투표해주세요.`;
     return {
       title: `${room.title} · 언제모여`,
       description,
+      robots,
       openGraph: {
         title: `${room.title} · 언제모여`,
         description,
@@ -31,7 +34,7 @@ export async function generateMetadata({
       },
     };
   } catch {
-    return { title: '방 · 언제모여' };
+    return { title: '방 · 언제모여', robots };
   }
 }
 

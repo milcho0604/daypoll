@@ -1,6 +1,9 @@
 import CreatedShare from './created-share';
 
-export const metadata = { title: '링크 발급 · 언제모여' };
+export const metadata = {
+  title: '링크 발급 · 언제모여',
+  robots: { index: false, follow: false },
+};
 
 export default async function CreatedPage({
   params,
