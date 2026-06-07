@@ -8,6 +8,7 @@ import {
   adminListActions,
   getAdminToken,
 } from '@/lib/admin';
+import EmptyState from '@/components/empty-state';
 
 const PAGE = 50;
 
@@ -67,7 +68,7 @@ function LogsInner() {
 
       <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         {list.actions.length === 0 ? (
-          <p className="p-5 text-sm text-zinc-500">기록이 없습니다.</p>
+          <EmptyState emoji="📋" message="아직 기록이 없어요" />
         ) : (
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {list.actions.map((a) => (

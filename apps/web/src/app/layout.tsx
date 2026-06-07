@@ -56,7 +56,29 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-        {children}
+        <div className="flex-1">{children}</div>
+        <footer className="border-t border-zinc-100 bg-white/60 px-5 py-4 text-center text-[11px] text-zinc-400 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/60">
+          <p>
+            문의 ·{' '}
+            <a
+              href="mailto:hello.mealplan@gmail.com"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              hello.mealplan@gmail.com
+            </a>
+            <span aria-hidden className="mx-1.5">
+              ·
+            </span>
+            <a
+              href="https://github.com/milcho0604/daypoll/issues/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              버그 제보
+            </a>
+          </p>
+        </footer>
       </body>
     </html>
   );

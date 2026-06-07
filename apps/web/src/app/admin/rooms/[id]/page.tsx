@@ -12,6 +12,7 @@ import {
   adminUpdateRoomDeadline,
   getAdminToken,
 } from '@/lib/admin';
+import EmptyState from '@/components/empty-state';
 
 export default function AdminRoomDetailPage() {
   const router = useRouter();
@@ -180,7 +181,7 @@ export default function AdminRoomDetailPage() {
       <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="text-sm font-semibold">날짜별 득표</h2>
         {data.dates.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">날짜 없음</p>
+          <EmptyState emoji="📅" message="후보 날짜가 없어요" />
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {data.dates.map((d, idx) => (
@@ -219,9 +220,10 @@ export default function AdminRoomDetailPage() {
           />
         </div>
         {filteredParticipants.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">
-            {q ? '필터에 매칭되는 참여자가 없습니다.' : '없음'}
-          </p>
+          <EmptyState
+            emoji={q ? '🔍' : '👥'}
+            message={q ? '매칭되는 참여자가 없네요' : '아직 참여자가 없어요'}
+          />
         ) : (
           <ul className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-800">
             {filteredParticipants.map((p) => (
