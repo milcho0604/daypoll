@@ -75,7 +75,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <div className="flex-1">{children}</div>
-        <footer className="border-t border-zinc-100 bg-white/60 px-5 py-4 text-center text-[11px] text-zinc-400 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/60">
+        {/* 자연 흐름 끝에 깔리는 글로벌 footer. fixed bottom 바가 있는 페이지에서는
+            그 바가 z-20 으로 footer 위에 올라가 자동으로 가려진다 (안전). */}
+        <footer
+          className="relative z-0 border-t border-zinc-100 bg-white/60 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-center text-[11px] text-zinc-400 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/60"
+        >
           <p>
             문의 ·{' '}
             <a

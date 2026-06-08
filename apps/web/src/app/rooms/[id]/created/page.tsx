@@ -12,7 +12,7 @@ export default async function CreatedPage({
 }) {
   const { id } = await params;
   return (
-    <main className="flex min-h-dvh flex-col px-5 py-8 sm:py-12">
+    <main className="flex min-h-dvh flex-col px-5 pt-8 pb-16 sm:pt-12 sm:pb-20">
       <div className="mx-auto w-full max-w-md flex-1">
         <header className="mb-6 fade-up">
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">

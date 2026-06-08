@@ -20,7 +20,7 @@ const JSON_LD = {
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-between px-6 py-10 sm:py-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-between px-6 pt-10 pb-16 sm:pt-16 sm:pb-20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
