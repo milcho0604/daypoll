@@ -111,13 +111,9 @@ export default function DateAvailabilityPicker({
             ? () => true
             : (d) => !idByIso.has(isoOf(d))
         }
-        modifiers={{ candidate: candidateDates, picked: selectedDates }}
+        modifiers={{ candidate: candidateDates }}
         modifiersClassNames={{
           candidate: 'font-semibold underline decoration-2 underline-offset-4',
-          // onClick 을 막아서 DayPicker 의 자체 selected 토글이 동작 안 함 —
-          // 우리 selectedIds 를 modifier 로 다시 흘려 직접 시각 표시한다.
-          picked:
-            'bg-amber-500 font-bold text-white dark:bg-amber-400 dark:text-amber-950 hover:bg-amber-600 dark:hover:bg-amber-300',
         }}
         components={{
           DayButton: function CustomDayBtn(p) {
@@ -128,9 +124,16 @@ export default function DateAvailabilityPicker({
             if (id == null) {
               return <button {...p} />;
             }
+            // 시각 강조는 button 자체에 직접 — 셀에 깔면 사각 블록처럼 보여 촌스러움.
+            // 트로피의 amber 그라데이션과 톤 통일.
+            const isPicked = selectedIds.has(id);
+            const pickedCls = isPicked
+              ? 'rounded-full bg-gradient-to-br from-amber-400 to-amber-600 font-semibold text-white no-underline shadow-sm shadow-amber-500/30 hover:from-amber-500 hover:to-amber-700 dark:from-amber-300 dark:to-amber-500 dark:text-amber-950'
+              : '';
             return (
               <button
                 {...p}
+                className={`${p.className ?? ''} ${pickedCls}`.trim()}
                 onClick={(e) => e.preventDefault()}
                 onPointerDown={(e) => {
                   e.preventDefault();
