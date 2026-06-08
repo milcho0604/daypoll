@@ -111,9 +111,13 @@ export default function DateAvailabilityPicker({
             ? () => true
             : (d) => !idByIso.has(isoOf(d))
         }
-        modifiers={{ candidate: candidateDates }}
+        modifiers={{ candidate: candidateDates, picked: selectedDates }}
         modifiersClassNames={{
           candidate: 'font-semibold underline decoration-2 underline-offset-4',
+          // onClick 을 막아서 DayPicker 의 자체 selected 토글이 동작 안 함 —
+          // 우리 selectedIds 를 modifier 로 다시 흘려 직접 시각 표시한다.
+          picked:
+            'bg-amber-500 font-bold text-white dark:bg-amber-400 dark:text-amber-950 hover:bg-amber-600 dark:hover:bg-amber-300',
         }}
         components={{
           DayButton: function CustomDayBtn(p) {
