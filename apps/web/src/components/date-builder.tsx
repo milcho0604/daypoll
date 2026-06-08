@@ -27,6 +27,8 @@ export interface DateBuilderProps {
 
 // 개설자 방 생성 화면용 — 개별/기간/달 단위 후보 날짜 묶음 선택.
 // 다중 선택 결과는 항상 정렬된 YYYY-MM-DD 배열로 상위에 전달한다.
+const CHIP_PREVIEW = 10;
+
 export default function DateBuilder({
   values,
   onChange,
@@ -36,6 +38,7 @@ export default function DateBuilder({
   const [mode, setMode] = useState<Mode>('multiple');
   const [month, setMonth] = useState<Date>(() => new Date());
   const [range, setRange] = useState<DateRange | undefined>();
+  const [showAllChips, setShowAllChips] = useState(false);
 
   const selectedDates = useMemo(() => values.map(fromIso), [values]);
   const minOrToday = minDate ?? new Date(new Date().setHours(0, 0, 0, 0));
@@ -224,23 +227,36 @@ export default function DateBuilder({
       </div>
 
       {values.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {values.map((d) => (
-            <li key={d}>
-              <button
-                type="button"
-                onClick={() => removeOne(d)}
-                aria-label={`${d} 제거`}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-              >
-                <span>{d}</span>
-                <span aria-hidden className="text-zinc-400">
-                  ×
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-wrap gap-2">
+            {(showAllChips ? values : values.slice(0, CHIP_PREVIEW)).map((d) => (
+              <li key={d}>
+                <button
+                  type="button"
+                  onClick={() => removeOne(d)}
+                  aria-label={`${d} 제거`}
+                  className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                >
+                  <span>{d}</span>
+                  <span aria-hidden className="text-zinc-400">
+                    ×
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {values.length > CHIP_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setShowAllChips((v) => !v)}
+              className="self-start text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-800 dark:hover:text-zinc-200"
+            >
+              {showAllChips
+                ? '접기'
+                : `더 보기 (+${values.length - CHIP_PREVIEW})`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

@@ -55,7 +55,7 @@ export default function RoomView({
   const [showAllResults, setShowAllResults] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const RESULTS_PREVIEW = 10;
+  const RESULTS_PREVIEW = 5;
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
   const isCreator = !!creatorToken;
