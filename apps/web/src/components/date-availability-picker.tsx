@@ -128,7 +128,7 @@ export default function DateAvailabilityPicker({
             // 트로피의 amber 그라데이션과 톤 통일.
             const isPicked = selectedIds.has(id);
             const pickedCls = isPicked
-              ? 'rounded-full bg-gradient-to-br from-amber-400 to-amber-600 font-semibold text-white no-underline shadow-sm shadow-amber-500/30 hover:from-amber-500 hover:to-amber-700 dark:from-amber-300 dark:to-amber-500 dark:text-amber-950'
+              ? 'rounded-full bg-amber-500 font-bold text-white no-underline shadow-lg shadow-amber-500/40 ring-2 ring-amber-300 dark:bg-amber-400 dark:text-amber-950 dark:ring-amber-700 dark:shadow-amber-400/30'
               : '';
             return (
               <button
