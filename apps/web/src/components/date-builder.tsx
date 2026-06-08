@@ -35,7 +35,8 @@ export interface DateBuilderProps {
 
 // 개설자 방 생성 화면용 — 개별/기간/달 단위 후보 날짜 묶음 선택.
 // 다중 선택 결과는 항상 정렬된 YYYY-MM-DD 배열로 상위에 전달한다.
-const CHIP_PREVIEW = 10;
+// 3 cols grid 라 3 배수가 깔끔 — 9개까지 다 보임, 10개 이상부터 "더 보기"
+const CHIP_PREVIEW = 9;
 
 export default function DateBuilder({
   values,
