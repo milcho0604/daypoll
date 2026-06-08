@@ -24,6 +24,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      // 옛 도메인(daypoll.vercel.app) 방문 시 새 브랜드 도메인(moilga.com)으로 영구 리다이렉트.
+      // 포트폴리오 등에 남아있는 옛 링크가 깨지지 않으면서, 브랜드/SEO 권위는 한 도메인에 집중.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "daypoll.vercel.app" }],
+        destination: "https://moilga.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
