@@ -218,6 +218,7 @@ deploy/     맥미니 배포 + launchd + 운영 가이드
 | `ci.yml` | 모든 push / PR | lint + unit + e2e + build |
 | `deploy.yml` | main 의 백엔드 변경 push | ubuntu → Tailscale → mac mini ssh → `docker-compose up -d --build` (45초) |
 | `cert-check.yml` | 매일 11:00 KST | TLS · Tailscale auth key 잔여일 점검 → 30일 이내면 GitHub Issue 자동 |
+| `uptime.yml` | 매 10분 | `/health` 3 회 retry → 다운 시 GitHub Issue 자동 (메일 푸시), 복귀 시 자동 close |
 | launchd `backup` | 매일 04:30 | DB 백업 `~/whenever-backups/`, 14일 보관 |
 | launchd `cleanup` | 매일 04:00 | 90일 지난 방 일괄 정리 |
 
