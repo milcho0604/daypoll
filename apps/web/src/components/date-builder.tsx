@@ -236,14 +236,14 @@ export default function DateBuilder({
 
       {values.length > 0 && (
         <>
-          <ul className="flex flex-wrap gap-1.5">
+          <ul className="grid grid-cols-3 gap-1.5">
             {(showAllChips ? values : values.slice(0, CHIP_PREVIEW)).map((d) => (
               <li key={d}>
                 <button
                   type="button"
                   onClick={() => removeOne(d)}
                   aria-label={`${d} 제거`}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                  className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                 >
                   <span>{shortChip(d)}</span>
                   <span aria-hidden className="text-zinc-400">
