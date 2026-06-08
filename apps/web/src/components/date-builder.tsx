@@ -18,6 +18,14 @@ function fromIso(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
+const WEEKDAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
+function shortChip(iso: string): string {
+  // 'YYYY-MM-DD' → '6/13 (토)' — 칩에서 좁은 폭에 더 잘 들어감 + 요일 정보도 살림.
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return `${m}/${d} (${WEEKDAYS_KR[dt.getDay()]})`;
+}
+
 export interface DateBuilderProps {
   values: string[]; // YYYY-MM-DD
   onChange: (next: string[]) => void;
@@ -228,16 +236,16 @@ export default function DateBuilder({
 
       {values.length > 0 && (
         <>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {(showAllChips ? values : values.slice(0, CHIP_PREVIEW)).map((d) => (
               <li key={d}>
                 <button
                   type="button"
                   onClick={() => removeOne(d)}
                   aria-label={`${d} 제거`}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                 >
-                  <span>{d}</span>
+                  <span>{shortChip(d)}</span>
                   <span aria-hidden className="text-zinc-400">
                     ×
                   </span>
