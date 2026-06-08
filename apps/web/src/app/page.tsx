@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://daypoll.vercel.app';
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 
 // 검색 엔진(특히 구글)이 리치 카드를 그리도록 — WebApplication + 한국어 별명.
 const JSON_LD = {

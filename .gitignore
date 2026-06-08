@@ -13,6 +13,7 @@ build/
 .env.local
 .env.*.local
 .env.prod
+.env.prod.bak-*
 
 # 운영 노트 — 시크릿 값/URL/머신 정보 포함, 커밋 금지
 OPS.md
