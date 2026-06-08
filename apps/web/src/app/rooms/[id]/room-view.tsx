@@ -503,11 +503,22 @@ export default function RoomView({
             <button
               type="button"
               onClick={() => setShowAllResults((v) => !v)}
-              className="inline-flex h-9 items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              aria-expanded={showAllResults}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
-              {showAllResults
-                ? '접기'
-                : `더 보기 (+${sortedResults.length - RESULTS_PREVIEW})`}
+              <span>
+                {showAllResults
+                  ? '접기'
+                  : `더 보기 (+${sortedResults.length - RESULTS_PREVIEW})`}
+              </span>
+              <span
+                aria-hidden
+                className={`text-[10px] transition-transform ${
+                  showAllResults ? 'rotate-180' : ''
+                }`}
+              >
+                ▾
+              </span>
             </button>
           </div>
         )}

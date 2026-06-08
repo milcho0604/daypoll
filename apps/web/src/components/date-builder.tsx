@@ -246,15 +246,28 @@ export default function DateBuilder({
             ))}
           </ul>
           {values.length > CHIP_PREVIEW && (
-            <button
-              type="button"
-              onClick={() => setShowAllChips((v) => !v)}
-              className="self-start text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-800 dark:hover:text-zinc-200"
-            >
-              {showAllChips
-                ? '접기'
-                : `더 보기 (+${values.length - CHIP_PREVIEW})`}
-            </button>
+            <div className="mt-1 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllChips((v) => !v)}
+                aria-expanded={showAllChips}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <span>
+                  {showAllChips
+                    ? '접기'
+                    : `더 보기 (+${values.length - CHIP_PREVIEW})`}
+                </span>
+                <span
+                  aria-hidden
+                  className={`text-[10px] transition-transform ${
+                    showAllChips ? 'rotate-180' : ''
+                  }`}
+                >
+                  ▾
+                </span>
+              </button>
+            </div>
           )}
         </>
       )}
