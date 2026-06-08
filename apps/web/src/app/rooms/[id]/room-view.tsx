@@ -441,11 +441,12 @@ export default function RoomView({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {idx === 0 && r.votes > 0 ? (
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-base shadow-sm">
-                        🏆
+                      // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
+                        <span className="block translate-y-[0.5px]">🏆</span>
                       </span>
                     ) : (
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold leading-none text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                         {idx + 1}
                       </span>
                     )}
@@ -519,7 +520,7 @@ export default function RoomView({
       )}
 
       {clientToken && !isLocked && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
           <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
             <span className="text-xs text-zinc-500">
               {savedAt

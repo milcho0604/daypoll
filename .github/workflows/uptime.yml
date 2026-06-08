@@ -1,0 +1,131 @@
+name: Uptime
+
+# 매 10분마다 백엔드 /health 호출. 3 번 연속 실패하면 GitHub Issue 자동 생성 →
+# 본인이 watch 중인 repo 라 이메일/모바일 푸시 알림. 복귀 시 자동 close + 코멘트.
+#
+# GitHub Actions cron 실제 firing 간격은 5~15분 사이 변동 — 무료 티어 best-effort.
+# 친구가 실제 접속 못하는 시간 (≈ 슬립 진입 후 ~수십초~수분) 정도면 충분.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_URL: 'https://milcho0604-macmini.tailcdf6c2.ts.net/health'
+      LABEL: 'uptime-down'
+      TIMEOUT_SEC: '15'
+      MAX_TRIES: '3'
+
+    steps:
+      - name: Ping /health (3-try with 20s gap)
+        id: ping
+        run: |
+          set +e
+          for i in 1 2 3; do
+            CODE=$(curl -s -o /tmp/body -w '%{http_code}' --max-time "$TIMEOUT_SEC" "$BACKEND_URL" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              echo "code=$CODE" >> "$GITHUB_OUTPUT"
+              echo "✅ try=$i code=$CODE"
+              exit 0
+            fi
+            echo "❌ try=$i code=$CODE"
+            [ "$i" -lt 3 ] && sleep 20
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update incident on failure
+        if: steps.ping.outputs.ok != 'true'
+        uses: actions/github-script@v7
+        env:
+          LAST_CODE: ${{ steps.ping.outputs.code }}
+          BACKEND_URL: ${{ env.BACKEND_URL }}
+          LABEL: ${{ env.LABEL }}
+        with:
+          script: |
+            const label = process.env.LABEL;
+            const url = process.env.BACKEND_URL;
+            const code = process.env.LAST_CODE || '000';
+            const now = new Date().toISOString();
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+            });
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `🔴 여전히 다운 (${now}) · last code \`${code}\` · [run](${runUrl})`,
+              });
+              console.log(`Commented on #${issues[0].number}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔴 백엔드 다운: ${url.replace(/^https?:\/\//, '')}`,
+                body: [
+                  '## 백엔드 도달 불가',
+                  '',
+                  `\`${url}\` 가 3번 연속 실패 (last HTTP code: \`${code}\`).`,
+                  '',
+                  '### 가장 먼저 확인할 것',
+                  '- [ ] 맥미니 깨어있나? (화면 / SSH)',
+                  '- [ ] Docker 컨테이너 살아있나? — `docker ps`',
+                  '- [ ] Tailscale daemon 살아있나? — `tailscale status` / 메뉴바 아이콘',
+                  '- [ ] 맥미니 안에서 직접 — `curl http://localhost:3001/health`',
+                  '- [ ] 슬립 설정 — `pmset -g | grep -E "^ sleep "` 결과가 `sleep 0` 인지',
+                  '',
+                  '### 복구 후',
+                  '- 이 이슈는 다음 cron(10분 내) 에서 자동 close 됩니다',
+                  '',
+                  `- 첫 감지: ${now}`,
+                  `- 워크플로 run: ${runUrl}`,
+                ].join('\n'),
+                labels: [label],
+              });
+              console.log('Created uptime incident issue');
+            }
+
+      - name: Close incident on recovery
+        if: steps.ping.outputs.ok == 'true'
+        uses: actions/github-script@v7
+        env:
+          LABEL: ${{ env.LABEL }}
+        with:
+          script: |
+            const label = process.env.LABEL;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+            });
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ 복귀 (${new Date().toISOString()}). 자동 close.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+              console.log(`Closed #${issue.number}`);
+            }

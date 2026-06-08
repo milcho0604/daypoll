@@ -1,8 +1,30 @@
 import Link from 'next/link';
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://daypoll.vercel.app';
+
+// 검색 엔진(특히 구글)이 리치 카드를 그리도록 — WebApplication + 한국어 별명.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: '언제모여',
+  alternateName: ['daypoll', '언제 모여', '언제 모여?'],
+  url: SITE_URL,
+  description:
+    '친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율 1분 컷.',
+  applicationCategory: 'LifestyleApplication',
+  operatingSystem: 'Any',
+  inLanguage: 'ko-KR',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'KRW' },
+};
+
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-between px-6 py-10 sm:py-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-between px-6 pt-10 pb-16 sm:pt-16 sm:pb-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       <section className="flex flex-1 flex-col items-center justify-center gap-10 text-center">
         <div className="fade-up flex flex-col items-center gap-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
