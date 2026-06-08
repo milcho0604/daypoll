@@ -9,7 +9,11 @@ const SITE_URL =
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: '*', allow: ['/', '/rooms/new'], disallow: ['/admin', '/api', '/rooms/'] },
+      {
+        userAgent: '*',
+        allow: ['/', '/rooms/new', '/privacy', '/terms'],
+        disallow: ['/admin', '/api', '/rooms/'],
+      },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

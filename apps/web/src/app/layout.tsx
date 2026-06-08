@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -98,6 +99,24 @@ export default function RootLayout({
               className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
             >
               버그 제보
+            </a>
+          </p>
+          <Analytics />
+          <p className="mt-1">
+            <a
+              href="/privacy"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              개인정보처리방침
+            </a>
+            <span aria-hidden className="mx-1.5">
+              ·
+            </span>
+            <a
+              href="/terms"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              이용약관
             </a>
           </p>
         </footer>
