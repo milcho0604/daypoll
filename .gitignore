@@ -30,3 +30,6 @@ pnpm-debug.log*
 
 # data
 pgdata/
+
+# 블로그 초안 — 별도 발행, 커밋 안 함
+docs/blog/
