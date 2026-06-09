@@ -18,7 +18,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     env:
-      BACKEND_URL: 'https://milcho0604-macmini.tailcdf6c2.ts.net/health'
+      BACKEND_URL: 'https://api.moilga.com/health'
       LABEL: 'uptime-down'
       TIMEOUT_SEC: '15'
       MAX_TRIES: '3'
@@ -85,7 +85,7 @@ jobs:
                   '### 가장 먼저 확인할 것',
                   '- [ ] 맥미니 깨어있나? (화면 / SSH)',
                   '- [ ] Docker 컨테이너 살아있나? — `docker ps`',
-                  '- [ ] Tailscale daemon 살아있나? — `tailscale status` / 메뉴바 아이콘',
+                  '- [ ] cloudflared 데몬 살아있나? — `launchctl list | grep cloudflared`, `cloudflared tunnel list`',
                   '- [ ] 맥미니 안에서 직접 — `curl http://localhost:3001/health`',
                   '- [ ] 슬립 설정 — `pmset -g | grep -E "^ sleep "` 결과가 `sleep 0` 인지',
                   '',

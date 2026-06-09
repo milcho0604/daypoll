@@ -17,10 +17,11 @@ jobs:
     permissions:
       issues: write
     env:
-      # Tailscale auth key 발급일 + 90일 (Free 플랜 한계).
-      # TS_AUTHKEY 를 갱신하면 이 값도 갱신해야 한다. (수동 한 줄)
+      # Cloudflare Universal SSL 이 자동 갱신 — 따로 손볼 일은 없지만
+      # 만료 임박 시 알림이 오면 cloudflared 데몬 / DNS 상태 확인용 트리거.
+      # TS_AUTHKEY 는 deploy.yml 의 ssh 우회(ephemeral Tailnet 노드) 용으로만 유지.
       TS_AUTHKEY_EXPIRY: '2026-09-05'
-      BACKEND_HOST: 'milcho0604-macmini.tailcdf6c2.ts.net'
+      BACKEND_HOST: 'api.moilga.com'
 
     steps:
       - name: Check TLS certificate
@@ -62,7 +63,7 @@ jobs:
 
             const lines = [];
             if (tlsDays < 30) {
-              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Tailscale 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST || 'milcho0604-macmini.tailcdf6c2.ts.net'}/health\` 한 번.`);
+              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Cloudflare Universal SSL 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST || 'api.moilga.com'}/health\` 한 번. 안 갱신되면 Cloudflare 대시보드 → SSL/TLS → Edge Certificates 확인.`);
             }
             if (tsDays < 30) {
               lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: D-${tsDays} (만료 ${process.env.TS_EXPIRY}). https://login.tailscale.com/admin/settings/keys 새 키 발급 → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
