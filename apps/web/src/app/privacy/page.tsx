@@ -120,7 +120,7 @@ export default function PrivacyPage() {
             <li>PIN 은 scrypt 단방향 해시로 저장 (원본 비밀번호 저장 X)</li>
             <li>모든 통신 HTTPS / TLS 1.3</li>
             <li>어드민 페이지는 토큰 기반 가드 + timingSafeEqual 비교</li>
-            <li>외부 노출 표면 최소화 (DB 호스트 비공개, 백엔드는 Tailscale Funnel 통함)</li>
+            <li>외부 노출 표면 최소화 (DB 호스트 비공개, 백엔드는 Cloudflare Tunnel 통함)</li>
           </ul>
         </Section>
 
