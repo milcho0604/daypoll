@@ -9,6 +9,8 @@ export interface ApiOptions {
   headers?: Record<string, string>;
   // server component 호출 시 캐시 무효화. 기본 no-store.
   cache?: RequestCache;
+  // ISR — 지정 시 no-store 대신 Next 데이터 캐시에 n초 보관 (방 껍데기 같은 준불변 데이터용)
+  revalidate?: number;
   // 디테일/결과 페이지에서 SSR 시 fetch 실패해도 페이지가 깨지지 않게 throw 옵션
   signal?: AbortSignal;
 }
@@ -27,7 +29,9 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
       ...(opts.headers ?? {}),
     },
     body: opts.body != null ? JSON.stringify(opts.body) : undefined,
-    cache: opts.cache ?? 'no-store',
+    ...(opts.revalidate != null
+      ? { next: { revalidate: opts.revalidate } }
+      : { cache: opts.cache ?? 'no-store' }),
     signal: opts.signal,
   });
   if (!res.ok) {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { DateResult, RoomDetail } from '@whenever/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
   getMe,
@@ -48,12 +48,24 @@ export default function RoomView({
   const [showRecover, setShowRecover] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveState, setSaveState] = useState<
+    'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  >('idle');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [meLoading, setMeLoading] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [resultsCopied, setResultsCopied] = useState(false);
+  const [expandedDates, setExpandedDates] = useState<Set<number>>(new Set());
+  const [kickTarget, setKickTarget] = useState<{
+    id: number;
+    nickname: string;
+  } | null>(null);
+  // 토글 직후 저장 확정 전까지 폴링이 낙관적 표시를 덮어쓰지 않게 막는 플래그
+  const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const RESULTS_PREVIEW = 5;
 
@@ -67,6 +79,8 @@ export default function RoomView({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreatorToken(t.creatorToken);
     setClientToken(t.clientToken);
+    // 재방문 참여자 — getMe 로드 동안 가입 폼이 깜빡 보이지 않게 스켈레톤으로
+    if (t.clientToken) setMeLoading(true);
   }, [roomId]);
 
   // 내 표 정보 로드
@@ -88,40 +102,39 @@ export default function RoomView({
       } catch {
         /* ignore */
       }
+      if (!cancelled) setMeLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [clientToken, roomId]);
 
-  // 결과/마감 갱신 — 소켓 push + 폴링 fallback
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const r = await getResults(roomId);
-        if (!cancelled) {
-          setRoom((prev) => ({
-            ...prev,
-            results: r.results,
-            participantCount: r.participantCount,
-            deadline: r.deadline,
-          }));
-          setNow(Date.now());
-        }
-      } catch {
-        /* silent */
-      }
-    };
+  // 결과/마감 동기화 — 소켓 push 와 폴링 fallback 이 공용으로 사용
+  const tick = useCallback(async () => {
+    if (dirtyRef.current) return; // 저장 확정 전엔 낙관적 표시 유지
+    try {
+      const r = await getResults(roomId);
+      setRoom((prev) => ({
+        ...prev,
+        results: r.results,
+        participantCount: r.participantCount,
+        deadline: r.deadline,
+      }));
+      setNow(Date.now());
+    } catch {
+      /* silent */
+    }
+  }, [roomId]);
 
-    // 소켓 연결 + 채널 구독
+  // 소켓 구독 — roomId 당 1회 join/leave (연결 토글마다 재구독하지 않게 폴링과 분리)
+  useEffect(() => {
     const socket = getSocket();
     const onConnect = () => {
       setLive(true);
       joinRoomChannel(roomId);
     };
     const onDisconnect = () => setLive(false);
-    const onResults = () => tick();
+    const onResults = () => void tick();
     const onDeadline = (payload: { deadline: string | null }) => {
       setRoom((prev) => ({ ...prev, deadline: payload.deadline }));
       setNow(Date.now());
@@ -138,21 +151,17 @@ export default function RoomView({
     socket.on('room:deadline_updated', onDeadline);
     socket.on('room:deleted', onDeleted);
 
-    // 폴링 — 소켓이 살아있으면 30초로 늦춤, 끊기면 4초
-    const id = setInterval(
-      tick,
-      live ? POLL_INTERVAL_MS_WHEN_LIVE : POLL_INTERVAL_MS_DEFAULT,
-    );
-    pollingRef.current = id;
+    // 첫 페인트가 ISR 캐시(최대 30초 묵음)일 수 있어 마운트 직후 한 번 동기화.
+    // tick 은 async — setState 는 fetch 응답 후에만 일어나 cascading render 아님.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void tick();
 
     const onVisible = () => {
-      if (!document.hidden) tick();
+      if (!document.hidden) void tick();
     };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      cancelled = true;
-      clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -161,7 +170,23 @@ export default function RoomView({
       socket.off('room:deleted', onDeleted);
       leaveRoomChannel(roomId);
     };
-  }, [roomId, live]);
+  }, [roomId, tick]);
+
+  // 폴링 — 소켓 살아있으면 30초 백업, 끊기면 4초
+  useEffect(() => {
+    const id = setInterval(
+      () => void tick(),
+      live ? POLL_INTERVAL_MS_WHEN_LIVE : POLL_INTERVAL_MS_DEFAULT,
+    );
+    return () => clearInterval(id);
+  }, [live, tick]);
+
+  // 언마운트 시 대기 중인 자동 저장 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   // D-day 1초마다 갱신 (마감 임박 표시용)
   useEffect(() => {
@@ -181,14 +206,66 @@ export default function RoomView({
 
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
-    setSavedAt(null); // 선택이 바뀌면 "저장됨" 라벨 해제
-    setSelected((prev) => {
+    const next = new Set(selected);
+    const adding = !next.has(id);
+    if (adding) next.add(id);
+    else next.delete(id);
+    setSelected(next);
+
+    // 낙관적 순위 반영 — 토글 즉시 막대가 움직이고, 확정값은 저장 후 서버 동기화로 교정
+    if (me) {
+      const mine = { id: me.participantId, nickname: me.nickname };
+      setRoom((prev) => ({
+        ...prev,
+        results: prev.results.map((r) => {
+          if (r.dateId !== id) return r;
+          const others = (r.voters ?? []).filter((v) => v.id !== mine.id);
+          const voters = adding ? [...others, mine] : others;
+          return { ...r, voters, votes: voters.length };
+        }),
+      }));
+    }
+    scheduleSave(next);
+  };
+
+  const toggleExpanded = (dateId: number) =>
+    setExpandedDates((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(dateId)) next.delete(dateId);
+      else next.add(dateId);
       return next;
     });
+
+  // 토글 후 600ms 디바운스 자동 저장 — "저장 버튼 누르기" 단계 제거
+  const scheduleSave = (dateIds: Set<number>) => {
+    dirtyRef.current = true;
+    setSaveState('pending');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => void saveVotes(dateIds), 600);
   };
+
+  async function saveVotes(dateIds: Set<number>) {
+    if (!clientToken) return;
+    setSaveState('saving');
+    setError(null);
+    try {
+      await updateAvailabilities(roomId, clientToken, {
+        dateIds: Array.from(dateIds),
+      });
+      dirtyRef.current = false;
+      setSaveState('saved');
+      const res = await getResults(roomId);
+      setRoom((prev) => ({
+        ...prev,
+        results: res.results,
+        participantCount: res.participantCount,
+        deadline: res.deadline,
+      }));
+    } catch (err) {
+      setSaveState('error');
+      setError(extractMsg(err));
+    }
+  }
 
   async function onJoin(e: React.FormEvent) {
     e.preventDefault();
@@ -210,35 +287,7 @@ export default function RoomView({
       setClientToken(r.clientToken);
       setMe({ participantId: r.participantId, nickname: nickname.trim(), dateIds: [] });
       setSelected(new Set());
-      // 즉시 결과 한 번 갱신 (참여자 수 반영)
-      const res = await getResults(roomId);
-      setRoom((prev) => ({
-        ...prev,
-        results: res.results,
-        participantCount: res.participantCount,
-      }));
-    } catch (err) {
-      setError(extractMsg(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onSaveVotes() {
-    if (!clientToken) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await updateAvailabilities(roomId, clientToken, {
-        dateIds: Array.from(selected),
-      });
-      setSavedAt(Date.now());
-      const res = await getResults(roomId);
-      setRoom((prev) => ({
-        ...prev,
-        results: res.results,
-        participantCount: res.participantCount,
-      }));
+      void tick(); // 참여자 수 즉시 반영
     } catch (err) {
       setError(extractMsg(err));
     } finally {
@@ -264,19 +313,58 @@ export default function RoomView({
     }
   }
 
-  async function onKick(participantId: number, nickname: string) {
-    if (!creatorToken) return;
-    if (!confirm(`${nickname} 을 방에서 내보낼까요? 표도 같이 사라집니다.`)) return;
+  async function confirmKick() {
+    if (!creatorToken || !kickTarget) return;
     setBusy(true);
     setError(null);
     try {
-      await kickParticipant(roomId, creatorToken, participantId);
+      await kickParticipant(roomId, creatorToken, kickTarget.id);
+      setKickTarget(null);
       const fresh = await getRoom(roomId);
       setRoom(fresh);
     } catch (err) {
       setError(extractMsg(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // 방 화면에서 바로 재공유 — 단톡방 재전파 동선
+  async function shareRoom() {
+    const url = window.location.href;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: room.title, url });
+        return;
+      } catch {
+        /* 공유 시트 취소 — 클립보드 fallback 으로 */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      setError('링크 복사가 안 됐어요. 주소창에서 직접 복사해주세요.');
+    }
+  }
+
+  // 단톡방에 붙여넣을 결과 요약 텍스트
+  async function copyResults() {
+    const lines = [`📊 ${room.title}`];
+    sortedResults.slice(0, 3).forEach((r, i) => {
+      if (r.votes === 0) return;
+      lines.push(
+        `${i === 0 ? '🏆 ' : ''}${i + 1}위 ${formatDateKR(r.date)} — ${r.votes}표`,
+      );
+    });
+    lines.push(`참여 ${room.participantCount}명`, '', window.location.href);
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setResultsCopied(true);
+      setTimeout(() => setResultsCopied(false), 2000);
+    } catch {
+      setError('복사가 안 됐어요. 다시 시도해주세요.');
     }
   }
 
@@ -301,7 +389,16 @@ export default function RoomView({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5 pb-32 pt-6 sm:pt-10">
       <header className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">{room.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">{room.title}</h1>
+          <button
+            type="button"
+            onClick={() => void shareRoom()}
+            className="press inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-zinc-100 px-3.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+          >
+            {linkCopied ? '복사됨 ✓' : '🔗 링크 복사'}
+          </button>
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
           <span className="inline-flex items-center gap-1">
             <span
@@ -331,7 +428,16 @@ export default function RoomView({
         </div>
       </header>
 
-      {!clientToken ? (
+      {meLoading ? (
+        /* 재방문 참여자 — 내 표 로드 중 가입 폼이 깜빡 보이지 않게 스켈레톤 */
+        <section className="mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex animate-pulse flex-col gap-3">
+            <div className="h-5 w-44 rounded bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          </div>
+        </section>
+      ) : !clientToken ? (
         <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-base font-semibold">반가워요 👋</h2>
           <p className="mt-1 text-sm text-zinc-500">
@@ -411,15 +517,24 @@ export default function RoomView({
       )}
 
       <section className="mt-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h2 className="text-base font-semibold">실시간 순위</h2>
           {sortedResults.length > 0 && sortedResults[0].votes > 0 && (
-            <a
-              href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
-              className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-            >
-              1위 캘린더에 담기 (.ics)
-            </a>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void copyResults()}
+                className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                {resultsCopied ? '복사됨 ✓' : '결과 복사'}
+              </button>
+              <a
+                href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
+                className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                1위 캘린더에 담기 (.ics)
+              </a>
+            </div>
           )}
         </div>
         {sortedResults.length === 0 ? (
@@ -432,67 +547,104 @@ export default function RoomView({
             ).map((r, idx) => (
               <li
                 key={r.dateId}
-                className={`lift rounded-xl border bg-white p-3 transition-colors dark:bg-zinc-900 ${
+                className={`lift overflow-hidden rounded-xl border bg-white transition-colors dark:bg-zinc-900 ${
                   idx === 0 && r.votes > 0
                     ? 'border-amber-300 ring-1 ring-amber-200/60 dark:border-amber-700 dark:ring-amber-900/60'
                     : 'border-zinc-200 dark:border-zinc-800'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {idx === 0 && r.votes > 0 ? (
-                      // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
-                        <span className="block translate-y-[0.5px]">🏆</span>
+                {/* 행 전체 탭 → 누가 투표했는지 펼침 */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(r.dateId)}
+                  aria-expanded={expandedDates.has(r.dateId)}
+                  className="press w-full p-3 text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {idx === 0 && r.votes > 0 ? (
+                        // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
+                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
+                          <span className="block translate-y-[0.5px]">🏆</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold leading-none text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {idx + 1}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium">
+                        {formatDateKR(r.date)}
                       </span>
-                    ) : (
-                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold leading-none text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                        {idx + 1}
+                      {clientToken && selected.has(r.dateId) && (
+                        <span
+                          title="내가 고른 날"
+                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                        />
+                      )}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+                      <span>
+                        <strong className="text-zinc-900 dark:text-zinc-100">
+                          {r.votes}
+                        </strong>
+                        표
                       </span>
-                    )}
-                    <span className="text-sm font-medium">
-                      {formatDateKR(r.date)}
+                      <span
+                        aria-hidden
+                        className={`text-[10px] text-zinc-400 transition-transform ${
+                          expandedDates.has(r.dateId) ? 'rotate-180' : ''
+                        }`}
+                      >
+                        ▾
+                      </span>
                     </span>
                   </div>
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                    <strong className="text-zinc-900 dark:text-zinc-100">
-                      {r.votes}
-                    </strong>
-                    표
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      idx === 0 && r.votes > 0
-                        ? 'bg-gradient-to-r from-amber-400 to-amber-600'
-                        : 'bg-zinc-900 dark:bg-zinc-100'
-                    }`}
-                    style={{
-                      width: `${maxVotes ? (r.votes / maxVotes) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-                {r.voters && r.voters.length > 0 && (
-                  <ul className="mt-2 flex flex-wrap gap-1">
-                    {r.voters.map((v) => (
-                      <li key={v.id}>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                          {v.nickname}
-                          {isCreator && (
-                            <button
-                              type="button"
-                              onClick={() => onKick(v.id, v.nickname)}
-                              aria-label={`${v.nickname} 강퇴`}
-                              className="ml-0.5 text-zinc-400 hover:text-red-600"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        idx === 0 && r.votes > 0
+                          ? 'bg-gradient-to-r from-amber-400 to-amber-600'
+                          : 'bg-zinc-900 dark:bg-zinc-100'
+                      }`}
+                      style={{
+                        width: `${maxVotes ? (r.votes / maxVotes) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </button>
+                {expandedDates.has(r.dateId) && (
+                  <div className="px-3 pb-3">
+                    {r.voters && r.voters.length > 0 ? (
+                      <ul className="flex flex-wrap gap-1">
+                        {r.voters.map((v) => (
+                          <li key={v.id}>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                              {v.nickname}
+                              {isCreator && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setKickTarget({
+                                      id: v.id,
+                                      nickname: v.nickname,
+                                    })
+                                  }
+                                  aria-label={`${v.nickname} 내보내기`}
+                                  className="press ml-0.5 text-zinc-400 hover:text-rose-600"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-zinc-400">
+                        아직 아무도 안 골랐어요
+                      </p>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
@@ -532,20 +684,31 @@ export default function RoomView({
 
       {clientToken && !isLocked && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
-            <span className="text-xs text-zinc-500">
-              {savedAt
-                ? '저장됨'
-                : `${selected.size}개 선택`}
-            </span>
-            <button
-              type="button"
-              onClick={onSaveVotes}
-              disabled={busy}
-              className="h-12 flex-1 max-w-xs rounded-full bg-zinc-900 text-base font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
-            >
-              {busy ? '저장 중…' : '저장'}
-            </button>
+          <div className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3">
+            <span className="text-xs text-zinc-500">{selected.size}개 선택</span>
+            {saveState === 'error' ? (
+              <button
+                type="button"
+                onClick={() => void saveVotes(selected)}
+                className="press h-10 rounded-full bg-rose-50 px-4 text-sm font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+              >
+                저장 실패 — 다시 시도
+              </button>
+            ) : (
+              <span
+                className={`text-sm ${
+                  saveState === 'saved'
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-zinc-500'
+                }`}
+              >
+                {saveState === 'pending' || saveState === 'saving'
+                  ? '저장 중…'
+                  : saveState === 'saved'
+                    ? '저장됨 ✓'
+                    : '날짜를 누르면 바로 저장돼요'}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -565,7 +728,56 @@ export default function RoomView({
           busy={busy}
         />
       )}
+
+      {kickTarget && (
+        <KickModal
+          nickname={kickTarget.nickname}
+          busy={busy}
+          onClose={() => setKickTarget(null)}
+          onConfirm={() => void confirmKick()}
+        />
+      )}
     </main>
+  );
+}
+
+function KickModal({
+  nickname,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  nickname: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
+        <h3 className="text-base font-semibold">{nickname} 내보내기</h3>
+        <p className="mt-1 text-sm text-zinc-500">
+          방에서 내보내면 {nickname}의 표도 같이 사라져요. 되돌릴 수 없어요.
+        </p>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="press h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="press h-11 flex-1 rounded-full bg-rose-50 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-rose-950/40 dark:text-rose-300 dark:disabled:bg-zinc-700"
+          >
+            {busy ? '내보내는 중…' : '내보내기'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
