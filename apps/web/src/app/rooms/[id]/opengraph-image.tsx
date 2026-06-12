@@ -61,9 +61,9 @@ export default async function OgImage({
         </div>
         <div
           style={{
-            fontSize: 72,
+            fontSize: 56,
             fontWeight: 700,
-            marginTop: 16,
+            marginTop: 12,
             maxWidth: 1040,
             lineHeight: 1.15,
             display: 'flex',
@@ -71,23 +71,53 @@ export default async function OgImage({
         >
           {title}
         </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 32,
-            marginTop: 40,
-            fontSize: 36,
-            color: '#e4e4e7',
-          }}
-        >
-          <span style={{ display: 'flex' }}>1위 · {topLabel}</span>
-          {votes > 0 && (
-            <span style={{ display: 'flex', color: '#fde68a' }}>
+        {votes > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 24,
+              marginTop: 40,
+            }}
+          >
+            <span style={{ display: 'flex', fontSize: 72 }}>🏆</span>
+            <span
+              style={{
+                display: 'flex',
+                fontSize: 96,
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                color: '#fcd34d',
+              }}
+            >
+              {topLabel}
+            </span>
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '8px 24px',
+                borderRadius: 999,
+                background: 'rgba(252, 211, 77, 0.18)',
+                fontSize: 36,
+                color: '#fde68a',
+              }}
+            >
               {votes}표
             </span>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 40,
+              fontSize: 44,
+              color: '#e4e4e7',
+            }}
+          >
+            📅 {topLabel} — 먼저 투표해보세요
+          </div>
+        )}
         <div
           style={{
             marginTop: 16,
