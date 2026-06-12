@@ -517,7 +517,7 @@ export default function RoomView({
       )}
 
       <section className="mt-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h2 className="text-base font-semibold">실시간 순위</h2>
           {sortedResults.length > 0 && sortedResults[0].votes > 0 && (
             <div className="flex items-center gap-3">
