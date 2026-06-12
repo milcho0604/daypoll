@@ -204,6 +204,12 @@ export default function RoomView({
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
 
+  // 마감 + 표가 있으면 1위가 곧 확정 날짜
+  const winner =
+    isLocked && sortedResults[0] && sortedResults[0].votes > 0
+      ? sortedResults[0]
+      : null;
+
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
     const next = new Set(selected);
@@ -427,6 +433,35 @@ export default function RoomView({
           )}
         </div>
       </header>
+
+      {winner && (
+        <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
+            🏆 투표 마감 — 날짜 확정!
+          </span>
+          <p className="mt-3 text-3xl font-bold tracking-tight">
+            {formatDateKR(winner.date)}
+          </p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            {winner.votes}표 · 참여자 {room.participantCount}명
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              📅 캘린더에 담기
+            </a>
+            <button
+              type="button"
+              onClick={() => void copyResults()}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {resultsCopied ? '복사됨 ✓' : '결과 복사'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {meLoading ? (
         /* 재방문 참여자 — 내 표 로드 중 가입 폼이 깜빡 보이지 않게 스켈레톤 */
