@@ -204,6 +204,12 @@ export default function RoomView({
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
 
+  // 마감 + 표가 있으면 1위가 곧 확정 날짜
+  const winner =
+    isLocked && sortedResults[0] && sortedResults[0].votes > 0
+      ? sortedResults[0]
+      : null;
+
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
     const next = new Set(selected);
@@ -427,6 +433,35 @@ export default function RoomView({
           )}
         </div>
       </header>
+
+      {winner && (
+        <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
+            🏆 투표 마감 — 날짜 확정!
+          </span>
+          <p className="mt-3 text-3xl font-bold tracking-tight">
+            {formatDateKR(winner.date)}
+          </p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            {winner.votes}표 · 참여자 {room.participantCount}명
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              📅 캘린더에 담기
+            </a>
+            <button
+              type="button"
+              onClick={() => void copyResults()}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {resultsCopied ? '복사됨 ✓' : '결과 복사'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {meLoading ? (
         /* 재방문 참여자 — 내 표 로드 중 가입 폼이 깜빡 보이지 않게 스켈레톤 */
@@ -677,7 +712,7 @@ export default function RoomView({
       </section>
 
       {error && (
-        <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
           {error}
         </p>
       )}
@@ -752,8 +787,17 @@ function KickModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  useEscClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${nickname} 내보내기`}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
         <h3 className="text-base font-semibold">{nickname} 내보내기</h3>
         <p className="mt-1 text-sm text-zinc-500">
@@ -792,8 +836,17 @@ function RecoverModal({
 }) {
   const [nickname, setNickname] = useState('');
   const [pin, setPin] = useState('');
+  useEscClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="PIN으로 복원"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -883,8 +936,18 @@ function DeadlineModal({
     return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
   });
 
+  useEscClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="마감일 수정"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
         <h3 className="text-base font-semibold">마감일 수정</h3>
         <label className="mt-4 flex items-center gap-2 text-sm">
@@ -931,6 +994,17 @@ function DeadlineModal({
       </div>
     </div>
   );
+}
+
+// 모달 공통 — ESC 키로 닫기 (바깥 탭 닫기는 각 오버레이의 onClick 에서)
+function useEscClose(onClose: () => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 }
 
 function formatDateKR(iso: string) {

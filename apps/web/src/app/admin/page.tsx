@@ -265,12 +265,12 @@ export default function AdminDashboard() {
             type="button"
             onClick={onCleanup}
             disabled={busy}
-            className="ml-auto h-10 rounded-full bg-red-600 px-4 text-sm font-medium text-white disabled:bg-zinc-300"
+            className="ml-auto h-10 rounded-full bg-rose-600 px-4 text-sm font-medium text-white disabled:bg-zinc-300"
           >
             {busy ? '정리 중…' : '정리 실행'}
           </button>
         </div>
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       </Card>
 
       <div className="flex flex-wrap gap-2">

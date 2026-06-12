@@ -166,14 +166,14 @@ export default function AdminRoomDetailPage() {
             type="button"
             onClick={onDelete}
             disabled={busy}
-            className="h-9 rounded-full bg-red-600 px-4 text-xs font-medium text-white disabled:bg-zinc-300"
+            className="h-9 rounded-full bg-rose-600 px-4 text-xs font-medium text-white disabled:bg-zinc-300"
           >
             {busy ? '삭제 중…' : '방 삭제'}
           </button>
         </div>
       </header>
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
           {error}
         </p>
       )}
@@ -243,7 +243,7 @@ export default function AdminRoomDetailPage() {
                     type="button"
                     onClick={() => onKick(p.id, p.nickname)}
                     disabled={busy}
-                    className="h-7 rounded-full border border-zinc-300 px-2 text-xs hover:bg-red-50 hover:text-red-700 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                    className="h-7 rounded-full border border-zinc-300 px-2 text-xs hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                   >
                     강퇴
                   </button>
