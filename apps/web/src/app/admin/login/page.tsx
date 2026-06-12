@@ -44,7 +44,7 @@ export default function AdminLoginPage() {
           className="mt-4 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100"
         />
         {error && (
-          <p className="mt-3 text-sm text-red-600 dark:text-red-300">{error}</p>
+          <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">{error}</p>
         )}
         <button
           type="submit"
