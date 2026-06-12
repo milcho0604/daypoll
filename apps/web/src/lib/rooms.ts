@@ -17,8 +17,12 @@ export function createRoom(body: CreateRoomRequest) {
   return api<CreateRoomResponse>('/rooms', { method: 'POST', body });
 }
 
-export function getRoom(roomId: string, signal?: AbortSignal) {
-  return api<RoomDetail>(`/rooms/${roomId}`, { signal });
+export function getRoom(
+  roomId: string,
+  signal?: AbortSignal,
+  revalidate?: number,
+) {
+  return api<RoomDetail>(`/rooms/${roomId}`, { signal, revalidate });
 }
 
 export function getResults(roomId: string, signal?: AbortSignal) {

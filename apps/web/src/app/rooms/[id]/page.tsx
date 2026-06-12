@@ -4,7 +4,9 @@ import { ApiError } from '@/lib/api';
 import { getRoom } from '@/lib/rooms';
 import RoomView from './room-view';
 
-export const dynamic = 'force-dynamic';
+// 방 껍데기(제목/후보 날짜)는 생성 후 불변 — 30초 ISR 로 첫 페인트의 백엔드 왕복 제거.
+// 표/마감 같은 실시간 값은 클라이언트에서 소켓 + 폴링으로 즉시 동기화된다.
+export const revalidate = 30;
 
 export async function generateMetadata({
   params,
@@ -15,8 +17,15 @@ export async function generateMetadata({
   // 개별 방 URL 은 개인 모임용 — 검색 인덱싱 금지 (OG 공유 카드는 정상 동작).
   const robots = { index: false, follow: false } as const;
   try {
-    const room = await getRoom(id);
-    const description = `${room.title} — 참여자 ${room.participantCount}명. 가능한 날짜에 투표해주세요.`;
+    const room = await getRoom(id, undefined, 30);
+    // OG 카드에 스크랩 시점의 1위를 노출 — 메신저가 카드를 캐시하므로
+    // "실시간"은 아니고 공유(스크랩)할 때마다 그 시점 최신값이 박힌다.
+    const top = [...room.results].sort(
+      (a, b) => b.votes - a.votes || a.date.localeCompare(b.date),
+    )[0];
+    const lead =
+      top && top.votes > 0 ? `지금 1위 ${formatDateKR(top.date)} · ` : '';
+    const description = `${room.title} — ${lead}참여자 ${room.participantCount}명. 가능한 날짜에 투표해주세요.`;
     return {
       title: `${room.title} · 언제모여`,
       description,
@@ -50,7 +59,7 @@ export default async function RoomPage({
   let room: RoomDetail | null = null;
   let notFound = false;
   try {
-    room = await getRoom(id);
+    room = await getRoom(id, undefined, 30);
   } catch (err) {
     notFound = err instanceof ApiError && err.status === 404;
   }
@@ -75,4 +84,13 @@ export default async function RoomPage({
   }
 
   return <RoomView roomId={id} initial={room} />;
+}
+
+function formatDateKR(iso: string) {
+  // 'YYYY-MM-DD' → 'M/D (요일)'
+  const [y, m, d] = iso.split('-').map(Number);
+  const weekday = ['일', '월', '화', '수', '목', '금', '토'][
+    new Date(y, m - 1, d).getDay()
+  ];
+  return `${m}/${d} (${weekday})`;
 }
