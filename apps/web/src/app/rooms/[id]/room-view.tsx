@@ -787,8 +787,17 @@ function KickModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  useEscClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${nickname} 내보내기`}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
         <h3 className="text-base font-semibold">{nickname} 내보내기</h3>
         <p className="mt-1 text-sm text-zinc-500">
@@ -827,8 +836,17 @@ function RecoverModal({
 }) {
   const [nickname, setNickname] = useState('');
   const [pin, setPin] = useState('');
+  useEscClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="PIN으로 복원"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -918,8 +936,18 @@ function DeadlineModal({
     return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
   });
 
+  useEscClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="마감일 수정"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
         <h3 className="text-base font-semibold">마감일 수정</h3>
         <label className="mt-4 flex items-center gap-2 text-sm">
@@ -966,6 +994,17 @@ function DeadlineModal({
       </div>
     </div>
   );
+}
+
+// 모달 공통 — ESC 키로 닫기 (바깥 탭 닫기는 각 오버레이의 onClick 에서)
+function useEscClose(onClose: () => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 }
 
 function formatDateKR(iso: string) {
