@@ -8,6 +8,7 @@ import {
   adminListRooms,
   getAdminToken,
 } from '@/lib/admin';
+import EmptyState from '@/components/empty-state';
 
 const LIMIT = 20;
 
@@ -87,9 +88,9 @@ function RoomsList() {
       </form>
 
       {!data ? (
-        <p className="text-sm text-zinc-500">불러오는 중…</p>
+        <p className="text-sm text-zinc-500" aria-busy="true">불러오는 중…</p>
       ) : data.rooms.length === 0 ? (
-        <p className="text-sm text-zinc-500">결과가 없습니다.</p>
+        <EmptyState emoji="🔍" message="매칭되는 방이 없네요" />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           <table className="w-full text-sm">

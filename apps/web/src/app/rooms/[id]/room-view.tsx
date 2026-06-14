@@ -719,14 +719,21 @@ export default function RoomView({
       </section>
 
       {error && (
-        <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+        >
           {error}
         </p>
       )}
 
       {clientToken && !isLocked && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-          <div className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3">
+          <div
+            className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3"
+            aria-live="polite"
+          >
             <span className="text-xs text-zinc-500">{selected.size}개 선택</span>
             {saveState === 'error' ? (
               <button

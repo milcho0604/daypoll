@@ -17,6 +17,20 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 @Injectable()
 export class ParticipantsService {
+  // PIN 닉네임당 lockout — IP-기반 rate limit 위에 닉네임 차원 추가 가드.
+  // 공격자가 IP 회전으로 IP rate limit 을 피해도 같은 (방, 닉네임) 조합은
+  // 5회 실패 시 30분 잠금. in-memory 라 재시작 시 리셋.
+  private readonly pinFailures = new Map<
+    string,
+    { count: number; until: number }
+  >();
+  private static readonly PIN_MAX_ATTEMPTS = 5;
+  private static readonly PIN_LOCKOUT_MS = 30 * 60 * 1000;
+
+  private pinKey(roomId: string, nickname: string): string {
+    return `${roomId}::${nickname.trim().toLowerCase()}`;
+  }
+
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly realtime: RealtimeGateway,
@@ -54,6 +68,21 @@ export class ParticipantsService {
     nickname: string,
     pin: string,
   ): Promise<JoinRoomResponse> {
+    // 닉네임당 lockout 체크
+    const key = this.pinKey(roomId, nickname);
+    const entry = this.pinFailures.get(key);
+    const now = Date.now();
+    if (entry && entry.until > now) {
+      throw new HttpException(
+        'too many failed attempts — try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    if (entry && entry.until <= now) {
+      // 잠금 시간 지남 — 카운터 리셋
+      this.pinFailures.delete(key);
+    }
+
     const candidates = await this.pool.query<{
       id: string;
       pin_hash: string | null;
@@ -71,9 +100,22 @@ export class ParticipantsService {
           `UPDATE participants SET client_token = $1 WHERE id = $2`,
           [newCt, row.id],
         );
+        this.pinFailures.delete(key); // 성공 시 카운터 삭제
         return { participantId: Number(row.id), clientToken: newCt };
       }
     }
+
+    // 실패 카운트 증가
+    const next = (entry?.count ?? 0) + 1;
+    if (next >= ParticipantsService.PIN_MAX_ATTEMPTS) {
+      this.pinFailures.set(key, {
+        count: next,
+        until: now + ParticipantsService.PIN_LOCKOUT_MS,
+      });
+    } else {
+      this.pinFailures.set(key, { count: next, until: 0 });
+    }
+
     // 매칭 실패. 닉네임/핀 노출 안 되도록 단일 메시지.
     throw new ForbiddenException('nickname or pin does not match');
   }

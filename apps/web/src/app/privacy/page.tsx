@@ -106,7 +106,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>방 전체 삭제</strong>: 개설자(creator_token 보유)는 어드민
-              API 를 통해 본인이 만든 방을 삭제할 수 있습니다.
+              API를 통해 본인이 만든 방을 삭제할 수 있습니다.
             </li>
             <li>
               <strong>로컬 데이터 삭제</strong>: 브라우저 설정에서 사이트
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
 
         <Section title="7. 개인정보의 안전성 확보 조치">
           <ul className="ml-5 list-disc space-y-1">
-            <li>PIN 은 scrypt 단방향 해시로 저장 (원본 비밀번호 저장 X)</li>
+            <li>PIN은 scrypt 단방향 해시로 저장 (원본 비밀번호 저장 X)</li>
             <li>모든 통신 HTTPS / TLS 1.3</li>
             <li>어드민 페이지는 토큰 기반 가드 + timingSafeEqual 비교</li>
             <li>외부 노출 표면 최소화 (DB 호스트 비공개, 백엔드는 Cloudflare Tunnel 통함)</li>

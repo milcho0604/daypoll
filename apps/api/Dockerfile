@@ -39,6 +39,11 @@ WORKDIR /repo
 # 빌드 산출물 + node_modules(pnpm isolated 심링크 구조 포함) 통째로 복사
 COPY --from=builder /repo ./
 
+# node:20-slim 이미지에 내장된 비-root 유저(node, uid=1000) 사용.
+# /repo 소유권 이전 후 USER 전환 — runtime 에 root 권한 없음.
+RUN chown -R node:node /repo
+USER node
+
 WORKDIR /repo/apps/api
 EXPOSE 3001
 

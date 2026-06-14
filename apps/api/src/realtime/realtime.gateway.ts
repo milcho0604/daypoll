@@ -8,6 +8,10 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
+import { secureEquals } from '../common/secure-compare';
+
+// nanoid 형식 (영숫자 + `_` `-`, 8~16자). 임의 문자열로 enumeration 시도 차단.
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{8,16}$/;
 
 // CORS_ORIGIN을 연결 시점에 lazy 평가한다.
 // (모듈 import 시점엔 ConfigModule의 .env 로딩이 아직 안 끝나 process.env가 비어있을 수 있다)
@@ -49,7 +53,7 @@ export class RealtimeGateway implements OnGatewayInit {
     @MessageBody() data: { roomId?: unknown },
   ): { ok: boolean; room?: string } {
     const roomId = typeof data?.roomId === 'string' ? data.roomId : '';
-    if (!roomId) return { ok: false };
+    if (!ROOM_ID_PATTERN.test(roomId)) return { ok: false };
     void client.join(`room:${roomId}`);
     return { ok: true, room: roomId };
   }
@@ -60,7 +64,7 @@ export class RealtimeGateway implements OnGatewayInit {
     @MessageBody() data: { roomId?: unknown },
   ): { ok: boolean } {
     const roomId = typeof data?.roomId === 'string' ? data.roomId : '';
-    if (!roomId) return { ok: false };
+    if (!ROOM_ID_PATTERN.test(roomId)) return { ok: false };
     void client.leave(`room:${roomId}`);
     return { ok: true };
   }
@@ -89,7 +93,7 @@ export class RealtimeGateway implements OnGatewayInit {
   ): { ok: boolean } {
     const expected = process.env.ADMIN_TOKEN ?? '';
     const got = typeof data?.token === 'string' ? data.token : '';
-    if (expected.length >= 8 && got === expected) {
+    if (expected.length >= 8 && secureEquals(got, expected)) {
       void client.join('admin');
       return { ok: true };
     }

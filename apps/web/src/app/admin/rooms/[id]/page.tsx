@@ -13,6 +13,7 @@ import {
   getAdminToken,
 } from '@/lib/admin';
 import EmptyState from '@/components/empty-state';
+import ConfirmModal from '@/components/confirm-modal';
 
 export default function AdminRoomDetailPage() {
   const router = useRouter();
@@ -23,6 +24,11 @@ export default function AdminRoomDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [kickConfirm, setKickConfirm] = useState<{
+    pid: number;
+    nickname: string;
+  } | null>(null);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     // Date.now() 를 render 단계가 아닌 effect 에서 sampling (react-hooks/purity 규칙)
@@ -56,9 +62,12 @@ export default function AdminRoomDetailPage() {
     );
   }, [data, q]);
 
-  async function onDelete() {
+  function onDelete() {
     if (!data) return;
-    if (!confirm(`정말 이 방을 삭제할까요?\n${data.title}`)) return;
+    setDeleteConfirm(true);
+  }
+
+  async function doDelete() {
     setBusy(true);
     setError(null);
     try {
@@ -67,16 +76,21 @@ export default function AdminRoomDetailPage() {
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
+      setDeleteConfirm(false);
     }
   }
 
-  async function onKick(participantId: number, nickname: string) {
-    if (!confirm(`${nickname} 를 방에서 내보낼까요? 표도 같이 사라집니다.`))
-      return;
+  function onKick(participantId: number, nickname: string) {
+    setKickConfirm({ pid: participantId, nickname });
+  }
+
+  async function doKick() {
+    if (!kickConfirm) return;
     setBusy(true);
     setError(null);
     try {
-      await adminKickParticipant(roomId, participantId);
+      await adminKickParticipant(roomId, kickConfirm.pid);
+      setKickConfirm(null);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -261,6 +275,32 @@ export default function AdminRoomDetailPage() {
           onSave={onSaveDeadline}
         />
       )}
+
+      <ConfirmModal
+        open={deleteConfirm}
+        title="방 삭제"
+        message={`정말 이 방을 삭제할까요?\n"${data.title}"`}
+        confirmLabel="삭제하기"
+        danger
+        busy={busy}
+        onConfirm={() => void doDelete()}
+        onCancel={() => setDeleteConfirm(false)}
+      />
+
+      <ConfirmModal
+        open={kickConfirm !== null}
+        title="참여자 내보내기"
+        message={
+          kickConfirm
+            ? `${kickConfirm.nickname}을(를) 방에서 내보낼게요.\n표도 같이 사라져요.`
+            : undefined
+        }
+        confirmLabel="내보내기"
+        danger
+        busy={busy}
+        onConfirm={() => void doKick()}
+        onCancel={() => setKickConfirm(null)}
+      />
     </div>
   );
 }

@@ -12,6 +12,8 @@ services:
     image: postgres:16-alpine
     container_name: whenever-postgres
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-whenever}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
@@ -35,6 +37,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # 외부 노출 표면이라 가장 강한 보안 옵션 적용.
+    # - no-new-privileges: setuid/sudo 등 권한 상승 차단
+    # - cap_drop ALL: 모든 Linux capability 제거 (NestJS 는 raw socket 등 불필요)
+    # USER node (Dockerfile) 와 함께 runtime 권한 최소화.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       API_PORT: 3001
       DATABASE_URL: postgres://${POSTGRES_USER:-whenever}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whenever}
@@ -50,6 +60,8 @@ services:
     image: prodrigestivill/postgres-backup-local:16
     container_name: whenever-backup
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +83,8 @@ services:
     image: postgres:16-alpine
     container_name: whenever-cleanup
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_healthy

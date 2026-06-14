@@ -206,9 +206,12 @@ export class AdminService {
     const where: string[] = [];
     const params: unknown[] = [];
     if (q.length > 0) {
-      params.push(`%${q}%`);
+      // ILIKE 와일드카드 (`%` `_`) escape — 어드민이 `%%%` 같은 입력으로
+      // 와일드카드 폭주를 일으키지 않도록.
+      const escaped = q.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
+      params.push(`%${escaped}%`);
       where.push(
-        `(r.title ILIKE $${params.length} OR r.id ILIKE $${params.length})`,
+        `(r.title ILIKE $${params.length} ESCAPE '\\' OR r.id ILIKE $${params.length} ESCAPE '\\')`,
       );
     }
     const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
@@ -580,8 +583,15 @@ export class AdminService {
 }
 
 function csvEscape(s: string): string {
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return `"${s.replace(/"/g, '""')}"`;
+  // CSV formula injection 방어 — `=` `+` `-` `@` `\t` `\r` 로 시작하면 Excel/Sheets 가
+  // 수식으로 해석. 닉네임이 `=cmd|...` 이면 임의 명령 실행 위험 → 작은따옴표 prefix.
+  // (Google 권장: https://owasp.org/www-community/attacks/CSV_Injection)
+  let v = s;
+  if (/^[=+\-@\t\r]/.test(v)) {
+    v = `'${v}`;
   }
-  return s;
+  if (v.includes(',') || v.includes('"') || v.includes('\n') || v.includes('\r')) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
 }

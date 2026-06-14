@@ -23,6 +23,7 @@ import {
 } from '@/lib/admin';
 import { getSocket, joinAdminChannel } from '@/lib/socket';
 import EmptyState from '@/components/empty-state';
+import ConfirmModal from '@/components/confirm-modal';
 
 const POLL_MS = 30_000;
 const FEED_MAX = 20;
@@ -42,6 +43,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [days, setDays] = useState(90);
+  const [cleanupConfirm, setCleanupConfirm] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<number | null>(null);
 
   const refresh = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -97,13 +100,17 @@ export default function AdminDashboard() {
     };
   }, [router]);
 
-  async function onCleanup() {
-    if (!confirm(`${days}일 이상된 방을 정리합니다. 진행할까요?`)) return;
+  function onCleanup() {
+    setCleanupConfirm(true);
+  }
+
+  async function doCleanup() {
     setBusy(true);
     setError(null);
     try {
       const r = await adminCleanup(days);
-      alert(`삭제된 방: ${r.removed}개`);
+      setCleanupResult(r.removed);
+      setCleanupConfirm(false);
       void refresh.current();
     } catch (e) {
       setError((e as Error).message);
@@ -287,6 +294,27 @@ export default function AdminDashboard() {
           액션 로그 →
         </Link>
       </div>
+
+      <ConfirmModal
+        open={cleanupConfirm}
+        title="오래된 방 정리"
+        message={`${days}일 이상된 방을 한꺼번에 지울게요.\n계속할까요?`}
+        confirmLabel="정리하기"
+        danger
+        busy={busy}
+        onConfirm={() => void doCleanup()}
+        onCancel={() => setCleanupConfirm(false)}
+      />
+
+      <ConfirmModal
+        open={cleanupResult !== null}
+        title="정리 끝났어요"
+        message={`삭제된 방: ${cleanupResult ?? 0}개`}
+        confirmLabel="확인"
+        cancelLabel="닫기"
+        onConfirm={() => setCleanupResult(null)}
+        onCancel={() => setCleanupResult(null)}
+      />
     </div>
   );
 }
