@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import RecentRooms from '@/components/recent-rooms';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
@@ -52,6 +53,8 @@ export default function Home() {
           방 만들기
           <span aria-hidden>→</span>
         </Link>
+
+        <RecentRooms />
 
         <section className="grid w-full grid-cols-3 gap-3 fade-up">
           {STEPS.map((s, i) => (
