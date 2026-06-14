@@ -44,5 +44,51 @@ services:
     ports:
       - "127.0.0.1:3001:3001"
 
+  # 일일 DB 백업 — 컨테이너 안 cron 으로 외장 디스크에 .sql.gz 저장.
+  # macOS launchd / TCC 의존성 제거. Docker 죽으면 백업도 멈춤 (일관됨).
+  backup:
+    image: prodrigestivill/postgres-backup-local:16
+    container_name: whenever-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-whenever}
+      POSTGRES_USER: ${POSTGRES_USER:-whenever}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "30 4 * * *"
+      BACKUP_KEEP_DAYS: 14
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 0
+    volumes:
+      - /Volumes/milcho_ex/whenever-backups:/backups
+
+  # 오래된 방 정리 — 매일 한 번 rooms 테이블에서 created_at 가 임계일 지난 행 DELETE.
+  # CASCADE 로 candidates / votes / voter_picks 자동 정리.
+  cleanup:
+    image: postgres:16-alpine
+    container_name: whenever-cleanup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-whenever}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-whenever}
+      CLEANUP_DAYS: "90"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          sleep 86400
+          echo "[$$(date -Iseconds)] cleanup: days=$$CLEANUP_DAYS"
+          psql -At -c "WITH d AS (DELETE FROM rooms WHERE created_at < now() - ($$CLEANUP_DAYS::int * INTERVAL '1 day') RETURNING 1) SELECT COUNT(*) AS removed FROM d" || true
+        done
+
 volumes:
   pgdata:
