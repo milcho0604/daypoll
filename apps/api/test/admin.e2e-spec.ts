@@ -184,6 +184,29 @@ describe('admin e2e', () => {
     });
   });
 
+  // ---- CSV export ----
+  describe('CSV exports', () => {
+    it('prefixes formula-like room titles and nicknames', async () => {
+      const c = await request(server())
+        .post('/rooms')
+        .send({ title: '=1+1', dates: ['2026-05-15'] });
+      const id = c.body.roomId;
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: '@evil' });
+
+      const roomsCsv = await withAdmin(request(server()).get('/admin/rooms.csv'));
+      expect(roomsCsv.status).toBe(200);
+      expect(roomsCsv.text).toContain(",'=1+1,");
+
+      const roomCsv = await withAdmin(
+        request(server()).get(`/admin/rooms/${id}/export.csv`),
+      );
+      expect(roomCsv.status).toBe(200);
+      expect(roomCsv.text).toContain(",'@evil,");
+    });
+  });
+
   // ---- cleanup ----
   describe('POST /admin/cleanup', () => {
     it('does not remove fresh rooms', async () => {

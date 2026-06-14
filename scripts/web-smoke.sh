@@ -60,13 +60,13 @@ CREATE=$(curl -s -X POST "$API_BASE/rooms" \
 ROOM_ID=$(echo "$CREATE" | python3 -c "import sys,json;print(json.load(sys.stdin)['roomId'])")
 echo "[web-smoke] created room $ROOM_ID"
 
-expect_in "http://localhost:$PORT/rooms/$ROOM_ID/created" "방이 만들어졌어요"
-expect_in "http://localhost:$PORT/rooms/$ROOM_ID/created" "링크 복사"
+expect_in "http://localhost:$PORT/rooms/$ROOM_ID/created" "방 생성 완료"
+expect_in "http://localhost:$PORT/rooms/$ROOM_ID/created" "링크만 복사"
 
 expect_in "http://localhost:$PORT/rooms/$ROOM_ID" "smoke-test"
-expect_in "http://localhost:$PORT/rooms/$ROOM_ID" "닉네임 입력"
+expect_in "http://localhost:$PORT/rooms/$ROOM_ID" "반가워요"
 expect_in "http://localhost:$PORT/rooms/$ROOM_ID" "실시간 순위"
 
-expect_in "http://localhost:$PORT/rooms/DOES_NOT_EXIST_ABC" "찾을 수 없"
+expect_in "http://localhost:$PORT/rooms/DOES_NOT_EXIST_ABC" "방을 찾을 수 없어요"
 
 echo "[web-smoke] all checks passed"

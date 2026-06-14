@@ -105,8 +105,8 @@ export default function RoomView({
           setMe(null);
           setClientToken(undefined);
         }
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.warn('[room] me fetch failed', err);
       }
       if (!cancelled) setMeLoading(false);
     })();

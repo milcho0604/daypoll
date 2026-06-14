@@ -576,8 +576,9 @@ export class AdminService {
           payload ? JSON.stringify(payload) : null,
         ],
       );
-    } catch {
-      // 로그 실패가 어드민 작업 자체를 막지는 않게 한다.
+    } catch (err) {
+      // 로그 실패가 어드민 작업 자체를 막지는 않게 한다 — 단 docker logs 에는 남김.
+      console.warn('[admin] action log insert failed', err);
     }
   }
 }
