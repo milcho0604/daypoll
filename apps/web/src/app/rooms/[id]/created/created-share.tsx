@@ -49,7 +49,7 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
   }
 
   async function onCopyMessage() {
-    const msg = `같이 모일 날짜 정하기 🗓️\n로그인 없이 가능한 날만 체크하면 돼요.\n👉 ${url}`;
+    const msg = `우리 언제 모일까? 🗓️\n가입 X · 가능한 날만 체크하면 끝 (1분 컷)\n👉 ${url}`;
     try {
       await navigator.clipboard.writeText(msg);
       flashNotice('카톡용 문구 복사 완료!');
@@ -63,7 +63,7 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
     try {
       await navigator.share({
         title: '언제모여',
-        text: '같이 모일 날짜 정해요 🗓️',
+        text: '우리 언제 모일까? 가능한 날만 체크하면 끝 🗓️',
         url,
       });
       flashNotice('공유했어요!');

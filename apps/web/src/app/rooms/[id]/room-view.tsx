@@ -484,6 +484,12 @@ export default function RoomView({
           <p className="mt-1 text-sm text-zinc-500">
             친구들이 당신을 뭐라고 부를까요?
           </p>
+          {room.participantCount > 0 && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <span aria-hidden>✨</span>
+              이미 {room.participantCount}명이 답했어요
+            </p>
+          )}
           <form onSubmit={onJoin} className="mt-4 flex flex-col gap-3">
             <input
               type="text"
@@ -871,6 +877,9 @@ function RecoverModal({
         <h3 className="text-base font-semibold">PIN으로 복원</h3>
         <p className="mt-1 text-xs text-zinc-500">
           이 방에 처음 들어올 때 닉네임과 함께 설정한 PIN으로 본인 표를 되찾아옵니다.
+        </p>
+        <p className="mt-2 text-[11px] text-zinc-400">
+          PIN 까먹었으면? 단톡방에서 개설자한테 강퇴 부탁 → 다시 입장하면 돼요.
         </p>
         <div className="mt-4 flex flex-col gap-3">
           <input

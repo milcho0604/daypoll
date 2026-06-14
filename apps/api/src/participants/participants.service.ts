@@ -47,20 +47,35 @@ export class ParticipantsService {
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
+    const base = nickname.trim();
+    // 같은 방에 같은 닉네임이 이미 있으면 "지원 (2)" 식으로 자동 차별화.
+    // 친구 모임에서 "지수" "지수" 같이 흔한 충돌 방지 — 강퇴 사고도 막음.
+    const dup = await this.pool.query<{ c: string }>(
+      `SELECT COUNT(*)::text AS c FROM participants
+       WHERE room_id = $1 AND (nickname = $2 OR nickname LIKE $2 || ' (%)')`,
+      [roomId, base],
+    );
+    const conflicts = Number(dup.rows[0].c);
+    const finalNickname = conflicts === 0 ? base : `${base} (${conflicts + 1})`;
+
     const clientToken = newToken();
     const pinHash = pin ? hashPin(pin) : null;
-    const res = await this.pool.query<{ id: string }>(
+    const res = await this.pool.query<{ id: string; nickname: string }>(
       `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
        VALUES ($1, $2, $3, $4)
-       RETURNING id::text`,
-      [roomId, nickname.trim(), clientToken, pinHash],
+       RETURNING id::text, nickname`,
+      [roomId, finalNickname, clientToken, pinHash],
     );
     this.realtime.emitResultsUpdated(roomId); // 참여자 수 변경
     this.realtime.emitAdminEvent('participant_joined', {
       roomId,
-      nickname: nickname.trim(),
+      nickname: res.rows[0].nickname,
     });
-    return { participantId: Number(res.rows[0].id), clientToken };
+    return {
+      participantId: Number(res.rows[0].id),
+      clientToken,
+      nickname: res.rows[0].nickname,
+    };
   }
 
   async recover(
@@ -85,9 +100,10 @@ export class ParticipantsService {
 
     const candidates = await this.pool.query<{
       id: string;
+      nickname: string;
       pin_hash: string | null;
     }>(
-      `SELECT id::text, pin_hash FROM participants
+      `SELECT id::text, nickname, pin_hash FROM participants
        WHERE room_id = $1 AND nickname = $2 AND pin_hash IS NOT NULL
        ORDER BY created_at ASC`,
       [roomId, nickname.trim()],
@@ -101,7 +117,11 @@ export class ParticipantsService {
           [newCt, row.id],
         );
         this.pinFailures.delete(key); // 성공 시 카운터 삭제
-        return { participantId: Number(row.id), clientToken: newCt };
+        return {
+          participantId: Number(row.id),
+          clientToken: newCt,
+          nickname: row.nickname,
+        };
       }
     }
 

@@ -55,6 +55,9 @@ export interface RecoverParticipantRequest {
 export interface JoinRoomResponse {
   participantId: number;
   clientToken: string;
+  // 같은 방에 같은 닉네임이 있어 자동 차별화 됐으면 최종 닉네임을 돌려준다 ("지수 (2)" 등).
+  // 충돌 없으면 입력한 닉네임 그대로.
+  nickname?: string;
 }
 
 export interface UpdateAvailabilitiesRequest {
