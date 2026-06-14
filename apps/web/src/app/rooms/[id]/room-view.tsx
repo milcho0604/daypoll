@@ -15,6 +15,7 @@ import {
 } from '@/lib/rooms';
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
+import { recordRoom } from '@/lib/recent-rooms';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
 import EmptyState from '@/components/empty-state';
 
@@ -71,6 +72,11 @@ export default function RoomView({
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
   const isCreator = !!creatorToken;
+
+  // '내 방' 목록에 기록 — 입장/재방문/이미 참여한 방까지 이 한 곳에서 커버.
+  useEffect(() => {
+    recordRoom(roomId, room.title);
+  }, [roomId, room.title]);
 
   // 토큰 복원
   useEffect(() => {

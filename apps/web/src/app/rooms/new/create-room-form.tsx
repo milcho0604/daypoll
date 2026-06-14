@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { createRoom } from '@/lib/rooms';
 import { writeTokens } from '@/lib/tokens';
+import { recordRoom } from '@/lib/recent-rooms';
 import DateBuilder from '@/components/date-builder';
 
 function isoToLocalInput(d: Date) {
@@ -61,6 +62,7 @@ export default function CreateRoomForm() {
         deadline: useDeadline && deadline ? new Date(deadline).toISOString() : null,
       });
       writeTokens(res.roomId, { creatorToken: res.creatorToken });
+      recordRoom(res.roomId, title.trim());
       router.push(`/rooms/${res.roomId}/created`);
     } catch (err) {
       const msg =
