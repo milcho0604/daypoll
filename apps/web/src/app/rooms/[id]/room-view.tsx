@@ -656,7 +656,8 @@ export default function RoomView({
                 {expandedDates.has(r.dateId) && (
                   <div className="px-3 pb-3">
                     {r.voters && r.voters.length > 0 ? (
-                      <ul className="flex flex-wrap gap-1">
+                      // 참여자 많아도 행이 무한정 길어지지 않게 높이 제한 + 스크롤
+                      <ul className="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
                         {r.voters.map((v) => (
                           <li key={v.id}>
                             <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">

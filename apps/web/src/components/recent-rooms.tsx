@@ -5,8 +5,11 @@ import { useEffect, useState } from 'react';
 import { forgetRoom, isCreator, listRooms, type RecentRoom } from '@/lib/recent-rooms';
 
 // 홈에 깔리는 '내 방' 목록. 방문 기록이 없으면 아무것도 렌더하지 않는다(신규 사용자엔 무영향).
+const INITIAL = 4;
+
 export default function RecentRooms() {
   const [rooms, setRooms] = useState<RecentRoom[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     // localStorage 는 클라이언트 전용이라 마운트 후 한 번 동기화 (hydration 안전)
@@ -22,13 +25,15 @@ export default function RecentRooms() {
     setRooms((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
   };
 
+  const visible = showAll ? rooms : rooms.slice(0, INITIAL);
+
   return (
     <section className="fade-up w-full text-left">
       <h2 className="mb-2 px-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
         내 방
       </h2>
       <ul className="flex flex-col gap-2">
-        {rooms.map((r) => (
+        {visible.map((r) => (
           <li
             key={r.id}
             className="lift flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
@@ -55,6 +60,26 @@ export default function RecentRooms() {
           </li>
         ))}
       </ul>
+      {rooms.length > INITIAL && (
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            aria-expanded={showAll}
+            className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <span>
+              {showAll ? '접기' : `더 보기 (+${rooms.length - INITIAL})`}
+            </span>
+            <span
+              aria-hidden
+              className={`text-[10px] transition-transform ${showAll ? 'rotate-180' : ''}`}
+            >
+              ▾
+            </span>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
