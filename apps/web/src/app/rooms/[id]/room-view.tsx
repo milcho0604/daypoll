@@ -421,6 +421,12 @@ export default function RoomView({
             />
             <span className="text-xs">{live ? 'LIVE' : 'polling'}</span>
           </span>
+          {room.createdBy && (
+            <>
+              <span aria-hidden>·</span>
+              <span>by {room.createdBy}</span>
+            </>
+          )}
           <span aria-hidden>·</span>
           <span>참여자 {room.participantCount}명</span>
           <span aria-hidden>·</span>
@@ -465,6 +471,13 @@ export default function RoomView({
             >
               {resultsCopied ? '복사됨 ✓' : '결과 복사'}
             </button>
+            <a
+              href={`/rooms/${roomId}/opengraph-image`}
+              download={`${room.title}-결과.png`}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              📥 이미지 저장
+            </a>
           </div>
         </section>
       )}
@@ -558,6 +571,12 @@ export default function RoomView({
             candidates={room.dates}
             selectedIds={selected}
             onToggle={toggle}
+            onBulkSet={(ids) => {
+              if (isLocked || !clientToken) return;
+              const next = new Set(ids);
+              setSelected(next);
+              scheduleSave(next);
+            }}
             disabled={isLocked}
           />
         </section>

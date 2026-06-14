@@ -33,11 +33,13 @@ export class RoomsService {
     const roomId = newRoomId();
     const creatorToken = newToken();
 
+    const createdBy = dto.createdBy?.trim() || null;
+
     await withTransaction(this.pool, async (c) => {
       await c.query(
-        `INSERT INTO rooms (id, title, creator_token, deadline)
-         VALUES ($1, $2, $3, $4)`,
-        [roomId, dto.title, creatorToken, dto.deadline ?? null],
+        `INSERT INTO rooms (id, title, creator_token, deadline, created_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [roomId, dto.title, creatorToken, dto.deadline ?? null, createdBy],
       );
 
       const uniqueDates = Array.from(new Set(dto.dates));
@@ -60,9 +62,11 @@ export class RoomsService {
       title: string;
       deadline: Date | null;
       created_at: Date;
-    }>(`SELECT id, title, deadline, created_at FROM rooms WHERE id = $1`, [
-      roomId,
-    ]);
+      created_by: string | null;
+    }>(
+      `SELECT id, title, deadline, created_at, created_by FROM rooms WHERE id = $1`,
+      [roomId],
+    );
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -87,6 +91,7 @@ export class RoomsService {
       title: room.title,
       deadline: room.deadline ? room.deadline.toISOString() : null,
       createdAt: room.created_at.toISOString(),
+      createdBy: room.created_by ?? undefined,
       dates: datesRes.rows.map((r) => ({
         id: Number(r.id),
         date: r.the_date,

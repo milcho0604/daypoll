@@ -32,6 +32,7 @@ const DEADLINE_PRESETS = [
 export default function CreateRoomForm() {
   const router = useRouter();
   const [title, setTitle] = useState('');
+  const [createdBy, setCreatedBy] = useState('');
   const [dates, setDates] = useState<string[]>([]);
   const [useDeadline, setUseDeadline] = useState(false);
   const [deadline, setDeadline] = useState<string>('');
@@ -60,6 +61,7 @@ export default function CreateRoomForm() {
         title: title.trim(),
         dates,
         deadline: useDeadline && deadline ? new Date(deadline).toISOString() : null,
+        createdBy: createdBy.trim() || undefined,
       });
       writeTokens(res.roomId, { creatorToken: res.creatorToken });
       recordRoom(res.roomId, title.trim());
@@ -93,6 +95,18 @@ export default function CreateRoomForm() {
           className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
           required
         />
+        <input
+          id="createdBy"
+          type="text"
+          value={createdBy}
+          onChange={(e) => setCreatedBy(e.target.value)}
+          maxLength={20}
+          placeholder="내 닉네임 (선택)"
+          className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
+        />
+        <p className="text-xs text-zinc-500">
+          넣어두면 친구한테 "by 닉네임" 으로 누가 만든 모임인지 표시돼요.
+        </p>
       </section>
 
       <section className="flex flex-col gap-3">

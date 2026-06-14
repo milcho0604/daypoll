@@ -29,12 +29,14 @@ export interface RoomDetail extends RoomSummary {
   dates: RoomDate[];
   participantCount: number;
   results: DateResult[];
+  createdBy?: string;
 }
 
 export interface CreateRoomRequest {
   title: string;
   dates: string[]; // ISO date 문자열 배열
   deadline?: string | null;
+  createdBy?: string;
 }
 
 export interface CreateRoomResponse {

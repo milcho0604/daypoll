@@ -19,6 +19,8 @@ export interface DateAvailabilityPickerProps {
   candidates: { id: number; date: string }[];
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
+  // 빠른 선택 칩이 통째로 set 을 바꿀 때 사용. 없으면 칩 숨김.
+  onBulkSet?: (ids: number[]) => void;
   disabled?: boolean;
 }
 
@@ -29,6 +31,7 @@ export default function DateAvailabilityPicker({
   candidates,
   selectedIds,
   onToggle,
+  onBulkSet,
   disabled,
 }: DateAvailabilityPickerProps) {
   const idByIso = useMemo(() => {
@@ -83,6 +86,29 @@ export default function DateAvailabilityPicker({
     dragTouched.current.clear();
   }, []);
 
+  // 빠른 선택 칩 — 모바일 한 손 사용. 흔한 케이스 (주말만 / 평일만) 가 1탭.
+  const weekendIds = useMemo(
+    () =>
+      candidates
+        .filter((c) => {
+          const d = fromIso(c.date).getDay();
+          return d === 0 || d === 6;
+        })
+        .map((c) => c.id),
+    [candidates],
+  );
+  const weekdayIds = useMemo(
+    () =>
+      candidates
+        .filter((c) => {
+          const d = fromIso(c.date).getDay();
+          return d >= 1 && d <= 5;
+        })
+        .map((c) => c.id),
+    [candidates],
+  );
+  const allIds = useMemo(() => candidates.map((c) => c.id), [candidates]);
+
   if (candidates.length === 0) {
     return (
       <EmptyState
@@ -100,6 +126,44 @@ export default function DateAvailabilityPicker({
       onPointerLeave={endDrag}
       onPointerCancel={endDrag}
     >
+      {onBulkSet && !disabled && (
+        <div className="flex flex-wrap gap-1.5 px-2 pt-2">
+          {weekendIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onBulkSet(weekendIds)}
+              className="press h-9 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              주말만
+            </button>
+          )}
+          {weekdayIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onBulkSet(weekdayIds)}
+              className="press h-9 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              평일만
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onBulkSet(allIds)}
+            className="press h-9 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            다 가능
+          </button>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => onBulkSet([])}
+              className="press h-9 rounded-full border border-zinc-200 px-3 text-xs font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              초기화
+            </button>
+          )}
+        </div>
+      )}
       <DayPicker
         mode="multiple"
         locale={ko}
