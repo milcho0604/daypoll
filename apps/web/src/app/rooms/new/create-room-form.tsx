@@ -105,7 +105,7 @@ export default function CreateRoomForm() {
           className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
         />
         <p className="text-xs text-zinc-500">
-          넣어두면 친구한테 "by 닉네임" 으로 누가 만든 모임인지 표시돼요.
+          넣어두면 친구한테 &ldquo;by 닉네임&rdquo; 으로 누가 만든 모임인지 표시돼요.
         </p>
       </section>
 

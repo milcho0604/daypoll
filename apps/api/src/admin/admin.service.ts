@@ -591,7 +591,12 @@ function csvEscape(s: string): string {
   if (/^[=+\-@\t\r]/.test(v)) {
     v = `'${v}`;
   }
-  if (v.includes(',') || v.includes('"') || v.includes('\n') || v.includes('\r')) {
+  if (
+    v.includes(',') ||
+    v.includes('"') ||
+    v.includes('\n') ||
+    v.includes('\r')
+  ) {
     return `"${v.replace(/"/g, '""')}"`;
   }
   return v;
