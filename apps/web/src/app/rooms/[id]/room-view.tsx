@@ -47,6 +47,7 @@ export default function RoomView({
   const [usePin, setUsePin] = useState(false);
   const [pin, setPin] = useState('');
   const [showRecover, setShowRecover] = useState(false);
+  const [recoverNeedsNickname, setRecoverNeedsNickname] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<
@@ -307,19 +308,26 @@ export default function RoomView({
     }
   }
 
-  async function onRecover(nickname: string, pin: string) {
+  async function onRecover(pin: string, nickname?: string) {
     setBusy(true);
     setError(null);
     try {
-      const r = await recoverParticipant(roomId, { nickname, pin });
+      const r = await recoverParticipant(roomId, { pin, nickname });
       writeTokens(roomId, { clientToken: r.clientToken });
       setClientToken(r.clientToken);
       setShowRecover(false);
+      setRecoverNeedsNickname(false);
       const m = await getMe(roomId, r.clientToken);
       setMe(m);
       setSelected(new Set(m?.dateIds ?? []));
     } catch (err) {
-      setError(extractMsg(err));
+      // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지)
+      if (err instanceof ApiError && err.status === 409) {
+        setRecoverNeedsNickname(true);
+        setError('같은 PIN으로 가입한 친구가 여러 명이에요. 닉네임도 알려주세요.');
+      } else {
+        setError(extractMsg(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -803,9 +811,13 @@ export default function RoomView({
 
       {showRecover && (
         <RecoverModal
-          onClose={() => setShowRecover(false)}
+          onClose={() => {
+            setShowRecover(false);
+            setRecoverNeedsNickname(false);
+          }}
           onSubmit={onRecover}
           busy={busy}
+          needsNickname={recoverNeedsNickname}
         />
       )}
 
@@ -874,10 +886,13 @@ function RecoverModal({
   onClose,
   onSubmit,
   busy,
+  needsNickname,
 }: {
   onClose: () => void;
-  onSubmit: (nickname: string, pin: string) => void;
+  onSubmit: (pin: string, nickname?: string) => void;
   busy: boolean;
+  // true 면 같은 PIN 충돌이라 닉네임도 같이 받음
+  needsNickname?: boolean;
 }) {
   const [nickname, setNickname] = useState('');
   const [pin, setPin] = useState('');
@@ -895,13 +910,17 @@ function RecoverModal({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (nickname.trim() && /^\d{4}$/.test(pin)) onSubmit(nickname.trim(), pin);
+          if (!/^\d{4}$/.test(pin)) return;
+          if (needsNickname && !nickname.trim()) return;
+          onSubmit(pin, needsNickname ? nickname.trim() : undefined);
         }}
         className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl"
       >
         <h3 className="text-base font-semibold">PIN으로 복원</h3>
         <p className="mt-1 text-xs text-zinc-500">
-          이 방에 처음 들어올 때 닉네임과 함께 설정한 PIN으로 본인 표를 되찾아옵니다.
+          {needsNickname
+            ? '같은 PIN으로 가입한 친구가 여러 명이에요. 닉네임도 같이 알려주세요.'
+            : '이 방에 처음 들어올 때 설정한 PIN으로 본인 표를 되찾아옵니다.'}
         </p>
         <p className="mt-2 text-[11px] text-zinc-400">
           PIN 까먹었으면? 단톡방에서 개설자한테 강퇴 부탁 → 다시 입장하면 돼요.
@@ -909,23 +928,26 @@ function RecoverModal({
         <div className="mt-4 flex flex-col gap-3">
           <input
             type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="닉네임"
-            maxLength={20}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base dark:border-zinc-700 dark:bg-zinc-950"
-            required
-          />
-          <input
-            type="text"
             inputMode="numeric"
             pattern="\d{4}"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="0000"
-            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest dark:border-zinc-700 dark:bg-zinc-950"
+            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest outline-none focus:border-zinc-900 focus:ring-2 focus:ring-amber-400/40 dark:border-zinc-700 dark:bg-zinc-950"
             required
+            autoFocus
           />
+          {needsNickname && (
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="닉네임"
+              maxLength={20}
+              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-amber-400/40 dark:border-zinc-700 dark:bg-zinc-950"
+              required
+            />
+          )}
         </div>
         <div className="mt-5 flex gap-2">
           <button

@@ -77,6 +77,28 @@ body {
   animation: fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* ─── 접근성: 모션 줄이기 ─── */
+/* OS 에서 "모션 줄이기" 켠 사용자는 화면이 들썩이면 멀미·어지러움을 느낀다.
+   fade-up / pop-in / lift / press 같은 마이크로 인터랙션 전부 즉시 표시로 전환. */
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .pop-in {
+    animation: none !important;
+  }
+  .lift,
+  .press {
+    transition: none !important;
+    transform: none !important;
+  }
+  .lift:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  .press:active {
+    transform: none !important;
+  }
+}
+
 /* ─── react-day-picker 테마 — amber 액센트로 따뜻하게 ─── */
 .rdp-root {
   --rdp-accent-color: #f59e0b; /* amber-500 */

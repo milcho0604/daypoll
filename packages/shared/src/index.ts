@@ -50,8 +50,9 @@ export interface JoinRoomRequest {
 }
 
 export interface RecoverParticipantRequest {
-  nickname: string;
   pin: string;
+  // 같은 방에 같은 PIN 가입자 여러 명일 때만 추가로 묻는 fallback.
+  nickname?: string;
 }
 
 export interface JoinRoomResponse {

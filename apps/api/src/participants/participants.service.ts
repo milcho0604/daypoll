@@ -80,11 +80,12 @@ export class ParticipantsService {
 
   async recover(
     roomId: string,
-    nickname: string,
     pin: string,
+    nickname?: string,
   ): Promise<JoinRoomResponse> {
-    // 닉네임당 lockout 체크
-    const key = this.pinKey(roomId, nickname);
+    // lockout 키: 닉네임 있으면 (방, 닉네임), 없으면 (방) 전체.
+    // PIN-only 모드에서는 방 단위로만 묶어서 brute 차단.
+    const key = nickname ? this.pinKey(roomId, nickname) : `${roomId}::__any__`;
     const entry = this.pinFailures.get(key);
     const now = Date.now();
     if (entry && entry.until > now) {
@@ -94,38 +95,60 @@ export class ParticipantsService {
       );
     }
     if (entry && entry.until <= now) {
-      // 잠금 시간 지남 — 카운터 리셋
       this.pinFailures.delete(key);
     }
 
-    const candidates = await this.pool.query<{
-      id: string;
-      nickname: string;
-      pin_hash: string | null;
-    }>(
-      `SELECT id::text, nickname, pin_hash FROM participants
-       WHERE room_id = $1 AND nickname = $2 AND pin_hash IS NOT NULL
-       ORDER BY created_at ASC`,
-      [roomId, nickname.trim()],
-    );
-    for (const row of candidates.rows) {
-      if (verifyPin(pin, row.pin_hash)) {
-        // PIN 일치 → 새 client_token 재발급 (다른 기기에서 진입 가능)
-        const newCt = newToken();
-        await this.pool.query(
-          `UPDATE participants SET client_token = $1 WHERE id = $2`,
-          [newCt, row.id],
+    // 닉네임 있으면 그것만, 없으면 방 전체 PIN 후보 검색
+    const candidates = nickname
+      ? await this.pool.query<{
+          id: string;
+          nickname: string;
+          pin_hash: string | null;
+        }>(
+          `SELECT id::text, nickname, pin_hash FROM participants
+           WHERE room_id = $1 AND nickname = $2 AND pin_hash IS NOT NULL
+           ORDER BY created_at ASC`,
+          [roomId, nickname.trim()],
+        )
+      : await this.pool.query<{
+          id: string;
+          nickname: string;
+          pin_hash: string | null;
+        }>(
+          `SELECT id::text, nickname, pin_hash FROM participants
+           WHERE room_id = $1 AND pin_hash IS NOT NULL
+           ORDER BY created_at ASC`,
+          [roomId],
         );
-        this.pinFailures.delete(key); // 성공 시 카운터 삭제
-        return {
-          participantId: Number(row.id),
-          clientToken: newCt,
-          nickname: row.nickname,
-        };
-      }
+
+    const matches = candidates.rows.filter((row) =>
+      verifyPin(pin, row.pin_hash),
+    );
+
+    if (matches.length === 1) {
+      const row = matches[0];
+      const newCt = newToken();
+      await this.pool.query(
+        `UPDATE participants SET client_token = $1 WHERE id = $2`,
+        [newCt, row.id],
+      );
+      this.pinFailures.delete(key);
+      return {
+        participantId: Number(row.id),
+        clientToken: newCt,
+        nickname: row.nickname,
+      };
     }
 
-    // 실패 카운트 증가
+    if (matches.length > 1 && !nickname) {
+      // 같은 방에 같은 PIN 가입자 여러 명 — 모호. 닉네임으로 다시 시도하라고 클라이언트에 알림.
+      throw new HttpException(
+        'multiple matches — provide nickname',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // 0 매칭 → 실패 카운트 증가
     const next = (entry?.count ?? 0) + 1;
     if (next >= ParticipantsService.PIN_MAX_ATTEMPTS) {
       this.pinFailures.set(key, {
@@ -135,9 +158,7 @@ export class ParticipantsService {
     } else {
       this.pinFailures.set(key, { count: next, until: 0 });
     }
-
-    // 매칭 실패. 닉네임/핀 노출 안 되도록 단일 메시지.
-    throw new ForbiddenException('nickname or pin does not match');
+    throw new ForbiddenException('pin does not match');
   }
 
   async updateAvailabilities(

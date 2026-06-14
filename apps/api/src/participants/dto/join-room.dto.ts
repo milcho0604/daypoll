@@ -18,10 +18,12 @@ export class JoinRoomDto {
 }
 
 export class RecoverParticipantDto {
+  // 닉네임은 충돌 시 (같은 방에 같은 PIN 가입자 여러 명) 만 사용 — 평소엔 PIN 만으로 복원.
+  @IsOptional()
   @Transform(trim)
   @IsString()
   @Length(1, 20)
-  nickname!: string;
+  nickname?: string;
 
   @IsString()
   @Matches(/^\d{4}$/, { message: 'pin must be 4 digits' })

@@ -44,7 +44,7 @@ export class ParticipantsController {
   ) {
     // PIN 브루트포스 방지: 같은 IP+방 기준 10분당 10회.
     this.rl.check(`recover:${clientIp(req)}:${roomId}`, 10, 600);
-    return this.participants.recover(roomId, dto.nickname, dto.pin);
+    return this.participants.recover(roomId, dto.pin, dto.nickname);
   }
 
   @Get('me')
