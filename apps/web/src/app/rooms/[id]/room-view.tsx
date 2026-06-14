@@ -497,6 +497,9 @@ export default function RoomView({
           <p className="mt-1 text-sm text-zinc-500">
             친구들이 당신을 뭐라고 부를까요?
           </p>
+          <p className="mt-2 text-xs text-zinc-500">
+            ✨ 이 브라우저로 다시 오면 PIN 없이도 자동으로 본인 표 복원돼요.
+          </p>
           {room.participantCount > 0 && (
             <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               <span aria-hidden>✨</span>
@@ -520,8 +523,11 @@ export default function RoomView({
                 onChange={(e) => setUsePin(e.target.checked)}
                 className="h-5 w-5 rounded border-zinc-300"
               />
-              4자리 PIN 설정 (다른 기기에서 같은 사람으로 복원하고 싶을 때)
+              4자리 PIN 설정 (다른 기기에서 복원하고 싶을 때)
             </label>
+            <p className="-mt-1 ml-7 text-[11px] leading-5 text-zinc-400">
+              같은 브라우저: 자동 복원 ✓ &nbsp;·&nbsp; 다른 기기: PIN 필요
+            </p>
             {usePin && (
               <input
                 type="text"
