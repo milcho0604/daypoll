@@ -2,6 +2,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { initSentry, Sentry } from './sentry';
+
+// Nest 모든 미캐치 예외를 Sentry 로 전송.
+// 4xx 클라이언트 에러는 정상 흐름이라 제외 — 5xx 와 unhandled 만.
+initSentry();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,6 +34,16 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // 프로세스 차원 unhandled rejection / uncaught exception 도 Sentry 로.
+  process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', reason);
+    Sentry.captureException(reason);
+  });
+  process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', err);
+    Sentry.captureException(err);
+  });
 
   const port = Number(config.get<string>('API_PORT') ?? 3001);
   await app.listen(port);

@@ -50,6 +50,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-whenever}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whenever}
       CORS_ORIGIN: ${CORS_ORIGIN}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
+      # 비어있으면 Sentry init 이 자동 no-op
+      SENTRY_DSN: ${SENTRY_DSN:-}
     # cloudflared(호스트)가 http://localhost:3001 로 연결 → 127.0.0.1만 바인딩
     ports:
       - "127.0.0.1:3001:3001"
