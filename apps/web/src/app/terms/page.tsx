@@ -84,7 +84,7 @@ export default function TermsPage() {
               실제 진행과 결과에 대한 책임은 이용자 본인에게 있습니다.
             </li>
             <li>
-              천재지변, 정전, 서비스 인프라(Vercel, Tailscale, 운영 서버 등)의
+              천재지변, 정전, 서비스 인프라(Vercel, Cloudflare, 운영 서버 등)의
               장애로 인한 서비스 중단에 대해 운영자는 책임을 지지 않습니다.
             </li>
             <li>
