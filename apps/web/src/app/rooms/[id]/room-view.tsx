@@ -650,6 +650,13 @@ export default function RoomView({
               )}
               <button
                 type="button"
+                onClick={toggleAllExpanded}
+                className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                {allExpanded ? '전체 접기' : '전체 펼치기'}
+              </button>
+              <button
+                type="button"
                 onClick={() => void copyResults()}
                 className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
               >
