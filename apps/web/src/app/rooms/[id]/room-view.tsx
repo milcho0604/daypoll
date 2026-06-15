@@ -57,6 +57,7 @@ export default function RoomView({
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
+  const [view, setView] = useState<'date' | 'person'>('date');
   const [meLoading, setMeLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [resultsCopied, setResultsCopied] = useState(false);
@@ -207,6 +208,31 @@ export default function RoomView({
       if (b.votes !== a.votes) return b.votes - a.votes;
       return a.date.localeCompare(b.date);
     });
+  }, [room.results]);
+
+  // 사람별 뷰 — 참여자 → 그 사람이 가능 표시한 날짜들 (날짜별의 역집계).
+  const byPerson = useMemo(() => {
+    const map = new Map<
+      number,
+      { id: number; nickname: string; dates: { dateId: number; date: string }[] }
+    >();
+    for (const r of room.results) {
+      for (const v of r.voters ?? []) {
+        let p = map.get(v.id);
+        if (!p) {
+          p = { id: v.id, nickname: v.nickname, dates: [] };
+          map.set(v.id, p);
+        }
+        p.dates.push({ dateId: r.dateId, date: r.date });
+      }
+    }
+    const arr = [...map.values()];
+    for (const p of arr) p.dates.sort((a, b) => a.date.localeCompare(b.date));
+    arr.sort(
+      (a, b) =>
+        b.dates.length - a.dates.length || a.nickname.localeCompare(b.nickname),
+    );
+    return arr;
   }, [room.results]);
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
@@ -608,16 +634,20 @@ export default function RoomView({
 
       <section className="mt-8">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold">실시간 순위</h2>
+          <h2 className="text-base font-semibold">
+            {view === 'date' ? '실시간 순위' : '참여자별 가능 날짜'}
+          </h2>
           {sortedResults.length > 0 && sortedResults[0].votes > 0 && (
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleAllExpanded}
-                className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-              >
-                {allExpanded ? '전체 접기' : '전체 펼치기'}
-              </button>
+              {view === 'date' && (
+                <button
+                  type="button"
+                  onClick={toggleAllExpanded}
+                  className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  {allExpanded ? '전체 접기' : '전체 펼치기'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => void copyResults()}
@@ -634,8 +664,70 @@ export default function RoomView({
             </div>
           )}
         </div>
+        {sortedResults.length > 0 && (
+          <div className="mt-3 inline-flex rounded-full border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+            <button
+              type="button"
+              onClick={() => setView('date')}
+              className={`press h-8 rounded-full px-3.5 text-xs font-medium transition-colors ${
+                view === 'date'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                  : 'text-zinc-500 dark:text-zinc-400'
+              }`}
+            >
+              날짜별
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('person')}
+              className={`press h-8 rounded-full px-3.5 text-xs font-medium transition-colors ${
+                view === 'person'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                  : 'text-zinc-500 dark:text-zinc-400'
+              }`}
+            >
+              사람별
+            </button>
+          </div>
+        )}
         {sortedResults.length === 0 ? (
           <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
+        ) : view === 'person' ? (
+          byPerson.length === 0 ? (
+            <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
+          ) : (
+            <ul className="mt-3 flex flex-col gap-2">
+              {byPerson.map((p) => (
+                <li
+                  key={p.id}
+                  className="lift rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">
+                      {p.nickname}
+                      {me?.participantId === p.id && (
+                        <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                          (나)
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-zinc-500">
+                      {p.dates.length}일 가능
+                    </span>
+                  </div>
+                  <ul className="mt-2 flex flex-wrap gap-1">
+                    {p.dates.map((d) => (
+                      <li key={d.dateId}>
+                        <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          {formatDateKR(d.date)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
             {(showAllResults
@@ -748,7 +840,7 @@ export default function RoomView({
             ))}
           </ol>
         )}
-        {sortedResults.length > RESULTS_PREVIEW && (
+        {view === 'date' && sortedResults.length > RESULTS_PREVIEW && (
           <div className="mt-3 flex justify-center">
             <button
               type="button"
