@@ -217,6 +217,16 @@ export default function RoomView({
       ? sortedResults[0]
       : null;
 
+  // 순위 전체 펼치기/접기 — 행마다 탭하지 않고 누가 어느 날짜에 됐는지 한 번에.
+  const expandableIds = sortedResults
+    .filter((r) => r.votes > 0)
+    .map((r) => r.dateId);
+  const allExpanded =
+    expandableIds.length > 0 &&
+    expandableIds.every((id) => expandedDates.has(id));
+  const toggleAllExpanded = () =>
+    setExpandedDates(allExpanded ? new Set() : new Set(expandableIds));
+
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
     const next = new Set(selected);
@@ -601,6 +611,13 @@ export default function RoomView({
           <h2 className="text-base font-semibold">실시간 순위</h2>
           {sortedResults.length > 0 && sortedResults[0].votes > 0 && (
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleAllExpanded}
+                className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                {allExpanded ? '전체 접기' : '전체 펼치기'}
+              </button>
               <button
                 type="button"
                 onClick={() => void copyResults()}
