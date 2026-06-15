@@ -959,7 +959,7 @@ function RecoverModal({
           </button>
           <button
             type="submit"
-            disabled={busy || !nickname.trim() || pin.length !== 4}
+            disabled={busy || pin.length !== 4 || (needsNickname && !nickname.trim())}
             className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900"
           >
             {busy ? '복원 중…' : '복원'}
