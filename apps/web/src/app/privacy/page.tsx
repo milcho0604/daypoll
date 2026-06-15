@@ -5,7 +5,7 @@ export const metadata = {
   description: '언제모여 서비스의 개인정보 수집 및 처리 방침.',
 };
 
-const LAST_UPDATED = '2026-06-08';
+const LAST_UPDATED = '2026-06-15';
 
 export default function PrivacyPage() {
   return (
@@ -87,8 +87,9 @@ export default function PrivacyPage() {
             headers={['수탁 사업자', '위탁 업무']}
             rows={[
               ['Vercel Inc. (미국)', '프론트엔드 호스팅 (Next.js)'],
-              ['Tailscale Inc. (캐나다)', '백엔드 네트워크 터널링'],
+              ['Cloudflare, Inc. (미국)', '백엔드 네트워크 터널링 · CDN · WAF'],
               ['자체 운영 (대한민국)', 'PostgreSQL 데이터베이스 (맥 서버)'],
+              ['Sentry (Functional Software, Inc., 미국)', '오류 모니터링 — 장애 발생 시 진단 정보(요청 경로 등) 일시 수집'],
               ['Vercel Analytics', '익명 트래픽 통계 (쿠키 미사용, 개인 식별 X)'],
             ]}
           />
