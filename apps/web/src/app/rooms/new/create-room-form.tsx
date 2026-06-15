@@ -65,6 +65,10 @@ export default function CreateRoomForm() {
       });
       writeTokens(res.roomId, { creatorToken: res.creatorToken });
       recordRoom(res.roomId, title.trim());
+      // 방장이 'by 닉네임' 을 넣었으면 투표 입장 폼 닉네임으로 자동 채워준다 (재입력 0).
+      if (createdBy.trim()) {
+        window.localStorage.setItem('whenever_last_nickname', createdBy.trim());
+      }
       router.push(`/rooms/${res.roomId}/created`);
     } catch (err) {
       const msg =
