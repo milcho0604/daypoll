@@ -1,17 +1,11 @@
 import { ImageResponse } from 'next/og';
 import { getRoom } from '@/lib/rooms';
+import { formatDateKRLong } from '@/lib/format';
 
 export const runtime = 'nodejs';
 export const alt = '언제모여 — 방 공유 카드';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-
-function formatDateKR(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const weekday = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
-  return `${m}월 ${d}일 (${weekday})`;
-}
 
 export default async function OgImage({
   params,
@@ -32,7 +26,7 @@ export default async function OgImage({
       return a.date.localeCompare(b.date);
     });
     if (sorted[0] && sorted[0].votes > 0) {
-      topLabel = formatDateKR(sorted[0].date);
+      topLabel = formatDateKRLong(sorted[0].date);
       votes = sorted[0].votes;
     }
   } catch {

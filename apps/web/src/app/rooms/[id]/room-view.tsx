@@ -16,8 +16,14 @@ import {
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
+import { formatDateKR } from '@/lib/format';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
 import EmptyState from '@/components/empty-state';
+import ConfirmModal from '@/components/confirm-modal';
+import RecoverModal from '@/components/room/recover-modal';
+import DeadlineModal from '@/components/room/deadline-modal';
+import RankList from '@/components/room/rank-list';
+import PersonList from '@/components/room/person-list';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -54,6 +60,7 @@ export default function RoomView({
     'idle' | 'pending' | 'saving' | 'saved' | 'error'
   >('idle');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
@@ -239,11 +246,20 @@ export default function RoomView({
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
 
-  // 마감 + 표가 있으면 1위가 곧 확정 날짜
-  const winner =
-    isLocked && sortedResults[0] && sortedResults[0].votes > 0
-      ? sortedResults[0]
-      : null;
+  // 1위(들) — 동표면 공동 1위. 순위 트로피/하이라이트 + 마감 확정 카드 공용.
+  const winnerIds = new Set<number>(
+    maxVotes > 0
+      ? sortedResults.filter((r) => r.votes === maxVotes).map((r) => r.dateId)
+      : [],
+  );
+  // 마감되면 1위(들)가 확정 날짜.
+  const winners =
+    isLocked && maxVotes > 0
+      ? sortedResults.filter((r) => r.votes === maxVotes)
+      : [];
+
+  // 사람별 뷰 하단 — 아직 한 표도 안 던진 참여자 수 (독촉용).
+  const nonVoterCount = Math.max(0, room.participantCount - byPerson.length);
 
   // 순위 전체 펼치기/접기 — 행마다 탭하지 않고 누가 어느 날짜에 됐는지 한 번에.
   const expandableIds = sortedResults
@@ -452,6 +468,25 @@ export default function RoomView({
     }
   }
 
+  // 방 종료 = 지금 즉시 마감(deadline=now). 기존 잠금 로직 재사용 → 투표 차단 + 확정 카드.
+  async function closeRoom() {
+    if (!creatorToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await updateDeadline(roomId, creatorToken, {
+        deadline: new Date().toISOString(),
+      });
+      setRoom((prev) => ({ ...prev, deadline: r.deadline }));
+      setNow(Date.now());
+      setShowCloseConfirm(false);
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5 pb-32 pt-6 sm:pt-10">
       <header className="mb-4">
@@ -495,21 +530,42 @@ export default function RoomView({
               >
                 마감일 수정
               </button>
+              {!isLocked && (
+                <>
+                  <span aria-hidden>·</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCloseConfirm(true)}
+                    className="text-xs font-medium text-rose-600 underline underline-offset-2 hover:text-rose-700 dark:text-rose-400"
+                  >
+                    방 종료
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
       </header>
 
-      {winner && (
+      {winners.length > 0 && (
         <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
-            🏆 투표 마감 — 날짜 확정!
+            🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          <p className="mt-3 text-3xl font-bold tracking-tight">
-            {formatDateKR(winner.date)}
-          </p>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {winners.map((w, i) => (
+              <p key={w.dateId} className="text-3xl font-bold tracking-tight">
+                {formatDateKR(w.date)}
+                {i < winners.length - 1 && (
+                  <span className="ml-3 text-zinc-300 dark:text-zinc-600">·</span>
+                )}
+              </p>
+            ))}
+          </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {winner.votes}표 · 참여자 {room.participantCount}명
+            {winners[0].votes}표
+            {winners.length > 1 ? ` · ${winners.length}일 동률` : ''} · 참여자{' '}
+            {room.participantCount}명
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <a
@@ -710,210 +766,29 @@ export default function RoomView({
         {sortedResults.length === 0 ? (
           <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
         ) : view === 'person' ? (
-          byPerson.length === 0 ? (
-            <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
-          ) : (
-            <ul className="mt-3 flex flex-col gap-2">
-              {byPerson.map((p) => {
-                const isExp = expandedPersons.has(p.id);
-                const shown = isExp
-                  ? p.dates
-                  : p.dates.slice(0, PERSON_PREVIEW);
-                return (
-                  <li
-                    key={p.id}
-                    className="lift rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">
-                        {p.nickname}
-                        {me?.participantId === p.id && (
-                          <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
-                            (나)
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-500">
-                        {p.dates.length}일 가능
-                      </span>
-                    </div>
-                    <ul className="mt-2 grid grid-cols-4 gap-1.5">
-                      {shown.map((d) => (
-                        <li key={d.dateId}>
-                          <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-zinc-100 px-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                            {formatDateKR(d.date)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {p.dates.length > PERSON_PREVIEW && (
-                      <button
-                        type="button"
-                        onClick={() => togglePerson(p.id)}
-                        aria-expanded={isExp}
-                        aria-label={
-                          isExp
-                            ? '접기'
-                            : `날짜 ${p.dates.length - PERSON_PREVIEW}개 더 보기`
-                        }
-                        className="press mt-1.5 flex w-full items-center justify-center rounded-lg py-1 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-300"
-                      >
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className={`h-4 w-4 transition-transform ${
-                            isExp ? 'rotate-180' : ''
-                          }`}
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )
+          <PersonList
+            people={byPerson}
+            mePid={me?.participantId}
+            expanded={expandedPersons}
+            onToggle={togglePerson}
+            preview={PERSON_PREVIEW}
+            nonVoterCount={nonVoterCount}
+          />
         ) : (
-          <ol className="mt-3 flex flex-col gap-2">
-            {(showAllResults
-              ? sortedResults
-              : sortedResults.slice(0, RESULTS_PREVIEW)
-            ).map((r, idx) => (
-              <li
-                key={r.dateId}
-                className={`lift overflow-hidden rounded-xl border bg-white transition-colors dark:bg-zinc-900 ${
-                  idx === 0 && r.votes > 0
-                    ? 'border-amber-300 ring-1 ring-amber-200/60 dark:border-amber-700 dark:ring-amber-900/60'
-                    : 'border-zinc-200 dark:border-zinc-800'
-                }`}
-              >
-                {/* 행 전체 탭 → 누가 투표했는지 펼침 */}
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(r.dateId)}
-                  aria-expanded={expandedDates.has(r.dateId)}
-                  className="press w-full p-3 text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {idx === 0 && r.votes > 0 ? (
-                        // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
-                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
-                          <span className="block translate-y-[0.5px]">🏆</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold leading-none text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                          {idx + 1}
-                        </span>
-                      )}
-                      <span className="text-sm font-medium">
-                        {formatDateKR(r.date)}
-                      </span>
-                      {clientToken && selected.has(r.dateId) && (
-                        <span
-                          title="내가 고른 날"
-                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
-                        />
-                      )}
-                    </div>
-                    <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-                      <span>
-                        <strong className="text-zinc-900 dark:text-zinc-100">
-                          {r.votes}
-                        </strong>
-                        표
-                      </span>
-                      <span
-                        aria-hidden
-                        className={`text-[10px] text-zinc-400 transition-transform ${
-                          expandedDates.has(r.dateId) ? 'rotate-180' : ''
-                        }`}
-                      >
-                        ▾
-                      </span>
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                      className={`h-full transition-all duration-500 ${
-                        idx === 0 && r.votes > 0
-                          ? 'bg-gradient-to-r from-amber-400 to-amber-600'
-                          : 'bg-zinc-900 dark:bg-zinc-100'
-                      }`}
-                      style={{
-                        width: `${maxVotes ? (r.votes / maxVotes) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                </button>
-                {expandedDates.has(r.dateId) && (
-                  <div className="px-3 pb-3">
-                    {r.voters && r.voters.length > 0 ? (
-                      // 참여자 많아도 행이 무한정 길어지지 않게 높이 제한 + 스크롤
-                      <ul className="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
-                        {r.voters.map((v) => (
-                          <li key={v.id}>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                              {v.nickname}
-                              {isCreator && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setKickTarget({
-                                      id: v.id,
-                                      nickname: v.nickname,
-                                    })
-                                  }
-                                  aria-label={`${v.nickname} 내보내기`}
-                                  className="press ml-0.5 text-zinc-400 hover:text-rose-600"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-zinc-400">
-                        아직 아무도 안 골랐어요
-                      </p>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-        {view === 'date' && sortedResults.length > RESULTS_PREVIEW && (
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setShowAllResults((v) => !v)}
-              aria-expanded={showAllResults}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              <span>
-                {showAllResults
-                  ? '접기'
-                  : `더 보기 (+${sortedResults.length - RESULTS_PREVIEW})`}
-              </span>
-              <span
-                aria-hidden
-                className={`text-[10px] transition-transform ${
-                  showAllResults ? 'rotate-180' : ''
-                }`}
-              >
-                ▾
-              </span>
-            </button>
-          </div>
+          <RankList
+            results={sortedResults}
+            maxVotes={maxVotes}
+            winnerIds={winnerIds}
+            expandedDates={expandedDates}
+            onToggleExpanded={toggleExpanded}
+            selected={selected}
+            hasToken={!!clientToken}
+            isCreator={isCreator}
+            onKick={(id, nickname) => setKickTarget({ id, nickname })}
+            showAll={showAllResults}
+            onToggleShowAll={() => setShowAllResults((v) => !v)}
+            preview={RESULTS_PREVIEW}
+          />
         )}
       </section>
 
@@ -981,152 +856,34 @@ export default function RoomView({
         />
       )}
 
-      {kickTarget && (
-        <KickModal
-          nickname={kickTarget.nickname}
-          busy={busy}
-          onClose={() => setKickTarget(null)}
-          onConfirm={() => void confirmKick()}
-        />
-      )}
+      <ConfirmModal
+        open={!!kickTarget}
+        title={kickTarget ? `${kickTarget.nickname} 내보내기` : ''}
+        message={
+          kickTarget
+            ? `방에서 내보내면 ${kickTarget.nickname}의 표도 같이 사라져요. 되돌릴 수 없어요.`
+            : undefined
+        }
+        confirmLabel="내보내기"
+        danger
+        busy={busy}
+        onConfirm={() => void confirmKick()}
+        onCancel={() => setKickTarget(null)}
+      />
+
+      <ConfirmModal
+        open={showCloseConfirm}
+        title="방을 지금 종료할까요?"
+        message={
+          '종료하면 더 이상 투표할 수 없어요. 지금까지의 1위가 확정으로 표시돼요.\n(나중에 마감일 수정에서 다시 열 수 있어요.)'
+        }
+        confirmLabel="방 종료"
+        danger
+        busy={busy}
+        onConfirm={() => void closeRoom()}
+        onCancel={() => setShowCloseConfirm(false)}
+      />
     </main>
-  );
-}
-
-function KickModal({
-  nickname,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  nickname: string;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  useEscClose(onClose);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${nickname} 내보내기`}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
-        <h3 className="text-base font-semibold">{nickname} 내보내기</h3>
-        <p className="mt-1 text-sm text-zinc-500">
-          방에서 내보내면 {nickname}의 표도 같이 사라져요. 되돌릴 수 없어요.
-        </p>
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="press h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="press h-11 flex-1 rounded-full bg-rose-50 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-rose-950/40 dark:text-rose-300 dark:disabled:bg-zinc-700"
-          >
-            {busy ? '내보내는 중…' : '내보내기'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RecoverModal({
-  onClose,
-  onSubmit,
-  busy,
-  needsNickname,
-}: {
-  onClose: () => void;
-  onSubmit: (pin: string, nickname?: string) => void;
-  busy: boolean;
-  // true 면 같은 PIN 충돌이라 닉네임도 같이 받음
-  needsNickname?: boolean;
-}) {
-  const [nickname, setNickname] = useState('');
-  const [pin, setPin] = useState('');
-  useEscClose(onClose);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="PIN으로 복원"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!/^\d{4}$/.test(pin)) return;
-          if (needsNickname && !nickname.trim()) return;
-          onSubmit(pin, needsNickname ? nickname.trim() : undefined);
-        }}
-        className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl"
-      >
-        <h3 className="text-base font-semibold">PIN으로 복원</h3>
-        <p className="mt-1 text-xs text-zinc-500">
-          {needsNickname
-            ? '같은 PIN으로 가입한 친구가 여러 명이에요. 닉네임도 같이 알려주세요.'
-            : '이 방에 처음 들어올 때 설정한 PIN으로 본인 표를 되찾아옵니다.'}
-        </p>
-        <p className="mt-2 text-[11px] text-zinc-400">
-          PIN 까먹었으면? 단톡방에서 개설자한테 강퇴 부탁 → 다시 입장하면 돼요.
-        </p>
-        <div className="mt-4 flex flex-col gap-3">
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="\d{4}"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            placeholder="0000"
-            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest outline-none focus:border-zinc-900 focus:ring-2 focus:ring-amber-400/40 dark:border-zinc-700 dark:bg-zinc-950"
-            required
-            autoFocus
-          />
-          {needsNickname && (
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="닉네임"
-              maxLength={20}
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-amber-400/40 dark:border-zinc-700 dark:bg-zinc-950"
-              required
-            />
-          )}
-        </div>
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            disabled={busy || pin.length !== 4 || (needsNickname && !nickname.trim())}
-            className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900"
-          >
-            {busy ? '복원 중…' : '복원'}
-          </button>
-        </div>
-      </form>
-    </div>
   );
 }
 
@@ -1148,101 +905,6 @@ function DeadlineLabel({ deadline, now }: { deadline: string | null; now: number
   if (days > 0) return <span className={cls}>D-{days}</span>;
   if (hours > 0) return <span className={cls}>{hours}시간 후 마감 ⏰</span>;
   return <span className={cls}>{minutes}분 후 마감 ⏰</span>;
-}
-
-function DeadlineModal({
-  current,
-  onClose,
-  onSave,
-}: {
-  current: string | null;
-  onClose: () => void;
-  onSave: (value: string | null) => void;
-}) {
-  const [useDeadline, setUseDeadline] = useState(!!current);
-  const [value, setValue] = useState(() => {
-    const base = current ? new Date(current) : new Date(Date.now() + 86400000);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
-  });
-
-  useEscClose(onClose);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="마감일 수정"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
-        <h3 className="text-base font-semibold">마감일 수정</h3>
-        <label className="mt-4 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={useDeadline}
-            onChange={(e) => setUseDeadline(e.target.checked)}
-            className="h-5 w-5 rounded border-zinc-300"
-          />
-          마감일 설정
-        </label>
-        {useDeadline && (
-          <input
-            type="datetime-local"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
-          />
-        )}
-        {!useDeadline && (
-          <p className="mt-2 text-xs text-zinc-500">해제하면 무기한이 됩니다.</p>
-        )}
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!useDeadline) return onSave(null);
-              const t = new Date(value).getTime();
-              if (Number.isNaN(t)) return; // 빈/잘못된 입력 무시
-              onSave(new Date(t).toISOString());
-            }}
-            className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
-          >
-            저장
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// 모달 공통 — ESC 키로 닫기 (바깥 탭 닫기는 각 오버레이의 onClick 에서)
-function useEscClose(onClose: () => void) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-}
-
-function formatDateKR(iso: string) {
-  // 'YYYY-MM-DD' → 'M/D (요일)'
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const weekday = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
-  return `${m}/${d} (${weekday})`;
 }
 
 function extractMsg(err: unknown): string {
