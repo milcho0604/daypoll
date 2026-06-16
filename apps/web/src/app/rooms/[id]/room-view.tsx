@@ -16,8 +16,10 @@ import {
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
+import { formatDateKR } from '@/lib/format';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
 import EmptyState from '@/components/empty-state';
+import ConfirmModal from '@/components/confirm-modal';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -54,6 +56,7 @@ export default function RoomView({
     'idle' | 'pending' | 'saving' | 'saved' | 'error'
   >('idle');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
@@ -239,11 +242,20 @@ export default function RoomView({
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
 
-  // 마감 + 표가 있으면 1위가 곧 확정 날짜
-  const winner =
-    isLocked && sortedResults[0] && sortedResults[0].votes > 0
-      ? sortedResults[0]
-      : null;
+  // 1위(들) — 동표면 공동 1위. 순위 트로피/하이라이트 + 마감 확정 카드 공용.
+  const winnerIds = new Set<number>(
+    maxVotes > 0
+      ? sortedResults.filter((r) => r.votes === maxVotes).map((r) => r.dateId)
+      : [],
+  );
+  // 마감되면 1위(들)가 확정 날짜.
+  const winners =
+    isLocked && maxVotes > 0
+      ? sortedResults.filter((r) => r.votes === maxVotes)
+      : [];
+
+  // 사람별 뷰 하단 — 아직 한 표도 안 던진 참여자 수 (독촉용).
+  const nonVoterCount = Math.max(0, room.participantCount - byPerson.length);
 
   // 순위 전체 펼치기/접기 — 행마다 탭하지 않고 누가 어느 날짜에 됐는지 한 번에.
   const expandableIds = sortedResults
@@ -452,6 +464,25 @@ export default function RoomView({
     }
   }
 
+  // 방 종료 = 지금 즉시 마감(deadline=now). 기존 잠금 로직 재사용 → 투표 차단 + 확정 카드.
+  async function closeRoom() {
+    if (!creatorToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await updateDeadline(roomId, creatorToken, {
+        deadline: new Date().toISOString(),
+      });
+      setRoom((prev) => ({ ...prev, deadline: r.deadline }));
+      setNow(Date.now());
+      setShowCloseConfirm(false);
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5 pb-32 pt-6 sm:pt-10">
       <header className="mb-4">
@@ -495,21 +526,42 @@ export default function RoomView({
               >
                 마감일 수정
               </button>
+              {!isLocked && (
+                <>
+                  <span aria-hidden>·</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCloseConfirm(true)}
+                    className="text-xs font-medium text-rose-600 underline underline-offset-2 hover:text-rose-700 dark:text-rose-400"
+                  >
+                    방 종료
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
       </header>
 
-      {winner && (
+      {winners.length > 0 && (
         <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
-            🏆 투표 마감 — 날짜 확정!
+            🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          <p className="mt-3 text-3xl font-bold tracking-tight">
-            {formatDateKR(winner.date)}
-          </p>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {winners.map((w, i) => (
+              <p key={w.dateId} className="text-3xl font-bold tracking-tight">
+                {formatDateKR(w.date)}
+                {i < winners.length - 1 && (
+                  <span className="ml-3 text-zinc-300 dark:text-zinc-600">·</span>
+                )}
+              </p>
+            ))}
+          </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {winner.votes}표 · 참여자 {room.participantCount}명
+            {winners[0].votes}표
+            {winners.length > 1 ? ` · ${winners.length}일 동률` : ''} · 참여자{' '}
+            {room.participantCount}명
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <a
@@ -713,6 +765,7 @@ export default function RoomView({
           byPerson.length === 0 ? (
             <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
           ) : (
+            <>
             <ul className="mt-3 flex flex-col gap-2">
               {byPerson.map((p) => {
                 const isExp = expandedPersons.has(p.id);
@@ -778,6 +831,12 @@ export default function RoomView({
                 );
               })}
             </ul>
+            {nonVoterCount > 0 && (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                아직 {nonVoterCount}명이 안 골랐어요
+              </p>
+            )}
+            </>
           )
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
@@ -788,7 +847,7 @@ export default function RoomView({
               <li
                 key={r.dateId}
                 className={`lift overflow-hidden rounded-xl border bg-white transition-colors dark:bg-zinc-900 ${
-                  idx === 0 && r.votes > 0
+                  winnerIds.has(r.dateId)
                     ? 'border-amber-300 ring-1 ring-amber-200/60 dark:border-amber-700 dark:ring-amber-900/60'
                     : 'border-zinc-200 dark:border-zinc-800'
                 }`}
@@ -802,7 +861,7 @@ export default function RoomView({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {idx === 0 && r.votes > 0 ? (
+                      {winnerIds.has(r.dateId) ? (
                         // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
                         <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
                           <span className="block translate-y-[0.5px]">🏆</span>
@@ -842,7 +901,7 @@ export default function RoomView({
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                     <div
                       className={`h-full transition-all duration-500 ${
-                        idx === 0 && r.votes > 0
+                        winnerIds.has(r.dateId)
                           ? 'bg-gradient-to-r from-amber-400 to-amber-600'
                           : 'bg-zinc-900 dark:bg-zinc-100'
                       }`}
@@ -981,64 +1040,34 @@ export default function RoomView({
         />
       )}
 
-      {kickTarget && (
-        <KickModal
-          nickname={kickTarget.nickname}
-          busy={busy}
-          onClose={() => setKickTarget(null)}
-          onConfirm={() => void confirmKick()}
-        />
-      )}
-    </main>
-  );
-}
+      <ConfirmModal
+        open={!!kickTarget}
+        title={kickTarget ? `${kickTarget.nickname} 내보내기` : ''}
+        message={
+          kickTarget
+            ? `방에서 내보내면 ${kickTarget.nickname}의 표도 같이 사라져요. 되돌릴 수 없어요.`
+            : undefined
+        }
+        confirmLabel="내보내기"
+        danger
+        busy={busy}
+        onConfirm={() => void confirmKick()}
+        onCancel={() => setKickTarget(null)}
+      />
 
-function KickModal({
-  nickname,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  nickname: string;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  useEscClose(onClose);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${nickname} 내보내기`}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
-        <h3 className="text-base font-semibold">{nickname} 내보내기</h3>
-        <p className="mt-1 text-sm text-zinc-500">
-          방에서 내보내면 {nickname}의 표도 같이 사라져요. 되돌릴 수 없어요.
-        </p>
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="press h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="press h-11 flex-1 rounded-full bg-rose-50 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-rose-950/40 dark:text-rose-300 dark:disabled:bg-zinc-700"
-          >
-            {busy ? '내보내는 중…' : '내보내기'}
-          </button>
-        </div>
-      </div>
-    </div>
+      <ConfirmModal
+        open={showCloseConfirm}
+        title="방을 지금 종료할까요?"
+        message={
+          '종료하면 더 이상 투표할 수 없어요. 지금까지의 1위가 확정으로 표시돼요.\n(나중에 마감일 수정에서 다시 열 수 있어요.)'
+        }
+        confirmLabel="방 종료"
+        danger
+        busy={busy}
+        onConfirm={() => void closeRoom()}
+        onCancel={() => setShowCloseConfirm(false)}
+      />
+    </main>
   );
 }
 
@@ -1235,14 +1264,6 @@ function useEscClose(onClose: () => void) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
-}
-
-function formatDateKR(iso: string) {
-  // 'YYYY-MM-DD' → 'M/D (요일)'
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const weekday = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
-  return `${m}/${d} (${weekday})`;
 }
 
 function extractMsg(err: unknown): string {

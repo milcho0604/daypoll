@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { RoomDetail } from '@whenever/shared';
 import { ApiError } from '@/lib/api';
 import { getRoom } from '@/lib/rooms';
+import { formatDateKR } from '@/lib/format';
+import ForgetRoomOnMount from '@/components/forget-room-on-mount';
 import RoomView from './room-view';
 
 // 방 껍데기(제목/후보 날짜)는 생성 후 불변 — 30초 ISR 로 첫 페인트의 백엔드 왕복 제거.
@@ -67,6 +69,8 @@ export default async function RoomPage({
   if (!room) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12 text-center">
+        {/* 삭제/만료된 방이면 '내 방' 목록에서 자동 제거 (일시적 로드 실패는 제외) */}
+        {notFound && <ForgetRoomOnMount roomId={id} />}
         <h1 className="text-xl font-semibold">
           {notFound ? '방을 찾을 수 없어요' : '방을 불러오지 못했어요'}
         </h1>
@@ -86,11 +90,3 @@ export default async function RoomPage({
   return <RoomView roomId={id} initial={room} />;
 }
 
-function formatDateKR(iso: string) {
-  // 'YYYY-MM-DD' → 'M/D (요일)'
-  const [y, m, d] = iso.split('-').map(Number);
-  const weekday = ['일', '월', '화', '수', '목', '금', '토'][
-    new Date(y, m - 1, d).getDay()
-  ];
-  return `${m}/${d} (${weekday})`;
-}
