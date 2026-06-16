@@ -62,6 +62,7 @@ export default function RoomView({
   const [linkCopied, setLinkCopied] = useState(false);
   const [resultsCopied, setResultsCopied] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Set<number>>(new Set());
+  const [expandedPersons, setExpandedPersons] = useState<Set<number>>(new Set());
   const [kickTarget, setKickTarget] = useState<{
     id: number;
     nickname: string;
@@ -71,6 +72,7 @@ export default function RoomView({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const RESULTS_PREVIEW = 5;
+  const PERSON_PREVIEW = 8; // 사람별 뷰 — 2줄(grid-cols-4) 미리보기
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
   const isCreator = !!creatorToken;
@@ -252,6 +254,14 @@ export default function RoomView({
     expandableIds.every((id) => expandedDates.has(id));
   const toggleAllExpanded = () =>
     setExpandedDates(allExpanded ? new Set() : new Set(expandableIds));
+
+  const togglePerson = (id: number) =>
+    setExpandedPersons((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
@@ -704,35 +714,69 @@ export default function RoomView({
             <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
           ) : (
             <ul className="mt-3 flex flex-col gap-2">
-              {byPerson.map((p) => (
-                <li
-                  key={p.id}
-                  className="lift rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">
-                      {p.nickname}
-                      {me?.participantId === p.id && (
-                        <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
-                          (나)
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs text-zinc-500">
-                      {p.dates.length}일 가능
-                    </span>
-                  </div>
-                  <ul className="mt-2 flex flex-wrap gap-1">
-                    {p.dates.map((d) => (
-                      <li key={d.dateId}>
-                        <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                          {formatDateKR(d.date)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
+              {byPerson.map((p) => {
+                const isExp = expandedPersons.has(p.id);
+                const shown = isExp
+                  ? p.dates
+                  : p.dates.slice(0, PERSON_PREVIEW);
+                return (
+                  <li
+                    key={p.id}
+                    className="lift rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">
+                        {p.nickname}
+                        {me?.participantId === p.id && (
+                          <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                            (나)
+                          </span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs text-zinc-500">
+                        {p.dates.length}일 가능
+                      </span>
+                    </div>
+                    <ul className="mt-2 grid grid-cols-4 gap-1.5">
+                      {shown.map((d) => (
+                        <li key={d.dateId}>
+                          <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-zinc-100 px-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            {formatDateKR(d.date)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {p.dates.length > PERSON_PREVIEW && (
+                      <button
+                        type="button"
+                        onClick={() => togglePerson(p.id)}
+                        aria-expanded={isExp}
+                        aria-label={
+                          isExp
+                            ? '접기'
+                            : `날짜 ${p.dates.length - PERSON_PREVIEW}개 더 보기`
+                        }
+                        className="press mt-1.5 flex w-full items-center justify-center rounded-lg py-1 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-300"
+                      >
+                        <svg
+                          aria-hidden
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`h-4 w-4 transition-transform ${
+                            isExp ? 'rotate-180' : ''
+                          }`}
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )
         ) : (
