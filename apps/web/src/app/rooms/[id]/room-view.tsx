@@ -664,7 +664,7 @@ export default function RoomView({
             친구들이 당신을 뭐라고 부를까요?
           </p>
           {isCreator ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               <span aria-hidden>👑</span>
               방 만든 분이세요! PIN 설정해두면 다른 기기에서도 방 관리 가능
             </p>
@@ -674,7 +674,7 @@ export default function RoomView({
             </p>
           )}
           {room.participantCount > 0 && (
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               <span aria-hidden>✨</span>
               이미 {room.participantCount}명이 답했어요
             </p>
@@ -735,14 +735,14 @@ export default function RoomView({
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">가능한 날짜를 골라주세요</h2>
             {me && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900">
                 <span aria-hidden>·</span>
                 {me.nickname}
               </span>
             )}
           </div>
           {isLocked && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               투표가 마감되었습니다. 결과만 확인할 수 있어요.
             </p>
           )}
@@ -962,7 +962,7 @@ function DeadlineLabel({ deadline, now }: { deadline: string | null; now: number
   const cls = urgent
     ? 'font-semibold text-rose-600 dark:text-rose-400'
     : days <= 2
-      ? 'font-medium text-amber-600 dark:text-amber-400'
+      ? 'font-medium text-zinc-700 dark:text-zinc-300'
       : '';
   if (days > 0) return <span className={cls}>D-{days}</span>;
   if (hours > 0) return <span className={cls}>{hours}시간 후 마감 ⏰</span>;

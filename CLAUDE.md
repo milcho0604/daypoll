@@ -11,9 +11,17 @@
 ## 1. 디자인 토큰 (어디서나 동일해야 함)
 
 ### 1-1. 톤
-- **베이스: zinc** — 차분한 무채색.
-- **액센트: amber** — 강조·선택·1위·상호작용 hot path.
-- **시멘틱**: success=emerald, warning=amber, danger=rose.
+- **베이스: zinc** — 차분한 무채색. 모든 안내·정보·선택·focus 의 기본.
+- **액센트: amber** — **트로피·1등·확정 hot path 한정**. 메달처럼 드물게.
+- **시멘틱**: success=emerald, warning=zinc (강조 zinc-900), danger=rose.
+
+> **amber 사용 한정** — 이전엔 amber 가 여기저기 깔려 "전면 도색" 됐다. 이제 amber 는 다음 4곳만:
+> 1. 🏆 1위 트로피 배지 (`bg-gradient-to-br from-amber-400 to-amber-600`)
+> 2. 1등 막대 그라데이션 (RankList progress bar)
+> 3. 마감 확정 카드 보더+ring (`border-amber-300 ring-amber-200/60`)
+> 4. winners 카드 안 1위 칩 + 더보기 칩 (확정 카드 영역 통일성)
+>
+> 그 외 안내 박스·"이미 N명 답했어요"·me 칩·focus ring·"내 표" dot·캘린더 선택·"(나)" 라벨·메인 칩·hover/focus·법적 페이지 링크 = 전부 zinc 톤.
 
 | 토큰 | 라이트 | 다크 |
 |---|---|---|
@@ -22,14 +30,14 @@
 | 보더 | `border-zinc-200` | `border-zinc-800` |
 | 텍스트 | `text-zinc-900` (강) / `text-zinc-500` (약) / `text-zinc-400` (보조) | `text-zinc-100` / `text-zinc-400` / `text-zinc-500` |
 | 강조(고대비) | `bg-zinc-900 text-white` | `bg-white text-zinc-900` |
-| 보조 강조 | `bg-zinc-100 text-zinc-700` | `bg-zinc-800 text-zinc-300` |
-| **액센트(amber)** | `bg-amber-100 text-amber-900`, `border-amber-300`, `focus:border-amber-500` | `bg-amber-950/40 text-amber-200`, `border-amber-700`, `focus:border-amber-400` |
+| 보조 강조 / 안내 박스 | `bg-zinc-100 text-zinc-700` | `bg-zinc-800 text-zinc-300` |
+| Focus ring | `focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20` | `focus:border-zinc-100 focus:ring-zinc-100/20` |
+| 선택 강조 (캘린더 / 칩) | `bg-zinc-900 text-white shadow-lg shadow-zinc-900/30 ring-2 ring-zinc-300` | `bg-zinc-100 text-zinc-900 ring-zinc-700` |
+| **1등/확정 (amber 한정)** | `bg-gradient-to-br from-amber-400 to-amber-600` + `border-amber-300 ring-amber-200/60` + 🏆 | `dark:border-amber-700 dark:ring-amber-900/60` |
 | 시멘틱 success | `bg-emerald-100 text-emerald-800` / `text-emerald-600` | `bg-emerald-950/40 text-emerald-200` / `text-emerald-400` |
-| 시멘틱 warning | `bg-amber-50 text-amber-800` / `text-amber-600` | `bg-amber-950/40 text-amber-200` / `text-amber-400` |
-| 시멘틱 danger | `bg-rose-50 text-rose-700` / `text-rose-600` | `bg-rose-950/40 text-rose-300` / `text-rose-400` |
-| 1등/특별 강조 | `bg-gradient-to-br from-amber-400 to-amber-600` + ring + 🏆 | 동일 |
+| 시멘틱 danger / urgent | `bg-rose-50 text-rose-700` / `text-rose-600` (D-1 마감 임박) | `bg-rose-950/40 text-rose-300` / `text-rose-400` |
 
-**금지** — 위 토큰 밖의 컬러를 새로 끌어다 쓰지 말 것. 특히 `blue-*`, `indigo-*`, `violet-*`. 외부 라이브러리가 파란색을 기본으로 주면 **CSS 변수 오버라이드로 zinc/amber 톤에 맞춘다** (예: `globals.css` 의 `.rdp-root` 변수, recharts 의 `stroke`/`fill`).
+**금지** — 위 토큰 밖의 컬러를 새로 끌어다 쓰지 말 것. 특히 `blue-*`, `indigo-*`, `violet-*`. amber 도 위 4곳 외엔 추가하지 말 것. 외부 라이브러리가 파란색을 기본으로 주면 **CSS 변수 오버라이드로 zinc 톤에 맞춘다** (예: `globals.css` 의 `.rdp-root` 변수 = zinc-900/zinc-100, recharts 의 `stroke`/`fill`).
 
 ### 1-2. 차트 색 (recharts)
 - 단일 시리즈: `#f59e0b` (amber-500). 그라데이션이면 `from-amber-400 to-amber-600`.

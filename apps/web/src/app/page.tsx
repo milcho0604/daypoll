@@ -28,7 +28,7 @@ export default function Home() {
       />
       <section className="flex flex-1 flex-col items-center justify-center gap-10 text-center">
         <div className="fade-up flex flex-col items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             <span aria-hidden>🗓️</span>
             가입 0번, 링크 한 줄
           </span>

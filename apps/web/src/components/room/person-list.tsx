@@ -43,7 +43,7 @@ export default function PersonList({
                 <span className="text-sm font-medium">
                   {p.nickname}
                   {mePid === p.id && (
-                    <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                    <span className="ml-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                       (나)
                     </span>
                   )}
@@ -92,7 +92,7 @@ export default function PersonList({
         })}
       </ul>
       {nonVoterCount > 0 && (
-        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
           아직 {nonVoterCount}명이 안 골랐어요
         </p>
       )}

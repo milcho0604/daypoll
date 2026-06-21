@@ -142,7 +142,7 @@ export default function PrivacyPage() {
               이메일:{' '}
               <a
                 href="mailto:hello.mealplan@gmail.com"
-                className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+                className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
               >
                 hello.mealplan@gmail.com
               </a>
@@ -153,7 +153,7 @@ export default function PrivacyPage() {
                 href="https://github.com/milcho0604/daypoll/issues/new"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+                className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
               >
                 milcho0604/daypoll
               </a>

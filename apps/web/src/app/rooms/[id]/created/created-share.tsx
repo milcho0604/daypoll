@@ -98,14 +98,14 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
         <button
           type="button"
           onClick={onCopy}
-          className="press h-12 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm font-medium transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-400 dark:hover:bg-amber-950/30"
+          className="press h-12 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm font-medium transition-colors hover:border-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-100 dark:hover:bg-zinc-800"
         >
           {copied ? '✓ 복사됨' : '🔗 링크만 복사'}
         </button>
         <button
           type="button"
           onClick={onCopyMessage}
-          className="press h-12 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm font-medium transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-400 dark:hover:bg-amber-950/30"
+          className="press h-12 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm font-medium transition-colors hover:border-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-100 dark:hover:bg-zinc-800"
         >
           💬 카톡용 문구
         </button>

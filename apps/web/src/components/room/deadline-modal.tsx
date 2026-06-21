@@ -58,7 +58,7 @@ export default function DeadlineModal({
               type="datetime-local"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-amber-400/40 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
+              className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20 dark:focus:ring-zinc-100/20 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
             />
           ) : (
             <p className="mt-2 text-xs text-zinc-500">해제하면 무기한이 됩니다.</p>

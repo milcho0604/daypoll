@@ -44,7 +44,7 @@ export default function RecentRooms() {
             >
               <span className="truncate text-sm font-medium">{r.title}</span>
               {isCreator(r.id) && (
-                <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-amber-100 px-2 text-[11px] font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-zinc-100 px-2 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                   관리
                 </span>
               )}

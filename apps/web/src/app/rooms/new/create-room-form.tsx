@@ -96,7 +96,7 @@ export default function CreateRoomForm() {
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
           placeholder={`예: ${titleHint}`}
-          className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
+          className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
           required
         />
         <input
@@ -106,7 +106,7 @@ export default function CreateRoomForm() {
           onChange={(e) => setCreatedBy(e.target.value)}
           maxLength={20}
           placeholder="내 닉네임 (선택)"
-          className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
+          className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none transition-colors focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
         />
         <p className="text-xs text-zinc-500">
           넣어두면 친구한테 &ldquo;by 닉네임&rdquo; 으로 누가 만든 모임인지 표시돼요.
@@ -122,7 +122,7 @@ export default function CreateRoomForm() {
         </div>
         <DateBuilder values={dates} onChange={setDates} max={MAX_DATES} />
         {dates.length >= MAX_DATES && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             최대 {MAX_DATES}개까지 추가할 수 있어요.
           </p>
         )}
@@ -141,7 +141,7 @@ export default function CreateRoomForm() {
               key={p.label}
               type="button"
               onClick={() => applyPreset(p.days)}
-              className="press h-9 rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-amber-400 dark:hover:bg-amber-950/30"
+              className="press h-9 rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium transition-colors hover:border-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-100 dark:hover:bg-zinc-800"
             >
               {p.label}
             </button>
@@ -166,7 +166,7 @@ export default function CreateRoomForm() {
             type="datetime-local"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-amber-500 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-amber-400"
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
           />
         )}
       </section>

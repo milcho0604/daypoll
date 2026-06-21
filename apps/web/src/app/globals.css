@@ -99,10 +99,10 @@ body {
   }
 }
 
-/* ─── react-day-picker 테마 — amber 액센트로 따뜻하게 ─── */
+/* ─── react-day-picker 테마 — zinc 무채색 (amber 는 1등·트로피·확정 hot path 한정) ─── */
 .rdp-root {
-  --rdp-accent-color: #f59e0b; /* amber-500 */
-  --rdp-accent-background-color: #fef3c7; /* amber-100 */
+  --rdp-accent-color: #18181b; /* zinc-900 */
+  --rdp-accent-background-color: #f4f4f5; /* zinc-100 */
   --rdp-day-width: 2.5rem;
   --rdp-day-height: 2.5rem;
   --rdp-day_button-width: 2.25rem;
@@ -115,8 +115,8 @@ body {
   max-width: 100%;
 }
 .dark .rdp-root {
-  --rdp-accent-color: #fbbf24; /* amber-400 */
-  --rdp-accent-background-color: #451a03; /* amber-950 */
+  --rdp-accent-color: #f4f4f5; /* zinc-100 */
+  --rdp-accent-background-color: #27272a; /* zinc-800 */
 }
 .rdp-months,
 .rdp-month {

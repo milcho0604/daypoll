@@ -105,7 +105,7 @@ export default function TermsPage() {
               href="https://github.com/milcho0604/daypoll"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+              className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
             >
               milcho0604/daypoll
             </a>
@@ -117,7 +117,7 @@ export default function TermsPage() {
             개인정보의 수집·이용·보관에 관한 사항은 별도의{' '}
             <Link
               href="/privacy"
-              className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+              className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
             >
               개인정보처리방침
             </Link>
@@ -139,7 +139,7 @@ export default function TermsPage() {
               일반 문의:{' '}
               <a
                 href="mailto:hello.mealplan@gmail.com"
-                className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+                className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
               >
                 hello.mealplan@gmail.com
               </a>
@@ -150,7 +150,7 @@ export default function TermsPage() {
                 href="https://github.com/milcho0604/daypoll/issues/new"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+                className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
               >
                 GitHub Issues
               </a>

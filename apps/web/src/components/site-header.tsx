@@ -29,7 +29,7 @@ export default function SiteHeader() {
         {!isHome && (
           <Link
             href="/rooms/new"
-            className="press inline-flex h-9 items-center gap-1 rounded-full bg-amber-100 px-3.5 text-xs font-medium text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+            className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-900 px-3.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
           >
             <span aria-hidden>+</span>
             새 투표

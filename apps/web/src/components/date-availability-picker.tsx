@@ -189,10 +189,10 @@ export default function DateAvailabilityPicker({
               return <button {...p} />;
             }
             // 시각 강조는 button 자체에 직접 — 셀에 깔면 사각 블록처럼 보여 촌스러움.
-            // 트로피의 amber 그라데이션과 톤 통일.
+            // zinc-900 강조: amber 는 트로피·1등·확정 hot path 한정 (CLAUDE.md §1).
             const isPicked = selectedIds.has(id);
             const pickedCls = isPicked
-              ? 'rounded-full bg-amber-500 font-bold text-white no-underline shadow-lg shadow-amber-500/40 ring-2 ring-amber-300 dark:bg-amber-400 dark:text-amber-950 dark:ring-amber-700 dark:shadow-amber-400/30'
+              ? 'rounded-full bg-zinc-900 font-bold text-white no-underline shadow-lg shadow-zinc-900/30 ring-2 ring-zinc-300 dark:bg-zinc-100 dark:text-zinc-900 dark:ring-zinc-700 dark:shadow-zinc-100/20'
               : '';
             return (
               <button

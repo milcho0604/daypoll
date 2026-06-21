@@ -69,7 +69,7 @@ export default function RankList({
                   {hasToken && selected.has(r.dateId) && (
                     <span
                       title="내가 고른 날"
-                      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900 dark:bg-zinc-100"
                     />
                   )}
                 </div>
