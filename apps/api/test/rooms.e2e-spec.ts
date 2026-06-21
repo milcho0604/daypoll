@@ -540,7 +540,8 @@ describe('rooms + participants e2e', () => {
         .send({ nickname: 'memo', pin: '1234' });
       expect(recover.status).toBe(201);
       expect(recover.body.participantId).toBe(join.body.participantId);
-      expect(recover.body.clientToken).not.toBe(join.body.clientToken);
+      // recover 는 새 토큰을 발급하지 않고 기존 토큰 그대로 반환 — multi-device 지원 (한 사람 = 한 토큰).
+      expect(recover.body.clientToken).toBe(join.body.clientToken);
     });
 
     it('403 on wrong pin', async () => {
