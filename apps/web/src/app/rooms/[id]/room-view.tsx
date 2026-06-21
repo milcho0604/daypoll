@@ -24,6 +24,7 @@ import RecoverModal from '@/components/room/recover-modal';
 import DeadlineModal from '@/components/room/deadline-modal';
 import RankList from '@/components/room/rank-list';
 import PersonList from '@/components/room/person-list';
+import VotersModal from '@/components/room/voters-modal';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -73,6 +74,8 @@ export default function RoomView({
     id: number;
     nickname: string;
   } | null>(null);
+  // 확정된 1위 날짜 탭 → 누가 가능한지 팝업. dateId 만 저장해 실시간 갱신 반영.
+  const [winnerVoterDateId, setWinnerVoterDateId] = useState<number | null>(null);
   // 토글 직후 저장 확정 전까지 폴링이 낙관적 표시를 덮어쓰지 않게 막는 플래그
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -555,16 +558,31 @@ export default function RoomView({
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
             🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            {winners.map((w, i) => (
-              <p key={w.dateId} className="text-3xl font-bold tracking-tight">
-                {formatDateKR(w.date)}
-                {i < winners.length - 1 && (
-                  <span className="ml-3 text-zinc-300 dark:text-zinc-600">·</span>
-                )}
-              </p>
-            ))}
-          </div>
+          {winners.length === 1 ? (
+            <button
+              type="button"
+              onClick={() => setWinnerVoterDateId(winners[0].dateId)}
+              aria-label={`${formatDateKR(winners[0].date)} 가능한 친구 보기`}
+              className="press mt-3 block text-left text-3xl font-bold tracking-tight underline decoration-amber-400 decoration-2 underline-offset-[6px] hover:decoration-amber-600 sm:text-4xl"
+            >
+              {formatDateKR(winners[0].date)}
+            </button>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-1">
+              {winners.map((w) => (
+                <li key={w.dateId}>
+                  <button
+                    type="button"
+                    onClick={() => setWinnerVoterDateId(w.dateId)}
+                    aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
+                    className="press text-left text-2xl font-bold tracking-tight underline decoration-amber-400 decoration-2 underline-offset-[6px] hover:decoration-amber-600 sm:text-3xl"
+                  >
+                    {formatDateKR(w.date)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {winners[0].votes}표
             {winners.length > 1 ? ` · ${winners.length}일 동률` : ''} · 참여자{' '}
@@ -861,6 +879,21 @@ export default function RoomView({
           needsNickname={recoverNeedsNickname}
         />
       )}
+
+      {(() => {
+        const opened =
+          winnerVoterDateId != null
+            ? winners.find((w) => w.dateId === winnerVoterDateId) ?? null
+            : null;
+        return (
+          <VotersModal
+            open={!!opened}
+            date={opened?.date ?? null}
+            voters={opened?.voters ?? []}
+            onClose={() => setWinnerVoterDateId(null)}
+          />
+        );
+      })()}
 
       <ConfirmModal
         open={!!kickTarget}
