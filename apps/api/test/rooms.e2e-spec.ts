@@ -556,6 +556,27 @@ describe('rooms + participants e2e', () => {
       expect(r.status).toBe(403);
     });
 
+    it('locks a nickname after repeated wrong PIN recovery attempts', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin-lockout', dates: ['2026-05-15'] });
+      await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+
+      for (let i = 0; i < 5; i++) {
+        const r = await request(server())
+          .post(`/rooms/${create.body.roomId}/participants/recover`)
+          .send({ nickname: 'memo', pin: '9999' });
+        expect(r.status).toBe(403);
+      }
+
+      const locked = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants/recover`)
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(locked.status).toBe(429);
+    });
+
     it('403 if pin was never set', async () => {
       const create = await request(server())
         .post('/rooms')
