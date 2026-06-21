@@ -507,13 +507,25 @@ export default function RoomView({
       <header className="mb-4">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">{room.title}</h1>
-          <button
-            type="button"
-            onClick={() => void shareRoom()}
-            className="press inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-zinc-100 px-3.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-          >
-            {linkCopied ? '복사됨 ✓' : '🔗 링크 복사'}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isCreator && (
+              <button
+                type="button"
+                onClick={() => setShowDeadlineModal(true)}
+                className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                aria-label="방 관리 — 마감일 수정 / 종료"
+              >
+                ⚙️ 방 관리
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void shareRoom()}
+              className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {linkCopied ? '복사됨 ✓' : '🔗 링크 복사'}
+            </button>
+          </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
           <span className="inline-flex items-center gap-1">
@@ -535,19 +547,6 @@ export default function RoomView({
           <span>참여자 {room.participantCount}명</span>
           <span aria-hidden>·</span>
           <DeadlineLabel deadline={room.deadline} now={now} />
-          {isCreator && (
-            <>
-              <span aria-hidden>·</span>
-              <button
-                type="button"
-                onClick={() => setShowDeadlineModal(true)}
-                className="press inline-flex h-7 items-center gap-1 rounded-full bg-zinc-100 px-2.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                aria-label="방 관리 — 마감일 수정 / 종료"
-              >
-                ⚙️ 방 관리
-              </button>
-            </>
-          )}
         </div>
       </header>
 
