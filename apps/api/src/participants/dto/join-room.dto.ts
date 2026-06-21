@@ -15,6 +15,14 @@ export class JoinRoomDto {
   @IsString()
   @Matches(/^\d{4}$/, { message: 'pin must be 4 digits' })
   pin?: string;
+
+  // 방 만든 사람의 첫 입장 시 보내는 token. 이 토큰이 rooms.creator_token 과
+  // 매칭되면 이 participant 를 방 주인으로 link (rooms.creator_participant_id).
+  // 그 후 같은 PIN 으로 다른 기기 복원 시 creator_token 도 같이 반환된다.
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  creatorToken?: string;
 }
 
 export class RecoverParticipantDto {

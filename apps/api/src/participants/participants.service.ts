@@ -40,10 +40,12 @@ export class ParticipantsService {
     roomId: string,
     nickname: string,
     pin?: string,
+    creatorToken?: string,
   ): Promise<JoinRoomResponse> {
-    const roomRes = await this.pool.query('SELECT 1 FROM rooms WHERE id = $1', [
-      roomId,
-    ]);
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      'SELECT creator_token FROM rooms WHERE id = $1',
+      [roomId],
+    );
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -66,15 +68,34 @@ export class ParticipantsService {
        RETURNING id::text, nickname`,
       [roomId, finalNickname, clientToken, pinHash],
     );
+    const participantId = Number(res.rows[0].id);
+
+    // 방 만든 사람의 첫 입장 — creator_token 매칭되면 이 participant 를 방 주인으로 link.
+    // 그 후 같은 PIN 으로 다른 기기 복원 시 creator_token 자동 회수 가능.
+    let returnedCreatorToken: string | undefined;
+    if (
+      creatorToken &&
+      roomRes.rows[0].creator_token &&
+      secureEquals(creatorToken, roomRes.rows[0].creator_token)
+    ) {
+      await this.pool.query(
+        `UPDATE rooms SET creator_participant_id = $1
+         WHERE id = $2 AND creator_participant_id IS NULL`,
+        [participantId, roomId],
+      );
+      returnedCreatorToken = roomRes.rows[0].creator_token;
+    }
+
     this.realtime.emitResultsUpdated(roomId); // 참여자 수 변경
     this.realtime.emitAdminEvent('participant_joined', {
       roomId,
       nickname: res.rows[0].nickname,
     });
     return {
-      participantId: Number(res.rows[0].id),
+      participantId,
       clientToken,
       nickname: res.rows[0].nickname,
+      creatorToken: returnedCreatorToken,
     };
   }
 
@@ -133,10 +154,23 @@ export class ParticipantsService {
         [newCt, row.id],
       );
       this.pinFailures.delete(key);
+
+      // 이 participant 가 방 주인으로 link 되어 있으면 creator_token 도 회수.
+      const ownerRes = await this.pool.query<{ creator_token: string | null }>(
+        `SELECT creator_token FROM rooms
+         WHERE id = $1 AND creator_participant_id = $2`,
+        [roomId, row.id],
+      );
+      const creatorToken =
+        ownerRes.rowCount && ownerRes.rows[0].creator_token
+          ? ownerRes.rows[0].creator_token
+          : undefined;
+
       return {
         participantId: Number(row.id),
         clientToken: newCt,
         nickname: row.nickname,
+        creatorToken,
       };
     }
 

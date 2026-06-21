@@ -47,6 +47,9 @@ export interface CreateRoomResponse {
 export interface JoinRoomRequest {
   nickname: string;
   pin?: string; // 4자리 숫자, 선택 사항
+  // 방 만든 사람의 첫 입장 시 — localStorage 의 creator_token 을 같이 보내면
+  // 백엔드가 이 participant 를 방 주인으로 link. PIN 복원 시 creator_token 자동 회수.
+  creatorToken?: string;
 }
 
 export interface RecoverParticipantRequest {
@@ -61,6 +64,9 @@ export interface JoinRoomResponse {
   // 같은 방에 같은 닉네임이 있어 자동 차별화 됐으면 최종 닉네임을 돌려준다 ("지수 (2)" 등).
   // 충돌 없으면 입력한 닉네임 그대로.
   nickname?: string;
+  // 이 participant 가 방 주인으로 link 되어 있으면 함께 반환 — 다른 기기에서
+  // 방 종료 / 마감 수정 / 강퇴 권한 복원.
+  creatorToken?: string;
 }
 
 export interface UpdateAvailabilitiesRequest {

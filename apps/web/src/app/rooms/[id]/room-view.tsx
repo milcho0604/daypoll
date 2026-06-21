@@ -352,11 +352,20 @@ export default function RoomView({
     setBusy(true);
     setError(null);
     try {
+      // 방 만든 사람이 첫 입장 시 — localStorage 의 creator_token 같이 보내면
+      // 백엔드가 이 participant 를 방 주인으로 link → 다른 기기 PIN 복원 시 회수.
+      const localCreatorToken = creatorToken;
       const r = await joinRoom(roomId, {
         nickname: nickname.trim(),
         pin: usePin ? pin : undefined,
+        creatorToken: localCreatorToken,
       });
-      writeTokens(roomId, { clientToken: r.clientToken });
+      writeTokens(roomId, {
+        clientToken: r.clientToken,
+        // 백엔드가 link 했으면 응답에 같이 돌려준 creator_token 저장.
+        // 첫 입장 시엔 이미 localStorage 에 있는 거랑 같음 (변화 없음).
+        ...(r.creatorToken ? { creatorToken: r.creatorToken } : {}),
+      });
       // 다음 방 진입 때 자동 채워주기
       window.localStorage.setItem('whenever_last_nickname', nickname.trim());
       setClientToken(r.clientToken);
@@ -375,7 +384,13 @@ export default function RoomView({
     setError(null);
     try {
       const r = await recoverParticipant(roomId, { pin, nickname });
-      writeTokens(roomId, { clientToken: r.clientToken });
+      writeTokens(roomId, {
+        clientToken: r.clientToken,
+        // 방 주인이 다른 기기에서 PIN 으로 복원 시 — creator_token 도 같이 와서
+        // 그 기기에서도 방 종료 / 마감 수정 / 강퇴 가능.
+        ...(r.creatorToken ? { creatorToken: r.creatorToken } : {}),
+      });
+      if (r.creatorToken) setCreatorToken(r.creatorToken);
       setClientToken(r.clientToken);
       setShowRecover(false);
       setRecoverNeedsNickname(false);

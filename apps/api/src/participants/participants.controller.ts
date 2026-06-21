@@ -33,7 +33,12 @@ export class ParticipantsController {
   ) {
     // 입장(참여자 생성) 남용 방지: IP당 1분에 30회.
     this.rl.check(`participant:join:${clientIp(req)}`, 30, 60);
-    return this.participants.join(roomId, dto.nickname, dto.pin);
+    return this.participants.join(
+      roomId,
+      dto.nickname,
+      dto.pin,
+      dto.creatorToken,
+    );
   }
 
   @Post('recover')
