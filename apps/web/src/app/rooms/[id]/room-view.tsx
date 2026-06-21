@@ -64,6 +64,7 @@ export default function RoomView({
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
+  const [showAllWinners, setShowAllWinners] = useState(false);
   const [view, setView] = useState<'date' | 'person'>('date');
   const [meLoading, setMeLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -82,6 +83,7 @@ export default function RoomView({
 
   const RESULTS_PREVIEW = 5;
   const PERSON_PREVIEW = 8; // 사람별 뷰 — 2줄(grid-cols-4) 미리보기
+  const WINNERS_PREVIEW = 6; // 1위 확정 칩 — 6개 까지, 나머지는 더보기
 
   const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
   const isCreator = !!creatorToken;
@@ -558,32 +560,64 @@ export default function RoomView({
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
             🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          {/* amber 그라데이션 칩 grid — 단일은 full width + 큰 임팩트, 다중은 균형. */}
-          <div
-            className={`mt-3 grid gap-2 ${
-              winners.length === 1
-                ? 'grid-cols-1'
-                : winners.length === 2
-                  ? 'grid-cols-2'
-                  : 'grid-cols-2 sm:grid-cols-3'
-            }`}
-          >
-            {winners.map((w) => (
-              <button
-                key={w.dateId}
-                type="button"
-                onClick={() => setWinnerVoterDateId(w.dateId)}
-                aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
-                className={`press flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 px-4 font-bold text-white shadow-sm transition-shadow hover:shadow-md ${
-                  winners.length === 1
-                    ? 'h-20 text-2xl sm:h-24 sm:text-3xl'
-                    : 'h-16 text-xl sm:text-2xl'
-                }`}
-              >
-                {formatDateKR(w.date)}
-              </button>
-            ))}
-          </div>
+          {/* amber 그라데이션 칩 grid — 단일은 full width + 큰 임팩트, 다중은 균형. 6개 까지, 나머지는 더보기. */}
+          {(() => {
+            const visibleWinners = showAllWinners
+              ? winners
+              : winners.slice(0, WINNERS_PREVIEW);
+            const hidden = winners.length - WINNERS_PREVIEW;
+            return (
+              <>
+                <div
+                  className={`mt-3 grid gap-2 ${
+                    winners.length === 1
+                      ? 'grid-cols-1'
+                      : winners.length === 2
+                        ? 'grid-cols-2'
+                        : 'grid-cols-2 sm:grid-cols-3'
+                  }`}
+                >
+                  {visibleWinners.map((w) => (
+                    <button
+                      key={w.dateId}
+                      type="button"
+                      onClick={() => setWinnerVoterDateId(w.dateId)}
+                      aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
+                      className={`press flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 px-4 font-bold text-white shadow-sm transition-shadow hover:shadow-md ${
+                        winners.length === 1
+                          ? 'h-20 text-2xl sm:h-24 sm:text-3xl'
+                          : 'h-16 text-xl sm:text-2xl'
+                      }`}
+                    >
+                      {formatDateKR(w.date)}
+                    </button>
+                  ))}
+                </div>
+                {hidden > 0 && (
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllWinners((v) => !v)}
+                      aria-expanded={showAllWinners}
+                      className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 text-xs font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
+                    >
+                      <span>
+                        {showAllWinners ? '접기' : `더 보기 (+${hidden})`}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={`text-[10px] transition-transform ${
+                          showAllWinners ? 'rotate-180' : ''
+                        }`}
+                      >
+                        ▾
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {winners[0].votes}표
             {winners.length > 1 ? ` · ${winners.length}일 동률` : ''} · 참여자{' '}
