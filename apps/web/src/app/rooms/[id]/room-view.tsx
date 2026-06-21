@@ -60,7 +60,6 @@ export default function RoomView({
     'idle' | 'pending' | 'saving' | 'saved' | 'error'
   >('idle');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
@@ -484,7 +483,8 @@ export default function RoomView({
   }
 
   // 방 종료 = 지금 즉시 마감(deadline=now). 기존 잠금 로직 재사용 → 투표 차단 + 확정 카드.
-  async function closeRoom() {
+  // 모달 통합 후엔 closeRoomFromModal 이 모달도 같이 닫음.
+  async function closeRoomFromModal() {
     if (!creatorToken) return;
     setBusy(true);
     setError(null);
@@ -494,7 +494,7 @@ export default function RoomView({
       });
       setRoom((prev) => ({ ...prev, deadline: r.deadline }));
       setNow(Date.now());
-      setShowCloseConfirm(false);
+      setShowDeadlineModal(false);
     } catch (err) {
       setError(extractMsg(err));
     } finally {
@@ -541,22 +541,11 @@ export default function RoomView({
               <button
                 type="button"
                 onClick={() => setShowDeadlineModal(true)}
-                className="text-xs underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+                className="press inline-flex h-7 items-center gap-1 rounded-full bg-zinc-100 px-2.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                aria-label="방 관리 — 마감일 수정 / 종료"
               >
-                마감일 수정
+                ⚙️ 방 관리
               </button>
-              {!isLocked && (
-                <>
-                  <span aria-hidden>·</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowCloseConfirm(true)}
-                    className="text-xs font-medium text-rose-600 underline underline-offset-2 hover:text-rose-700 dark:text-rose-400"
-                  >
-                    방 종료
-                  </button>
-                </>
-              )}
             </>
           )}
         </div>
@@ -622,9 +611,16 @@ export default function RoomView({
           <p className="mt-1 text-sm text-zinc-500">
             친구들이 당신을 뭐라고 부를까요?
           </p>
-          <p className="mt-2 text-xs text-zinc-500">
-            ✨ 이 브라우저로 다시 오면 PIN 없이도 자동으로 본인 표 복원돼요.
-          </p>
+          {isCreator ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <span aria-hidden>👑</span>
+              방 만든 분이세요! PIN 설정해두면 다른 기기에서도 방 관리 가능
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-zinc-500">
+              ✨ 이 브라우저로 다시 오면 PIN 없이도 자동으로 본인 표 복원돼요.
+            </p>
+          )}
           {room.participantCount > 0 && (
             <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               <span aria-hidden>✨</span>
@@ -847,8 +843,11 @@ export default function RoomView({
       {showDeadlineModal && (
         <DeadlineModal
           current={room.deadline}
+          isLocked={isLocked}
+          busy={busy}
           onClose={() => setShowDeadlineModal(false)}
           onSave={onSaveDeadline}
+          onCloseNow={() => void closeRoomFromModal()}
         />
       )}
 
@@ -879,18 +878,6 @@ export default function RoomView({
         onCancel={() => setKickTarget(null)}
       />
 
-      <ConfirmModal
-        open={showCloseConfirm}
-        title="방을 지금 종료할까요?"
-        message={
-          '종료하면 더 이상 투표할 수 없어요. 지금까지의 1위가 확정으로 표시돼요.\n(나중에 마감일 수정에서 다시 열 수 있어요.)'
-        }
-        confirmLabel="방 종료"
-        danger
-        busy={busy}
-        onConfirm={() => void closeRoom()}
-        onCancel={() => setShowCloseConfirm(false)}
-      />
     </main>
   );
 }
