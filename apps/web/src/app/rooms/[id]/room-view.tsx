@@ -558,31 +558,32 @@ export default function RoomView({
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
             🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          {winners.length === 1 ? (
-            <button
-              type="button"
-              onClick={() => setWinnerVoterDateId(winners[0].dateId)}
-              aria-label={`${formatDateKR(winners[0].date)} 가능한 친구 보기`}
-              className="press mt-3 block text-left text-3xl font-bold tracking-tight underline decoration-amber-400 decoration-2 underline-offset-[6px] hover:decoration-amber-600 sm:text-4xl"
-            >
-              {formatDateKR(winners[0].date)}
-            </button>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-1">
-              {winners.map((w) => (
-                <li key={w.dateId}>
-                  <button
-                    type="button"
-                    onClick={() => setWinnerVoterDateId(w.dateId)}
-                    aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
-                    className="press text-left text-2xl font-bold tracking-tight underline decoration-amber-400 decoration-2 underline-offset-[6px] hover:decoration-amber-600 sm:text-3xl"
-                  >
-                    {formatDateKR(w.date)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* amber 그라데이션 칩 grid — 단일은 full width + 큰 임팩트, 다중은 균형. */}
+          <div
+            className={`mt-3 grid gap-2 ${
+              winners.length === 1
+                ? 'grid-cols-1'
+                : winners.length === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-2 sm:grid-cols-3'
+            }`}
+          >
+            {winners.map((w) => (
+              <button
+                key={w.dateId}
+                type="button"
+                onClick={() => setWinnerVoterDateId(w.dateId)}
+                aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
+                className={`press flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 px-4 font-bold text-white shadow-sm transition-shadow hover:shadow-md ${
+                  winners.length === 1
+                    ? 'h-20 text-2xl sm:h-24 sm:text-3xl'
+                    : 'h-16 text-xl sm:text-2xl'
+                }`}
+              >
+                {formatDateKR(w.date)}
+              </button>
+            ))}
+          </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {winners[0].votes}표
             {winners.length > 1 ? ` · ${winners.length}일 동률` : ''} · 참여자{' '}
