@@ -957,12 +957,12 @@ function DeadlineLabel({ deadline, now }: { deadline: string | null; now: number
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
-  // 24시간 이내면 위험 톤(rose)으로 강조
+  // 마감 임박 단계: D-3 이내는 옅은 위험 톤(rose-500), D-1 이내는 진한 위험 톤(rose-600)
   const urgent = ms < 86400000;
   const cls = urgent
     ? 'font-semibold text-rose-600 dark:text-rose-400'
     : days <= 2
-      ? 'font-medium text-zinc-700 dark:text-zinc-300'
+      ? 'font-medium text-rose-500 dark:text-rose-400'
       : '';
   if (days > 0) return <span className={cls}>D-{days}</span>;
   if (hours > 0) return <span className={cls}>{hours}시간 후 마감 ⏰</span>;

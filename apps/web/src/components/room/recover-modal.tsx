@@ -54,7 +54,7 @@ export default function RecoverModal({
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="0000"
-            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20 dark:focus:ring-zinc-100/20 dark:border-zinc-700 dark:bg-zinc-950"
+            className="h-12 w-32 rounded-xl border border-zinc-200 bg-white px-4 text-base tracking-widest outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:focus:ring-zinc-100/40 dark:border-zinc-700 dark:bg-zinc-950"
             required
             autoFocus
           />
@@ -65,7 +65,7 @@ export default function RecoverModal({
               onChange={(e) => setNickname(e.target.value)}
               placeholder="닉네임"
               maxLength={20}
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20 dark:focus:ring-zinc-100/20 dark:border-zinc-700 dark:bg-zinc-950"
+              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:focus:ring-zinc-100/40 dark:border-zinc-700 dark:bg-zinc-950"
               required
             />
           )}
