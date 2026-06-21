@@ -119,14 +119,17 @@ export class ParticipantsService {
       this.pinFailures.delete(key);
     }
 
-    // 닉네임 있으면 그것만, 없으면 방 전체 PIN 후보 검색
+    // 닉네임 있으면 그것만, 없으면 방 전체 PIN 후보 검색.
+    // client_token 도 같이 SELECT — recover 는 새 토큰을 발급하지 않고 기존 토큰을 그대로 반환.
+    // 이렇게 해야 한 사람 = 한 토큰 → 폰/PC 동시에 같은 본인 인식 (multi-device).
     const candidates = nickname
       ? await this.pool.query<{
           id: string;
           nickname: string;
+          client_token: string;
           pin_hash: string | null;
         }>(
-          `SELECT id::text, nickname, pin_hash FROM participants
+          `SELECT id::text, nickname, client_token, pin_hash FROM participants
            WHERE room_id = $1 AND nickname = $2 AND pin_hash IS NOT NULL
            ORDER BY created_at ASC`,
           [roomId, nickname.trim()],
@@ -134,9 +137,10 @@ export class ParticipantsService {
       : await this.pool.query<{
           id: string;
           nickname: string;
+          client_token: string;
           pin_hash: string | null;
         }>(
-          `SELECT id::text, nickname, pin_hash FROM participants
+          `SELECT id::text, nickname, client_token, pin_hash FROM participants
            WHERE room_id = $1 AND pin_hash IS NOT NULL
            ORDER BY created_at ASC`,
           [roomId],
@@ -148,11 +152,6 @@ export class ParticipantsService {
 
     if (matches.length === 1) {
       const row = matches[0];
-      const newCt = newToken();
-      await this.pool.query(
-        `UPDATE participants SET client_token = $1 WHERE id = $2`,
-        [newCt, row.id],
-      );
       this.pinFailures.delete(key);
 
       // 이 participant 가 방 주인으로 link 되어 있으면 creator_token 도 회수.
@@ -168,7 +167,7 @@ export class ParticipantsService {
 
       return {
         participantId: Number(row.id),
-        clientToken: newCt,
+        clientToken: row.client_token, // 기존 토큰 그대로 — 다른 기기 client_token 무효화 X
         nickname: row.nickname,
         creatorToken,
       };
