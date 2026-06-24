@@ -1,7 +1,12 @@
+# 로컬 개발용 DB. 운영 스택(docker-compose.prod.yml, 프로젝트 moilga)과
+# 프로젝트명·컨테이너명을 분리해 같은 머신에서 동시에 떠도 충돌하지 않는다.
+# scripts/dev.sh 가 `-p moilga-dev` 로 이 파일만 제어한다.
+name: moilga-dev
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: whenever-postgres
+    container_name: moilga-dev-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-whenever}

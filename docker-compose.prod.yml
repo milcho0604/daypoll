@@ -5,12 +5,12 @@
 #   cp .env.prod.example .env.prod   # 값 채우기 (.env.prod 는 커밋 금지)
 #   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 
-name: whenever
+name: moilga
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: whenever-postgres
+    container_name: moilga-postgres
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -20,7 +20,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-whenever}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # 호스트 노출 없음. 백업/유지보수는 `docker exec whenever-postgres ...` 로 충분하며,
+    # 호스트 노출 없음. 백업/유지보수는 `docker exec moilga-postgres ...` 로 충분하며,
     # 외부 표면을 줄여 사고 가능성을 낮춘다. 디버깅이 필요하면 일시적으로 ports 를 추가.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whenever} -d ${POSTGRES_DB:-whenever}"]
@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: whenever-api
+    container_name: moilga-api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -60,7 +60,7 @@ services:
   # macOS launchd / TCC 의존성 제거. Docker 죽으면 백업도 멈춤 (일관됨).
   backup:
     image: prodrigestivill/postgres-backup-local:16
-    container_name: whenever-backup
+    container_name: moilga-backup
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -83,7 +83,7 @@ services:
   # CASCADE 로 candidates / votes / voter_picks 자동 정리.
   cleanup:
     image: postgres:16-alpine
-    container_name: whenever-cleanup
+    container_name: moilga-cleanup
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
