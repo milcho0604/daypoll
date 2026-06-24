@@ -25,6 +25,9 @@ OPS.md
 npm-debug.log*
 pnpm-debug.log*
 
+# dev.sh 런타임 PID 파일 (logs/api.pid, logs/web.pid)
+*.pid
+
 # editor / OS
 .DS_Store
 .idea/
