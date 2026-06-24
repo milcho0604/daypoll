@@ -52,7 +52,7 @@
   <rect x="48" y="150" width="200" height="120" rx="16" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
   <use href="#ic-browser" x="62" y="164" width="24" height="24" style="color:#52525b"/>
   <text x="158" y="184" text-anchor="middle" font-size="17" font-weight="700" fill="#18181b">친구 · 브라우저</text>
-  <text x="148" y="222" text-anchor="middle" font-size="13" fill="#71717a">📱 모바일 / 💻 데스크톱</text>
+  <text x="148" y="222" text-anchor="middle" font-size="13" fill="#71717a">모바일 · 데스크톱</text>
   <text x="148" y="246" text-anchor="middle" font-size="12" fill="#a1a1aa">가입 0 · 닉네임만</text>
 
   <!-- ===== VERCEL FRONT ===== -->
@@ -62,7 +62,7 @@
   <text x="148" y="392" text-anchor="middle" font-size="14" font-weight="600" fill="#b45309">moilga.com</text>
   <text x="148" y="416" text-anchor="middle" font-size="12" fill="#71717a">Next.js 15 · App Router</text>
   <text x="148" y="436" text-anchor="middle" font-size="12" fill="#71717a">SSR + 정적 · 글로벌 CDN</text>
-  <text x="148" y="461" text-anchor="middle" font-size="11" fill="#a1a1aa">308 ⟵ daypoll.vercel.app</text>
+  <text x="148" y="461" text-anchor="middle" font-size="11" fill="#a1a1aa">308 ← daypoll.vercel.app</text>
   <text x="148" y="479" text-anchor="middle" font-size="11" fill="#a1a1aa">PWA · OG 카드</text>
 
   <!-- ===== CLOUDFLARE EDGE (api) ===== -->
@@ -81,7 +81,7 @@
   <rect x="680" y="110" width="872" height="470" rx="20" fill="#fafafa" stroke="#d4d4d8" stroke-width="2" stroke-dasharray="8 6"/>
   <use href="#ic-docker" x="700" y="124" width="24" height="24" style="color:#3f3f46"/>
   <text x="732" y="142" font-size="17" font-weight="700" fill="#3f3f46">Mac Mini · Docker 호스트</text>
-  <text x="732" y="163" font-size="12" fill="#a1a1aa">/Volumes/milcho_ex/project/whenever · compose.prod · restart: unless-stopped</text>
+  <text x="732" y="163" font-size="12" fill="#a1a1aa">/Volumes/milcho_ex/project/moilga · compose.prod · restart: unless-stopped</text>
 
   <!-- cloudflared host daemon -->
   <rect x="706" y="184" width="214" height="116" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
@@ -93,13 +93,13 @@
 
   <!-- docker network sub-box -->
   <rect x="706" y="330" width="822" height="232" rx="16" fill="#ffffff" stroke="#e4e4e7"/>
-  <text x="724" y="353" font-size="12.5" font-weight="700" fill="#71717a">docker network · whenever</text>
+  <text x="724" y="353" font-size="12.5" font-weight="700" fill="#71717a">docker network · moilga</text>
 
-  <!-- whenever-api -->
+  <!-- moilga-api -->
   <rect x="722" y="366" width="252" height="184" rx="14" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
   <use href="#ic-server" x="734" y="376" width="22" height="22" style="color:#d97706"/>
   <use href="#ic-bolt" x="930" y="376" width="20" height="20" style="color:#d97706"/>
-  <text x="848" y="392" text-anchor="middle" font-size="16" font-weight="700" fill="#18181b">whenever-api</text>
+  <text x="848" y="392" text-anchor="middle" font-size="16" font-weight="700" fill="#18181b">moilga-api</text>
   <text x="848" y="413" text-anchor="middle" font-size="12" fill="#71717a">NestJS 11 · 127.0.0.1:3001</text>
   <text x="738" y="440" font-size="11.5" fill="#52525b">· REST + WebSocket (socket.io)</text>
   <text x="738" y="462" font-size="11.5" fill="#52525b">· Sentry (5xx · uncaught)</text>
@@ -107,10 +107,10 @@
   <text x="738" y="506" font-size="11.5" fill="#52525b">· trust proxy = loopback</text>
   <text x="738" y="528" font-size="11.5" font-weight="600" fill="#047857">· cap_drop ALL · USER node</text>
 
-  <!-- whenever-postgres -->
+  <!-- moilga-postgres -->
   <rect x="990" y="366" width="214" height="184" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
   <use href="#ic-db" x="1002" y="376" width="22" height="22" style="color:#52525b"/>
-  <text x="1100" y="392" text-anchor="middle" font-size="15.5" font-weight="700" fill="#18181b">whenever-postgres</text>
+  <text x="1100" y="392" text-anchor="middle" font-size="15.5" font-weight="700" fill="#18181b">moilga-postgres</text>
   <text x="1097" y="413" text-anchor="middle" font-size="12" fill="#71717a">PostgreSQL 16-alpine</text>
   <text x="1006" y="440" font-size="11.5" fill="#52525b">· pgdata 볼륨 (영속)</text>
   <text x="1006" y="462" font-size="11.5" font-weight="600" fill="#047857">· 호스트 비노출</text>
@@ -118,17 +118,17 @@
   <text x="1006" y="505" font-size="11.5" fill="#52525b">· localhost 쿼리 &lt;1ms</text>
   <text x="1006" y="527" font-size="11.5" fill="#52525b">· scram-sha-256 인증</text>
 
-  <!-- whenever-backup -->
+  <!-- moilga-backup -->
   <rect x="1222" y="366" width="290" height="84" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
   <use href="#ic-backup" x="1480" y="372" width="20" height="20" style="color:#71717a"/>
-  <text x="1238" y="391" font-size="15" font-weight="700" fill="#18181b">whenever-backup</text>
+  <text x="1238" y="391" font-size="15" font-weight="700" fill="#18181b">moilga-backup</text>
   <text x="1238" y="411" font-size="11.5" fill="#71717a">postgres-backup-local · 매일 04:30</text>
   <text x="1238" y="431" font-size="11.5" fill="#71717a">→ 외장 SSD · 14일 / 4주 보존</text>
 
-  <!-- whenever-cleanup -->
+  <!-- moilga-cleanup -->
   <rect x="1222" y="466" width="290" height="84" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
   <use href="#ic-trash" x="1480" y="472" width="20" height="20" style="color:#71717a"/>
-  <text x="1238" y="491" font-size="15" font-weight="700" fill="#18181b">whenever-cleanup</text>
+  <text x="1238" y="491" font-size="15" font-weight="700" fill="#18181b">moilga-cleanup</text>
   <text x="1238" y="511" font-size="11.5" fill="#71717a">매일 1회 · rooms &gt; 90d DELETE</text>
   <text x="1238" y="531" font-size="11.5" fill="#71717a">CASCADE (dates·참가자·투표)</text>
 
@@ -136,7 +136,7 @@
   <rect x="1300" y="600" width="240" height="62" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
   <use href="#ic-disk" x="1314" y="618" width="22" height="22" style="color:#71717a"/>
   <text x="1432" y="626" text-anchor="middle" font-size="14" font-weight="700" fill="#18181b">외장 SSD</text>
-  <text x="1432" y="648" text-anchor="middle" font-size="10.5" fill="#71717a">/Volumes/milcho_ex/whenever-backups</text>
+  <text x="1432" y="648" text-anchor="middle" font-size="10.5" fill="#71717a">/Volumes/milcho_ex/moilga-backups</text>
 
   <!-- ===== CI / CD band ===== -->
   <rect x="48" y="720" width="1180" height="412" rx="20" fill="#fafafa" stroke="#d4d4d8" stroke-width="2" stroke-dasharray="8 6"/>
