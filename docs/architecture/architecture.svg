@@ -1,0 +1,246 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1180" font-family="ui-sans-serif, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#18181b" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+    <marker id="arrZinc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#52525b"/></marker>
+    <marker id="arrDash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#a1a1aa"/></marker>
+    <marker id="arrZincStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M10 0L0 5L10 10z" fill="#52525b"/></marker>
+
+    <!-- ===== icons (24x24, currentColor) ===== -->
+    <symbol id="ic-browser" viewBox="0 0 24 24">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M2.5 8.6 H21.5" stroke="currentColor" stroke-width="1.7"/>
+      <circle cx="5.4" cy="6.5" r="0.9" fill="currentColor"/><circle cx="8.1" cy="6.5" r="0.9" fill="currentColor"/>
+    </symbol>
+    <symbol id="ic-vercel" viewBox="0 0 24 24"><path d="M12 3.5 L21.5 20 L2.5 20 Z" fill="currentColor"/></symbol>
+    <symbol id="ic-cloud" viewBox="0 0 24 24"><path d="M7.4 18.5 A4.3 4.3 0 0 1 6.9 9.9 A5.2 5.2 0 0 1 16.9 8.7 A3.8 3.8 0 0 1 17.6 18.5 Z" fill="currentColor"/></symbol>
+    <symbol id="ic-server" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <rect x="3" y="13" width="18" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <circle cx="6.6" cy="7.5" r="1.1" fill="currentColor"/><circle cx="6.6" cy="16.5" r="1.1" fill="currentColor"/>
+    </symbol>
+    <symbol id="ic-db" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="5.6" rx="7.4" ry="2.7" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M4.6 5.6 V18.4 A7.4 2.7 0 0 0 19.4 18.4 V5.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M4.6 12 A7.4 2.7 0 0 0 19.4 12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+    <symbol id="ic-docker" viewBox="0 0 24 24">
+      <g fill="currentColor"><rect x="3" y="11" width="3" height="3" rx="0.3"/><rect x="6.6" y="11" width="3" height="3" rx="0.3"/><rect x="10.2" y="11" width="3" height="3" rx="0.3"/><rect x="6.6" y="7.4" width="3" height="3" rx="0.3"/><rect x="10.2" y="7.4" width="3" height="3" rx="0.3"/><rect x="13.8" y="11" width="3" height="3" rx="0.3"/></g>
+      <path d="M2 15.2 q3.4 4.2 9.4 4.2 7.4 0 9.2-6 1.3 1 2.4 0.1 -0.9 1.8 -3 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-backup" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5 V12 L15.2 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24"><path d="M5 7 H19 M9.2 7 V5.6 A1 1 0 0 1 10.2 4.6 H13.8 A1 1 0 0 1 14.8 5.6 V7 M6.6 7 L7.4 19 A1.6 1.6 0 0 0 9 20.4 H15 A1.6 1.6 0 0 0 16.6 19 L17.4 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-disk" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="0.9" fill="currentColor"/></symbol>
+    <symbol id="ic-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="17" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 8.5 V15.5 M6.4 11.6 A8 8 0 0 0 14.6 9.2" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="ic-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6 V5 M12 19 V21.4 M21.4 12 H19 M5 12 H2.6 M18.6 5.4 L16.9 7.1 M7.1 16.9 L5.4 18.6 M18.6 18.6 L16.9 16.9 M7.1 7.1 L5.4 5.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="ic-term" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 9 L9 12 L6 15 M12 15.2 H16" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-bolt" viewBox="0 0 24 24"><path d="M13 2 L4 14 H11 L10 22 L19 9 H12 Z" fill="currentColor"/></symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3 L19 6 V11 C19 16 15.5 19.6 12 21 C8.5 19.6 5 16 5 11 V6 Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9 12 L11 14 L15 9.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.6 V12 L15 13.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="ic-pulse" viewBox="0 0 24 24"><path d="M2 12 H7 L9.5 6 L13 18 L15.5 12 H22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="1180" fill="#ffffff"/>
+
+  <!-- ===== header ===== -->
+  <text x="48" y="56" font-size="30" font-weight="700" fill="#18181b">언제모여 (moilga.com) — 서버 아키텍처</text>
+  <text x="48" y="86" font-size="15.5" fill="#71717a">회원가입 없는 모임 날짜 투표 · 프론트(Vercel) + 백엔드(맥미니 Docker) · 외부 노출은 Cloudflare Tunnel 만</text>
+
+  <!-- ===== CLIENTS ===== -->
+  <rect x="48" y="150" width="200" height="120" rx="16" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-browser" x="62" y="164" width="24" height="24" style="color:#52525b"/>
+  <text x="158" y="184" text-anchor="middle" font-size="17" font-weight="700" fill="#18181b">친구 · 브라우저</text>
+  <text x="148" y="222" text-anchor="middle" font-size="13" fill="#71717a">📱 모바일 / 💻 데스크톱</text>
+  <text x="148" y="246" text-anchor="middle" font-size="12" fill="#a1a1aa">가입 0 · 닉네임만</text>
+
+  <!-- ===== VERCEL FRONT ===== -->
+  <rect x="48" y="334" width="200" height="158" rx="16" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-vercel" x="62" y="348" width="22" height="22" style="color:#18181b"/>
+  <text x="160" y="366" text-anchor="middle" font-size="17" font-weight="700" fill="#18181b">Vercel Edge</text>
+  <text x="148" y="392" text-anchor="middle" font-size="14" font-weight="600" fill="#b45309">moilga.com</text>
+  <text x="148" y="416" text-anchor="middle" font-size="12" fill="#71717a">Next.js 15 · App Router</text>
+  <text x="148" y="436" text-anchor="middle" font-size="12" fill="#71717a">SSR + 정적 · 글로벌 CDN</text>
+  <text x="148" y="461" text-anchor="middle" font-size="11" fill="#a1a1aa">308 ⟵ daypoll.vercel.app</text>
+  <text x="148" y="479" text-anchor="middle" font-size="11" fill="#a1a1aa">PWA · OG 카드</text>
+
+  <!-- ===== CLOUDFLARE EDGE (api) ===== -->
+  <rect x="360" y="150" width="256" height="216" rx="16" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-cloud" x="376" y="166" width="24" height="24" style="color:#f59e0b"/>
+  <text x="498" y="186" text-anchor="middle" font-size="17" font-weight="700" fill="#18181b">Cloudflare Edge</text>
+  <text x="488" y="210" text-anchor="middle" font-size="14" font-weight="600" fill="#b45309">api.moilga.com</text>
+  <line x1="378" y1="224" x2="598" y2="224" stroke="#f4f4f5"/>
+  <text x="380" y="248" font-size="12.5" fill="#52525b">· TLS 종단 (HTTPS / WSS)</text>
+  <text x="380" y="272" font-size="12.5" fill="#52525b">· WAF · DDoS · 봇 차단</text>
+  <text x="380" y="296" font-size="12.5" fill="#52525b">· cf-connecting-ip → req.ip</text>
+  <text x="380" y="320" font-size="12.5" fill="#52525b">· Rate-limit (21번째 429)</text>
+  <text x="380" y="343" font-size="11" fill="#a1a1aa">· DNS: Cloudflare NS · Free WS idle 6h</text>
+
+  <!-- ===== MAC MINI HOST ===== -->
+  <rect x="680" y="110" width="872" height="470" rx="20" fill="#fafafa" stroke="#d4d4d8" stroke-width="2" stroke-dasharray="8 6"/>
+  <use href="#ic-docker" x="700" y="124" width="24" height="24" style="color:#3f3f46"/>
+  <text x="732" y="142" font-size="17" font-weight="700" fill="#3f3f46">Mac Mini · Docker 호스트</text>
+  <text x="732" y="163" font-size="12" fill="#a1a1aa">/Volumes/milcho_ex/project/whenever · compose.prod · restart: unless-stopped</text>
+
+  <!-- cloudflared host daemon -->
+  <rect x="706" y="184" width="214" height="116" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-cloud" x="722" y="198" width="20" height="20" style="color:#f59e0b"/>
+  <text x="827" y="214" text-anchor="middle" font-size="16" font-weight="700" fill="#18181b">cloudflared</text>
+  <text x="813" y="237" text-anchor="middle" font-size="12" fill="#71717a">호스트 데몬 · launchd</text>
+  <text x="813" y="258" text-anchor="middle" font-size="12" fill="#71717a">터널 → localhost:3001</text>
+  <text x="813" y="282" text-anchor="middle" font-size="11.5" font-weight="600" fill="#047857">인바운드 포트 0개</text>
+
+  <!-- docker network sub-box -->
+  <rect x="706" y="330" width="822" height="232" rx="16" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="724" y="353" font-size="12.5" font-weight="700" fill="#71717a">docker network · whenever</text>
+
+  <!-- whenever-api -->
+  <rect x="722" y="366" width="252" height="184" rx="14" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+  <use href="#ic-server" x="734" y="376" width="22" height="22" style="color:#d97706"/>
+  <use href="#ic-bolt" x="930" y="376" width="20" height="20" style="color:#d97706"/>
+  <text x="848" y="392" text-anchor="middle" font-size="16" font-weight="700" fill="#18181b">whenever-api</text>
+  <text x="848" y="413" text-anchor="middle" font-size="12" fill="#71717a">NestJS 11 · 127.0.0.1:3001</text>
+  <text x="738" y="440" font-size="11.5" fill="#52525b">· REST + WebSocket (socket.io)</text>
+  <text x="738" y="462" font-size="11.5" fill="#52525b">· Sentry (5xx · uncaught)</text>
+  <text x="738" y="484" font-size="11.5" fill="#52525b">· CORS allowlist · 검증 파이프</text>
+  <text x="738" y="506" font-size="11.5" fill="#52525b">· trust proxy = loopback</text>
+  <text x="738" y="528" font-size="11.5" font-weight="600" fill="#047857">· cap_drop ALL · USER node</text>
+
+  <!-- whenever-postgres -->
+  <rect x="990" y="366" width="214" height="184" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-db" x="1002" y="376" width="22" height="22" style="color:#52525b"/>
+  <text x="1100" y="392" text-anchor="middle" font-size="15.5" font-weight="700" fill="#18181b">whenever-postgres</text>
+  <text x="1097" y="413" text-anchor="middle" font-size="12" fill="#71717a">PostgreSQL 16-alpine</text>
+  <text x="1006" y="440" font-size="11.5" fill="#52525b">· pgdata 볼륨 (영속)</text>
+  <text x="1006" y="462" font-size="11.5" font-weight="600" fill="#047857">· 호스트 비노출</text>
+  <text x="1018" y="481" font-size="10.5" fill="#a1a1aa">(dev 만 127.0.0.1:5433)</text>
+  <text x="1006" y="505" font-size="11.5" fill="#52525b">· localhost 쿼리 &lt;1ms</text>
+  <text x="1006" y="527" font-size="11.5" fill="#52525b">· scram-sha-256 인증</text>
+
+  <!-- whenever-backup -->
+  <rect x="1222" y="366" width="290" height="84" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-backup" x="1480" y="372" width="20" height="20" style="color:#71717a"/>
+  <text x="1238" y="391" font-size="15" font-weight="700" fill="#18181b">whenever-backup</text>
+  <text x="1238" y="411" font-size="11.5" fill="#71717a">postgres-backup-local · 매일 04:30</text>
+  <text x="1238" y="431" font-size="11.5" fill="#71717a">→ 외장 SSD · 14일 / 4주 보존</text>
+
+  <!-- whenever-cleanup -->
+  <rect x="1222" y="466" width="290" height="84" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-trash" x="1480" y="472" width="20" height="20" style="color:#71717a"/>
+  <text x="1238" y="491" font-size="15" font-weight="700" fill="#18181b">whenever-cleanup</text>
+  <text x="1238" y="511" font-size="11.5" fill="#71717a">매일 1회 · rooms &gt; 90d DELETE</text>
+  <text x="1238" y="531" font-size="11.5" fill="#71717a">CASCADE (dates·참가자·투표)</text>
+
+  <!-- external SSD -->
+  <rect x="1300" y="600" width="240" height="62" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-disk" x="1314" y="618" width="22" height="22" style="color:#71717a"/>
+  <text x="1432" y="626" text-anchor="middle" font-size="14" font-weight="700" fill="#18181b">외장 SSD</text>
+  <text x="1432" y="648" text-anchor="middle" font-size="10.5" fill="#71717a">/Volumes/milcho_ex/whenever-backups</text>
+
+  <!-- ===== CI / CD band ===== -->
+  <rect x="48" y="720" width="1180" height="412" rx="20" fill="#fafafa" stroke="#d4d4d8" stroke-width="2" stroke-dasharray="8 6"/>
+  <use href="#ic-gear" x="70" y="734" width="22" height="22" style="color:#3f3f46"/>
+  <text x="100" y="752" font-size="17" font-weight="700" fill="#3f3f46">GitHub Actions · CI / CD · 모니터링</text>
+
+  <!-- git push -->
+  <rect x="72" y="804" width="176" height="82" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-git" x="86" y="816" width="22" height="22" style="color:#52525b"/>
+  <text x="172" y="836" text-anchor="middle" font-size="16" font-weight="700" fill="#18181b">git push</text>
+  <text x="160" y="868" text-anchor="middle" font-size="12" fill="#71717a">main 브랜치</text>
+
+  <!-- CI -->
+  <rect x="300" y="792" width="256" height="92" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-shield" x="524" y="800" width="20" height="20" style="color:#047857"/>
+  <text x="318" y="820" font-size="15" font-weight="700" fill="#18181b">CI · ci.yml</text>
+  <text x="318" y="842" font-size="11.5" fill="#52525b">lint · 타입체크 · 빌드 · e2e</text>
+  <text x="318" y="863" font-size="11" fill="#a1a1aa">PR + push 마다</text>
+
+  <!-- cert-check -->
+  <rect x="586" y="792" width="316" height="42" rx="12" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-shield" x="598" y="803" width="18" height="18" style="color:#71717a"/>
+  <text x="624" y="818" font-size="11.5" fill="#52525b">cert-check · TLS 만료 점검 · 매일 11:00 KST</text>
+  <!-- uptime -->
+  <rect x="586" y="842" width="316" height="42" rx="12" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-pulse" x="598" y="853" width="18" height="18" style="color:#71717a"/>
+  <text x="624" y="868" font-size="11.5" fill="#52525b">uptime · /health 3회 재시도 · 매 10분</text>
+
+  <!-- Deploy -->
+  <rect x="300" y="904" width="564" height="130" rx="14" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <use href="#ic-term" x="826" y="912" width="22" height="22" style="color:#52525b"/>
+  <text x="318" y="932" font-size="15" font-weight="700" fill="#18181b">Deploy · deploy.yml</text>
+  <text x="318" y="958" font-size="12" fill="#52525b">ubuntu runner → Tailscale (ephemeral) → ssh 맥미니</text>
+  <text x="318" y="982" font-size="12" fill="#52525b">→ git pull --ff-only + docker-compose up -d --build</text>
+  <text x="318" y="1006" font-size="12" fill="#52525b">→ /health 30회 재시도 검증</text>
+  <text x="318" y="1026" font-size="11" fill="#a1a1aa">트리거: apps/api · shared · compose · Dockerfile 변경 시만</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="1260" y="720" width="292" height="412" rx="16" fill="#ffffff" stroke="#e4e4e7" filter="url(#shadow)"/>
+  <text x="1282" y="752" font-size="15" font-weight="700" fill="#18181b">범례</text>
+  <line x1="1282" y1="778" x2="1322" y2="778" stroke="#d97706" stroke-width="3" marker-end="url(#arrAmber)"/>
+  <text x="1334" y="783" font-size="12.5" fill="#3f3f46">라이브 요청 (hot path)</text>
+  <line x1="1282" y1="808" x2="1322" y2="808" stroke="#52525b" stroke-width="2.5" marker-end="url(#arrZinc)"/>
+  <text x="1334" y="813" font-size="12.5" fill="#3f3f46">내부 통신</text>
+  <line x1="1282" y1="838" x2="1322" y2="838" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <text x="1334" y="843" font-size="12.5" fill="#3f3f46">비동기 · 스케줄 · 배포</text>
+  <rect x="1282" y="860" width="22" height="16" rx="4" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+  <use href="#ic-bolt" x="1334" y="861" width="15" height="15" style="color:#d97706"/>
+  <text x="1352" y="873" font-size="12.5" fill="#3f3f46">live 엔드포인트 · 실시간 WS</text>
+
+  <line x1="1282" y1="900" x2="1530" y2="900" stroke="#f4f4f5"/>
+  <use href="#ic-shield" x="1282" y="910" width="17" height="17" style="color:#047857"/>
+  <text x="1304" y="923" font-size="12" font-weight="600" fill="#3f3f46">노출 표면</text>
+  <text x="1282" y="946" font-size="11.5" fill="#52525b">· 외부 인바운드 포트 : 0</text>
+  <text x="1282" y="967" font-size="11.5" fill="#52525b">· 공개 노출 : Vercel 443 · CF 443</text>
+  <text x="1282" y="988" font-size="11.5" fill="#52525b">· DB · SSH 포트 외부 차단</text>
+  <text x="1282" y="1009" font-size="11.5" fill="#52525b">· 배포 ssh 는 Tailnet 안에서만</text>
+  <text x="1282" y="1030" font-size="11.5" fill="#52525b">· cloudflared = outbound only</text>
+  <text x="1282" y="1057" font-size="11" fill="#a1a1aa">최소권한: cap_drop ALL · USER node ·</text>
+  <text x="1282" y="1074" font-size="11" fill="#a1a1aa">no-new-privileges · 비-root 런타임</text>
+  <text x="1282" y="1102" font-size="10.5" fill="#d4d4d8">docs/architecture/architecture.svg</text>
+
+  <!-- ===== EDGES (live hot path = amber) ===== -->
+  <path d="M148 270 L148 334" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
+  <text x="158" y="306" font-size="11.5" font-weight="600" fill="#b45309">① 페이지 HTTPS</text>
+
+  <path d="M248 206 L360 240" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
+  <text x="250" y="186" font-size="11.5" font-weight="600" fill="#b45309">② API + 실시간 (HTTPS / WSS)</text>
+
+  <path d="M616 244 L706 240" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
+  <text x="624" y="226" font-size="11.5" font-weight="600" fill="#b45309">③ outbound QUIC 터널</text>
+  <text x="624" y="208" font-size="10.5" fill="#a1a1aa">맥미니가 바깥으로 연결 · 인바운드 X</text>
+
+  <path d="M813 300 L848 366" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
+  <text x="828" y="338" font-size="11" font-weight="600" fill="#b45309">localhost:3001</text>
+
+  <!-- api <-> postgres -->
+  <path d="M974 458 L990 458" fill="none" stroke="#52525b" stroke-width="2.5" marker-end="url(#arrZinc)" marker-start="url(#arrZincStart)"/>
+  <text x="982" y="446" text-anchor="middle" font-size="10.5" fill="#71717a">pg (raw)</text>
+
+  <!-- postgres -> backup / cleanup -> postgres -->
+  <path d="M1204 400 L1222 400" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <path d="M1222 508 L1204 508" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+
+  <!-- backup -> external SSD -->
+  <path d="M1367 450 L1410 600" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <text x="1404" y="530" text-anchor="middle" font-size="10.5" fill="#a1a1aa">.sql.gz</text>
+
+  <!-- CI edges -->
+  <path d="M248 838 L300 838" fill="none" stroke="#52525b" stroke-width="2" marker-end="url(#arrZinc)"/>
+  <path d="M428 884 L428 904" fill="none" stroke="#52525b" stroke-width="2" marker-end="url(#arrZinc)"/>
+  <text x="438" y="900" font-size="10.5" fill="#71717a">통과 시</text>
+
+  <!-- push -> Vercel (git deploy) -->
+  <path d="M160 804 L160 620 C160 555 148 545 148 492" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <text x="40" y="660" font-size="10.5" fill="#a1a1aa">Vercel: git 연동</text>
+  <text x="40" y="676" font-size="10.5" fill="#a1a1aa">자동 빌드·배포</text>
+
+  <!-- Deploy -> mac mini (ssh) -->
+  <path d="M864 968 C1010 968 1090 700 1090 580" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <text x="900" y="690" font-size="11" fill="#71717a">ssh · Tailnet · compose up --build</text>
+
+  <!-- monitors -> cf edge -->
+  <path d="M586 858 L500 858 L500 360" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
+  <text x="430" y="560" font-size="10.5" fill="#a1a1aa">외부에서</text>
+  <text x="430" y="576" font-size="10.5" fill="#a1a1aa">TLS · /health 감시</text>
+</svg>
