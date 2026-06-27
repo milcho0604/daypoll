@@ -9,6 +9,11 @@ const SITE_URL =
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const posts = getAllPosts();
+  // frontmatter date 가 누락/오류면 Invalid Date 로 sitemap 직렬화가 깨지므로 now 로 폴백.
+  const safeDate = (s: string): Date => {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? now : d;
+  };
   return [
     {
       url: `${SITE_URL}/`,
@@ -24,13 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/blog`,
-      lastModified: posts[0] ? new Date(posts[0].date) : now,
+      lastModified: posts[0] ? safeDate(posts[0].date) : now,
       changeFrequency: 'weekly',
       priority: 0.6,
     },
     ...posts.map((p) => ({
       url: `${SITE_URL}/blog/${p.slug}`,
-      lastModified: new Date(p.date),
+      lastModified: safeDate(p.date),
       changeFrequency: 'yearly' as const,
       priority: 0.5,
     })),
