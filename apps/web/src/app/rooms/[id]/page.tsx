@@ -29,23 +29,23 @@ export async function generateMetadata({
       top && top.votes > 0 ? `지금 1위 ${formatDateKR(top.date)} · ` : '';
     const description = `${room.title} — ${lead}참여자 ${room.participantCount}명. 가능한 날짜에 투표해주세요.`;
     return {
-      title: `${room.title} · 언제모여`,
+      title: `${room.title} · 모일까`,
       description,
       robots,
       openGraph: {
-        title: `${room.title} · 언제모여`,
+        title: `${room.title} · 모일까`,
         description,
         type: 'website',
         url: `/rooms/${id}`,
       },
       twitter: {
         card: 'summary_large_image',
-        title: `${room.title} · 언제모여`,
+        title: `${room.title} · 모일까`,
         description,
       },
     };
   } catch {
-    return { title: '방 · 언제모여', robots };
+    return { title: '방 · 모일까', robots };
   }
 }
 

@@ -1,6 +1,6 @@
 import CreateRoomForm from './create-room-form';
 
-export const metadata = { title: '방 만들기 · 언제모여' };
+export const metadata = { title: '방 만들기 · 모일까' };
 
 export default function NewRoomPage() {
   return (

@@ -3,7 +3,7 @@ import { getRoom } from '@/lib/rooms';
 import { formatDateKRLong } from '@/lib/format';
 
 export const runtime = 'nodejs';
-export const alt = '언제모여 — 방 공유 카드';
+export const alt = '모일까 — 방 공유 카드';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -13,7 +13,7 @@ export default async function OgImage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  let title = '언제모여';
+  let title = '모일까';
   let topLabel = '아직 결과가 없어요';
   let votes = 0;
   let participantCount = 0;
@@ -51,7 +51,7 @@ export default async function OgImage({
         }}
       >
         <div style={{ fontSize: 32, color: '#a1a1aa', display: 'flex' }}>
-          언제모여
+          모일까
         </div>
         <div
           style={{

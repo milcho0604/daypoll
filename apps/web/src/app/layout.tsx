@@ -20,12 +20,13 @@ const SITE_URL =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "언제모여 — 회원가입 없이 날짜 맞추기",
+    default: "모일까 — 회원가입 없이 날짜 맞추기",
     template: "%s",
   },
   description:
     "친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율, 모임 약속 잡기를 1분 컷으로.",
   keywords: [
+    "모일까",
     "언제모여",
     "모임 날짜 정하기",
     "약속 날짜 정하기",
@@ -40,16 +41,16 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "언제모여",
+    siteName: "모일까",
     url: SITE_URL,
-    title: "언제모여 — 회원가입 없이 날짜 맞추기",
+    title: "모일까 — 회원가입 없이 날짜 맞추기",
     description:
       "친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율 1분 컷.",
     locale: "ko_KR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "언제모여",
+    title: "모일까",
     description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
   },
   // Search Console / Naver verification 코드 받으면 아래에 채워넣을 자리.

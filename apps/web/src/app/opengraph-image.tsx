@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'nodejs';
-export const alt = '언제모여 — 회원가입 없이 날짜 맞추기';
+export const alt = '모일까 — 회원가입 없이 날짜 맞추기';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -49,7 +49,7 @@ export default async function OgImage() {
             letterSpacing: '-0.04em',
           }}
         >
-          언제 모여?
+          언제 모일까?
         </div>
         <div
           style={{

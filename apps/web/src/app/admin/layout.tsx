@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import AdminTopbar from './admin-topbar';
 
 export const metadata = {
-  title: '어드민 · 언제모여',
+  title: '어드민 · 모일까',
   robots: { index: false, follow: false },
 };
 

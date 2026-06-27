@@ -8,8 +8,8 @@ const SITE_URL =
 const JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: '언제모여',
-  alternateName: ['daypoll', '언제 모여', '언제 모여?'],
+  name: '모일까',
+  alternateName: ['daypoll', '언제모여', '언제 모여', '언제 모여?', '언제 모일까?'],
   url: SITE_URL,
   description:
     '친구들이랑 모일 날짜, 회원가입 없이 링크 하나로. 단톡방 일정 조율 1분 컷.',
@@ -33,7 +33,7 @@ export default function Home() {
             가입 0번, 링크 한 줄
           </span>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            언제 모여?
+            언제 모일까?
           </h1>
           <p className="max-w-md text-base text-zinc-600 dark:text-zinc-400 sm:text-lg">
             친구들이랑 모일 날 정하느라

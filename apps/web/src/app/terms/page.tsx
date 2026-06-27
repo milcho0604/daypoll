@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: '이용약관 · 언제모여',
-  description: '언제모여 서비스 이용약관.',
+  title: '이용약관 · 모일까',
+  description: '모일까 서비스 이용약관.',
 };
 
 const LAST_UPDATED = '2026-06-08';
@@ -26,7 +26,7 @@ export default function TermsPage() {
       <article className="space-y-6 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
         <Section title="제1조 (목적)">
           <p>
-            본 약관은 언제모여(이하 &ldquo;서비스&rdquo;)를 이용함에 있어 운영자와
+            본 약관은 모일까(이하 &ldquo;서비스&rdquo;)를 이용함에 있어 운영자와
             이용자 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
           </p>
         </Section>

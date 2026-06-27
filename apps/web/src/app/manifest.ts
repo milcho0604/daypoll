@@ -4,8 +4,8 @@ import type { MetadataRoute } from 'next';
 // 자체 아이콘은 app/icon.tsx / app/apple-icon.tsx 가 동적 생성.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '언제모여 — 회원가입 없이 날짜 맞추기',
-    short_name: '언제모여',
+    name: '모일까 — 회원가입 없이 날짜 맞추기',
+    short_name: '모일까',
     description: '친구들이랑 모일 날짜, 회원가입 없이 링크 하나로.',
     start_url: '/',
     display: 'standalone',

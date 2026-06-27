@@ -62,7 +62,7 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
     if (!url || !canNativeShare) return;
     try {
       await navigator.share({
-        title: '언제모여',
+        title: '모일까',
         text: '우리 언제 모일까? 가능한 날만 체크하면 끝 🗓️',
         url,
       });

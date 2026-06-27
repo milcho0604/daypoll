@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: '개인정보처리방침 · 언제모여',
-  description: '언제모여 서비스의 개인정보 수집 및 처리 방침.',
+  title: '개인정보처리방침 · 모일까',
+  description: '모일까 서비스의 개인정보 수집 및 처리 방침.',
 };
 
 const LAST_UPDATED = '2026-06-15';
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
       <article className="space-y-6 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
         <p>
-          언제모여(이하 &ldquo;서비스&rdquo;)는 회원가입 없이 친구들과 모일
+          모일까(이하 &ldquo;서비스&rdquo;)는 회원가입 없이 친구들과 모일
           날짜를 정하는 도구입니다. 개인정보를 최소한으로만 수집하며, 본
           처리방침에 따라 보호합니다.
         </p>

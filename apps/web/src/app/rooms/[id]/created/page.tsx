@@ -1,7 +1,7 @@
 import CreatedShare from './created-share';
 
 export const metadata = {
-  title: '링크 발급 · 언제모여',
+  title: '링크 발급 · 모일까',
   robots: { index: false, follow: false },
 };
 

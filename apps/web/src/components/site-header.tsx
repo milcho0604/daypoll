@@ -19,11 +19,11 @@ export default function SiteHeader() {
       <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between px-5">
         <Link
           href="/"
-          aria-label="언제모여 홈으로"
+          aria-label="모일까 홈으로"
           className="press inline-flex items-center gap-1.5 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
         >
           <span aria-hidden>🗓️</span>
-          언제모여
+          모일까
         </Link>
 
         {!isHome && (
