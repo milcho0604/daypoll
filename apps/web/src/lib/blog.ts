@@ -42,6 +42,23 @@ function parseFrontmatter(raw: string): {
   return { data, body: m[2] };
 }
 
+// 콘텐츠는 우리가 작성한 빌드타임 .md(신뢰됨)지만, 실수로 raw <script> 등이
+// 섞여도 렌더되지 않도록 위험 태그/속성을 제거한다. 완전한 sanitizer 는 아니고
+// 신뢰 콘텐츠에 대한 방어적 보강(defense-in-depth)이다.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(
+      /<\s*(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi,
+      '',
+    )
+    .replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(
+      /(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi,
+      '$1="#"',
+    );
+}
+
 function toMeta(slug: string, data: Record<string, string>): PostMeta {
   return {
     slug,
@@ -79,6 +96,8 @@ function _getPost(slug: string): { meta: PostMeta; html: string } | null {
     return null;
   }
   const { data, body } = parseFrontmatter(raw);
-  const html = marked.parse(body, { async: false, gfm: true }) as string;
+  const html = sanitizeHtml(
+    marked.parse(body, { async: false, gfm: true }) as string,
+  );
   return { meta: toMeta(slug, data), html };
 }
