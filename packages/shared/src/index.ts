@@ -13,6 +13,56 @@ export interface RoomSummary {
   createdAt: string;
 }
 
+// 날씨용 지역 — 시·도 단위. 코드는 백엔드 좌표 맵 키, label 은 드롭다운 표시.
+// 위치 권한 없이 사용자가 직접 고르는 선택값(선택 안 하면 날씨 미표시).
+export const REGIONS = [
+  { code: 'seoul', label: '서울' },
+  { code: 'busan', label: '부산' },
+  { code: 'daegu', label: '대구' },
+  { code: 'incheon', label: '인천' },
+  { code: 'gwangju', label: '광주' },
+  { code: 'daejeon', label: '대전' },
+  { code: 'ulsan', label: '울산' },
+  { code: 'sejong', label: '세종' },
+  { code: 'gyeonggi', label: '경기' },
+  { code: 'gangwon', label: '강원' },
+  { code: 'chungbuk', label: '충북' },
+  { code: 'chungnam', label: '충남' },
+  { code: 'jeonbuk', label: '전북' },
+  { code: 'jeonnam', label: '전남' },
+  { code: 'gyeongbuk', label: '경북' },
+  { code: 'gyeongnam', label: '경남' },
+  { code: 'jeju', label: '제주' },
+] as const;
+
+export type RegionCode = (typeof REGIONS)[number]['code'];
+
+export const REGION_CODES: readonly RegionCode[] = REGIONS.map((r) => r.code);
+
+export function regionLabel(code: string | null | undefined): string | null {
+  return REGIONS.find((r) => r.code === code)?.label ?? null;
+}
+
+// 후보날짜 하루치 날씨 (Open-Meteo 일별 예보). 예보 가능 범위(약 16일) 밖 날짜는 빠진다.
+export interface WeatherDay {
+  date: string; // YYYY-MM-DD
+  code: number; // WMO weather code
+  emoji: string; // 칩에 바로 쓰는 대표 이모지
+  label: string; // 한국어 요약 (예: "맑음", "비")
+  tempMax: number | null; // °C, 반올림
+  tempMin: number | null; // °C, 반올림
+}
+
+export interface RoomWeather {
+  region: RegionCode | null;
+  regionLabel: string | null;
+  days: WeatherDay[]; // 예보 범위 내 후보날짜만
+}
+
+export interface UpdateRegionRequest {
+  region: RegionCode | null; // null = 지역 해제(날씨 끄기)
+}
+
 export interface Voter {
   id: number;
   nickname: string;
@@ -30,6 +80,7 @@ export interface RoomDetail extends RoomSummary {
   participantCount: number;
   results: DateResult[];
   createdBy?: string;
+  region?: RegionCode | null; // 날씨용 지역 (선택). null/미설정 = 날씨 안 보임.
 }
 
 export interface CreateRoomRequest {
@@ -37,6 +88,7 @@ export interface CreateRoomRequest {
   dates: string[]; // ISO date 문자열 배열
   deadline?: string | null;
   createdBy?: string;
+  region?: RegionCode | null;
 }
 
 export interface CreateRoomResponse {
