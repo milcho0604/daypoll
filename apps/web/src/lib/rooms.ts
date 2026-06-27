@@ -7,9 +7,12 @@ import {
   JoinRoomRequest,
   JoinRoomResponse,
   RecoverParticipantRequest,
+  RegionCode,
   RoomDetail,
+  RoomWeather,
   UpdateAvailabilitiesRequest,
   UpdateDeadlineRequest,
+  UpdateRegionRequest,
 } from '@whenever/shared';
 import { api } from './api';
 
@@ -85,6 +88,23 @@ export function updateDeadline(
   body: UpdateDeadlineRequest,
 ) {
   return api<{ deadline: string | null }>(`/rooms/${roomId}/deadline`, {
+    method: 'PATCH',
+    headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
+    body,
+  });
+}
+
+export function getRoomWeather(roomId: string, signal?: AbortSignal) {
+  return api<RoomWeather>(`/rooms/${roomId}/weather`, { signal });
+}
+
+export function updateRegion(
+  roomId: string,
+  creatorToken: string,
+  region: RegionCode | null,
+) {
+  const body: UpdateRegionRequest = { region };
+  return api<{ region: RegionCode | null }>(`/rooms/${roomId}/region`, {
     method: 'PATCH',
     headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
     body,

@@ -1,25 +1,31 @@
 'use client';
 
 import { useState } from 'react';
+import { REGIONS, type RegionCode } from '@whenever/shared';
 import { useEscClose } from './use-esc-close';
 
-// 개설자 방 관리 — 마감일 설정/해제 + 지금 즉시 종료.
+// 개설자 방 관리 — 마감일 설정/해제 + 지역(날씨) + 지금 즉시 종료.
 // 본질적으로 같은 동작 (deadline 변경) 이라 한 모달에 통합.
 export default function DeadlineModal({
   current,
+  currentRegion,
   isLocked,
   onClose,
   onSave,
+  onSaveRegion,
   onCloseNow,
   busy,
 }: {
   current: string | null;
+  currentRegion: RegionCode | null;
   isLocked: boolean;
   onClose: () => void;
   onSave: (value: string | null) => void;
+  onSaveRegion: (value: RegionCode | null) => void;
   onCloseNow: () => void;
   busy?: boolean;
 }) {
+  const [region, setRegion] = useState<string>(currentRegion ?? '');
   const [useDeadline, setUseDeadline] = useState(!!current);
   const [value, setValue] = useState(() => {
     const base = current ? new Date(current) : new Date(Date.now() + 86400000);
@@ -63,6 +69,33 @@ export default function DeadlineModal({
           ) : (
             <p className="mt-2 text-xs text-zinc-500">해제하면 무기한이 됩니다.</p>
           )}
+        </div>
+
+        <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+          <label htmlFor="room-region" className="text-sm">
+            지역 (날씨)
+          </label>
+          <p className="mt-1 text-xs text-zinc-500">
+            고르면 후보 날짜에 날씨가 같이 보여요. 바꾸면 바로 저장돼요.
+          </p>
+          <select
+            id="room-region"
+            value={region}
+            onChange={(e) => {
+              const v = e.target.value;
+              setRegion(v);
+              onSaveRegion((v as RegionCode) || null);
+            }}
+            disabled={busy}
+            className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
+          >
+            <option value="">날씨 안 볼래요</option>
+            {REGIONS.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="mt-5 flex gap-2">

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { REGIONS, type RegionCode } from '@whenever/shared';
 import { ApiError } from '@/lib/api';
 import { createRoom } from '@/lib/rooms';
 import { writeTokens } from '@/lib/tokens';
@@ -36,6 +37,7 @@ export default function CreateRoomForm() {
   const [dates, setDates] = useState<string[]>([]);
   const [useDeadline, setUseDeadline] = useState(false);
   const [deadline, setDeadline] = useState<string>('');
+  const [region, setRegion] = useState<string>('');
   const [titleHint] = useState(() => TITLE_HINTS[Math.floor(Math.random() * TITLE_HINTS.length)]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export default function CreateRoomForm() {
         dates,
         deadline: useDeadline && deadline ? new Date(deadline).toISOString() : null,
         createdBy: createdBy.trim() || undefined,
+        region: (region as RegionCode) || null,
       });
       writeTokens(res.roomId, { creatorToken: res.creatorToken });
       recordRoom(res.roomId, title.trim());
@@ -169,6 +172,31 @@ export default function CreateRoomForm() {
             className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
           />
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
+          <label htmlFor="region" className="text-sm font-medium">
+            어디서 모여요? <span className="text-zinc-400">·</span>
+            <span className="ml-1 text-xs font-normal text-zinc-500">날씨 (선택)</span>
+          </label>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            고르면 후보 날짜에 날씨를 같이 보여줘요. 가까운 날짜만 나와요.
+          </p>
+        </div>
+        <select
+          id="region"
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+          className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none transition-colors focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
+        >
+          <option value="">날씨 안 볼래요</option>
+          {REGIONS.map((r) => (
+            <option key={r.code} value={r.code}>
+              {r.label}
+            </option>
+          ))}
+        </select>
       </section>
 
       {error && (
