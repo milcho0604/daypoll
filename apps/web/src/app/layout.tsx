@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import Link from "next/link";
 import "./globals.css";
 import SiteHeader from "@/components/site-header";
 
@@ -109,12 +110,12 @@ export default function RootLayout({
           </p>
           <Analytics />
           <p className="mt-1">
-            <a
+            <Link
               href="/blog"
               className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
             >
               블로그
-            </a>
+            </Link>
             <span aria-hidden className="mx-1.5">
               ·
             </span>
