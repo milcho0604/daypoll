@@ -59,6 +59,12 @@ export default function AdminDashboard() {
       return;
     }
     let cancelled = false;
+    // admin:event 폭주 시 stats 재요청 스톰 방지 — 1.2s trailing debounce.
+    let eventDebounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (eventDebounce) clearTimeout(eventDebounce);
+      eventDebounce = setTimeout(() => void refresh.current(), 1200);
+    };
     refresh.current = async () => {
       try {
         const s = await adminGetStats();
@@ -87,8 +93,8 @@ export default function AdminDashboard() {
           ...prev,
         ].slice(0, FEED_MAX),
       );
-      // 이벤트 들어오면 stats 도 갱신 (살짝 디바운스 없이 즉시)
-      void refresh.current();
+      // 이벤트 들어오면 stats 도 갱신 — 디바운스로 폭주 시 묶어서 1회.
+      scheduleRefresh();
     };
     if (socket.connected) onConnect();
     socket.on('connect', onConnect);
@@ -99,6 +105,7 @@ export default function AdminDashboard() {
     const id = setInterval(() => void refresh.current(), POLL_MS);
     return () => {
       cancelled = true;
+      if (eventDebounce) clearTimeout(eventDebounce);
       clearInterval(id);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
