@@ -269,12 +269,12 @@ export class ParticipantsService {
       await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
         participantId,
       ]);
-      for (const id of filtered) {
+      if (filtered.length > 0) {
         await c.query(
           `INSERT INTO availabilities (participant_id, room_date_id)
-           VALUES ($1, $2)
+           SELECT $1, unnest($2::bigint[])
            ON CONFLICT DO NOTHING`,
-          [participantId, id],
+          [participantId, filtered],
         );
       }
     });

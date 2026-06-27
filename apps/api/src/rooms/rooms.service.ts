@@ -43,11 +43,12 @@ export class RoomsService {
       );
 
       const uniqueDates = Array.from(new Set(dto.dates));
-      for (const d of uniqueDates) {
+      if (uniqueDates.length > 0) {
         await c.query(
-          `INSERT INTO room_dates (room_id, the_date) VALUES ($1, $2)
+          `INSERT INTO room_dates (room_id, the_date)
+           SELECT $1, unnest($2::date[])
            ON CONFLICT DO NOTHING`,
-          [roomId, d],
+          [roomId, uniqueDates],
         );
       }
     });
