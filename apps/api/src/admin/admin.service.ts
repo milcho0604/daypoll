@@ -122,6 +122,7 @@ export class AdminService {
              COUNT(*)::text AS count
       FROM availabilities a
       JOIN room_dates rd ON rd.id = a.room_date_id
+      WHERE a.created_at >= now() - interval '30 days'
       GROUP BY dow ORDER BY dow
     `);
 
