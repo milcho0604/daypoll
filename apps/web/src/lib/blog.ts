@@ -2,6 +2,7 @@
 // 외부 frontmatter 라이브러리 없이 단순 포맷만 직접 파싱한다.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { cache } from 'react';
 import { marked } from 'marked';
 
 const BLOG_DIR = join(process.cwd(), 'content', 'blog');
@@ -66,7 +67,11 @@ export function getAllPosts(): PostMeta[] {
     .sort((a, b) => (a.date < b.date ? 1 : -1)); // 최신순
 }
 
-export function getPost(slug: string): { meta: PostMeta; html: string } | null {
+// generateMetadata 와 페이지 본문이 같은 렌더에서 각각 호출 → React cache 로
+// 슬러그당 파일 읽기·marked 파싱을 1회로 메모이즈(빌드 비용 절감).
+export const getPost = cache(_getPost);
+
+function _getPost(slug: string): { meta: PostMeta; html: string } | null {
   let raw: string;
   try {
     raw = readFileSync(join(BLOG_DIR, `${slug}.md`), 'utf8');
