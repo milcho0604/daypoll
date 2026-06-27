@@ -496,12 +496,15 @@ function padDailySeries(
   days: number,
 ): { day: string; count: number }[] {
   // 마지막 N일을 항상 표시 (없는 날은 0). 그래프가 점점 자라는 느낌이 나도록.
+  // 키는 KST 달력 날짜 — 서버 버킷(date_trunc AT TIME ZONE 'Asia/Seoul')과 일치시켜
+  // UTC 자정~KST 자정 사이 하루 어긋남을 방지한다.
+  const KST_OFFSET = 9 * 60 * 60 * 1000;
   const map = new Map(data.map((d) => [d.day, d.count]));
   const out: { day: string; count: number }[] = [];
   const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * 86_400_000);
-    const key = d.toISOString().slice(0, 10);
+    const key = new Date(d.getTime() + KST_OFFSET).toISOString().slice(0, 10);
     out.push({ day: key, count: map.get(key) ?? 0 });
   }
   return out;

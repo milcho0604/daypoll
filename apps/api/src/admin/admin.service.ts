@@ -91,8 +91,9 @@ export class AdminService {
       FROM rooms
     `);
 
+    // 일별 버킷은 KST 기준 — hourlyJoins(AT TIME ZONE 'Asia/Seoul')·클라 padDailySeries 와 일치시킨다.
     const dailyCreated = await this.pool.query<{ day: string; count: string }>(`
-      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Asia/Seoul'), 'YYYY-MM-DD') AS day,
              COUNT(*)::text AS count
       FROM rooms
       WHERE created_at >= now() - interval '30 days'
@@ -100,7 +101,7 @@ export class AdminService {
     `);
 
     const dailyVotes = await this.pool.query<{ day: string; count: string }>(`
-      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Asia/Seoul'), 'YYYY-MM-DD') AS day,
              COUNT(*)::text AS count
       FROM availabilities
       WHERE created_at >= now() - interval '30 days'
