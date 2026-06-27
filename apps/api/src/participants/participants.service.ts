@@ -22,13 +22,26 @@ export class ParticipantsService {
   // 5회 실패 시 30분 잠금. in-memory 라 재시작 시 리셋.
   private readonly pinFailures = new Map<
     string,
-    { count: number; until: number }
+    { count: number; until: number; ts: number }
   >();
   private static readonly PIN_MAX_ATTEMPTS = 5;
   private static readonly PIN_LOCKOUT_MS = 30 * 60 * 1000;
+  private lastPinSweep = Date.now();
 
   private pinKey(roomId: string, nickname: string): string {
     return `${roomId}::${nickname.trim().toLowerCase()}`;
+  }
+
+  // 마지막 갱신 후 lockout 기간(30분) 지난 엔트리를 가끔 청소.
+  // 다시 접근 안 되는 (방,닉네임) 조합이 영구 누적되는 메모리 누수를 막는다.
+  private sweepPinFailures(now: number): void {
+    if (now - this.lastPinSweep < 60_000) return;
+    this.lastPinSweep = now;
+    for (const [k, v] of this.pinFailures) {
+      if (now - v.ts > ParticipantsService.PIN_LOCKOUT_MS) {
+        this.pinFailures.delete(k);
+      }
+    }
   }
 
   constructor(
@@ -119,8 +132,9 @@ export class ParticipantsService {
     // lockout 키: 닉네임 있으면 (방, 닉네임), 없으면 (방) 전체.
     // PIN-only 모드에서는 방 단위로만 묶어서 brute 차단.
     const key = nickname ? this.pinKey(roomId, nickname) : `${roomId}::__any__`;
-    const entry = this.pinFailures.get(key);
     const now = Date.now();
+    this.sweepPinFailures(now);
+    const entry = this.pinFailures.get(key);
     if (entry && entry.until > now) {
       throw new HttpException(
         'too many failed attempts — try again later',
@@ -201,9 +215,10 @@ export class ParticipantsService {
       this.pinFailures.set(key, {
         count: next,
         until: now + ParticipantsService.PIN_LOCKOUT_MS,
+        ts: now,
       });
     } else {
-      this.pinFailures.set(key, { count: next, until: 0 });
+      this.pinFailures.set(key, { count: next, until: 0, ts: now });
     }
     throw new ForbiddenException('pin does not match');
   }
