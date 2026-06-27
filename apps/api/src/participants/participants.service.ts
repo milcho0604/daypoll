@@ -61,7 +61,7 @@ export class ParticipantsService {
     const finalNickname = conflicts === 0 ? base : `${base} (${conflicts + 1})`;
 
     const clientToken = newToken();
-    const pinHash = pin ? hashPin(pin) : null;
+    const pinHash = pin ? await hashPin(pin) : null;
     const res = await this.pool.query<{ id: string; nickname: string }>(
       `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
        VALUES ($1, $2, $3, $4)
@@ -146,9 +146,11 @@ export class ParticipantsService {
           [roomId],
         );
 
-    const matches = candidates.rows.filter((row) =>
-      verifyPin(pin, row.pin_hash),
-    );
+    // verifyPin 이 비동기(scrypt)라 순차 await — 방당 PIN 후보는 소수라 부담 없음.
+    const matches: typeof candidates.rows = [];
+    for (const row of candidates.rows) {
+      if (await verifyPin(pin, row.pin_hash)) matches.push(row);
+    }
 
     if (matches.length === 1) {
       const row = matches[0];
