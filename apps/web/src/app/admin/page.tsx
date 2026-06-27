@@ -42,9 +42,12 @@ export default function AdminDashboard() {
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [days, setDays] = useState(90);
+  // 입력은 문자열로 보관 — type=number 의 빈 값 강제 0·선행 0(010) 문제를 피한다.
+  const [days, setDays] = useState('90');
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<number | null>(null);
+  // 실제로 쓸 때만 정수로. 빈 값/0 이면 0.
+  const daysNum = parseInt(days, 10) || 0;
 
   const refresh = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -101,6 +104,11 @@ export default function AdminDashboard() {
   }, [router]);
 
   function onCleanup() {
+    if (daysNum < 1) {
+      setError('며칠 이상을 지울지 입력해 주세요 (1 이상).');
+      return;
+    }
+    setError(null);
     setCleanupConfirm(true);
   }
 
@@ -108,7 +116,7 @@ export default function AdminDashboard() {
     setBusy(true);
     setError(null);
     try {
-      const r = await adminCleanup(days);
+      const r = await adminCleanup(daysNum);
       setCleanupResult(r.removed);
       setCleanupConfirm(false);
       void refresh.current();
@@ -261,17 +269,22 @@ export default function AdminDashboard() {
         </p>
         <div className="mt-3 flex items-center gap-2">
           <input
-            type="number"
-            min={1}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
+            onChange={(e) =>
+              setDays(
+                e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''),
+              )
+            }
             className="h-10 w-24 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
           <span className="text-sm text-zinc-500">일 이상</span>
           <button
             type="button"
             onClick={onCleanup}
-            disabled={busy}
+            disabled={busy || daysNum < 1}
             className="ml-auto h-10 rounded-full bg-rose-600 px-4 text-sm font-medium text-white disabled:bg-zinc-300"
           >
             {busy ? '정리 중…' : '정리 실행'}
@@ -298,7 +311,7 @@ export default function AdminDashboard() {
       <ConfirmModal
         open={cleanupConfirm}
         title="오래된 방 정리"
-        message={`${days}일 이상된 방을 한꺼번에 지울게요.\n계속할까요?`}
+        message={`${daysNum}일 이상된 방을 한꺼번에 지울게요.\n계속할까요?`}
         confirmLabel="정리하기"
         danger
         busy={busy}
