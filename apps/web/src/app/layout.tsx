@@ -110,6 +110,15 @@ export default function RootLayout({
           <Analytics />
           <p className="mt-1">
             <a
+              href="/blog"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              블로그
+            </a>
+            <span aria-hidden className="mx-1.5">
+              ·
+            </span>
+            <a
               href="/privacy"
               className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
             >
