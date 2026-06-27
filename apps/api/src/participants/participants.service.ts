@@ -50,25 +50,37 @@ export class ParticipantsService {
       throw new NotFoundException('room not found');
     }
     const base = nickname.trim();
-    // 같은 방에 같은 닉네임이 이미 있으면 "지원 (2)" 식으로 자동 차별화.
-    // 친구 모임에서 "지수" "지수" 같이 흔한 충돌 방지 — 강퇴 사고도 막음.
-    const dup = await this.pool.query<{ c: string }>(
-      `SELECT COUNT(*)::text AS c FROM participants
-       WHERE room_id = $1 AND (nickname = $2 OR nickname LIKE $2 || ' (%)')`,
-      [roomId, base],
-    );
-    const conflicts = Number(dup.rows[0].c);
-    const finalNickname = conflicts === 0 ? base : `${base} (${conflicts + 1})`;
-
     const clientToken = newToken();
     const pinHash = pin ? await hashPin(pin) : null;
-    const res = await this.pool.query<{ id: string; nickname: string }>(
-      `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id::text, nickname`,
-      [roomId, finalNickname, clientToken, pinHash],
+
+    // 같은 방에 같은 닉네임이 이미 있으면 "지수 (2)" 식으로 자동 차별화.
+    // 카운트→insert 사이 경쟁(TOCTOU)으로 같은 닉네임이 동시 생성되지 않도록
+    // (방, 닉네임) 단위 advisory lock 으로 동시 입장을 직렬화한다.
+    const { finalNickname, participantId } = await withTransaction(
+      this.pool,
+      async (c) => {
+        await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `nick:${roomId}:${base.toLowerCase()}`,
+        ]);
+        const dup = await c.query<{ c: string }>(
+          `SELECT COUNT(*)::text AS c FROM participants
+           WHERE room_id = $1 AND (nickname = $2 OR nickname LIKE $2 || ' (%)')`,
+          [roomId, base],
+        );
+        const conflicts = Number(dup.rows[0].c);
+        const fn = conflicts === 0 ? base : `${base} (${conflicts + 1})`;
+        const res = await c.query<{ id: string; nickname: string }>(
+          `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id::text, nickname`,
+          [roomId, fn, clientToken, pinHash],
+        );
+        return {
+          finalNickname: res.rows[0].nickname,
+          participantId: Number(res.rows[0].id),
+        };
+      },
     );
-    const participantId = Number(res.rows[0].id);
 
     // 방 만든 사람의 첫 입장 — creator_token 매칭되면 이 participant 를 방 주인으로 link.
     // 그 후 같은 PIN 으로 다른 기기 복원 시 creator_token 자동 회수 가능.
@@ -89,12 +101,12 @@ export class ParticipantsService {
     this.realtime.emitResultsUpdated(roomId); // 참여자 수 변경
     this.realtime.emitAdminEvent('participant_joined', {
       roomId,
-      nickname: res.rows[0].nickname,
+      nickname: finalNickname,
     });
     return {
       participantId,
       clientToken,
-      nickname: res.rows[0].nickname,
+      nickname: finalNickname,
       creatorToken: returnedCreatorToken,
     };
   }
