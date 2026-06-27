@@ -53,8 +53,11 @@ export const metadata: Metadata = {
     title: "모일까",
     description: "링크 하나로 친구들이랑 모일 날짜를 정해보세요.",
   },
-  // Search Console / Naver verification 코드 받으면 아래에 채워넣을 자리.
-  // verification: { google: 'xxx', other: { 'naver-site-verification': 'xxx' } },
+  // Google 은 도메인 속성 + Cloudflare DNS 로 인증(메타태그 불필요).
+  // 네이버 서치어드바이저는 HTML 태그 방식이라 여기 메타로 소유확인.
+  verification: {
+    other: { "naver-site-verification": "74082209ea94d4bf49632edbd17a5beb56348351" },
+  },
 };
 
 export const viewport: Viewport = {
