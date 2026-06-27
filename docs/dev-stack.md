@@ -75,7 +75,15 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 
 docker 식별자를 `whenever-*` → `moilga-*` (프로젝트 `whenever`→`moilga`)로 옮겼다.
 **데이터 보존을 위해** 운영 DB 볼륨은 정지 상태에서 `whenever_pgdata` → `moilga_pgdata` 로
-복제했고, 원본 `whenever_pgdata` 볼륨과 `whenever-api` 이미지는 **롤백용으로 남겨 뒀다**.
+복제했다.
+
+> ⚠️ **볼륨 즉시 롤백은 더 이상 불가 (2026-06-27 롤백 자산 삭제됨).**
+> 리네임 직후엔 원본 `whenever_pgdata` 볼륨 + `whenever-api` 이미지를 롤백용으로
+> 남겨 뒀으나, 3일 안정 운영 확인 후 정리했다. 현재 남은 자산은 `moilga_pgdata`
+> 볼륨 + `moilga-api:latest` 이미지 **단일본뿐**이다.
+> → "구 볼륨으로 스왑" 롤백 경로는 없고, 복구는 아래 **매일 .sql.gz 백업 복원**으로 한다.
+> (데이터 자체는 살아있고 매일 백업도 도니 복구는 가능 — 다만 *즉시* 스왑이 아니라
+> *백업 복원* 절차다.)
 
 의도적으로 **안 바꾼 것**(내부 식별자라 외부에 안 보이고, 바꾸면 위험/광범위):
 
@@ -84,10 +92,23 @@ docker 식별자를 `whenever-*` → `moilga-*` (프로젝트 `whenever`→`moil
 - 레포 디렉터리명 `.../project/whenever` — 경로·alias·worktree 가 묶여 있어 유지.
 - 백업 호스트 경로 `/Volumes/milcho_ex/whenever-backups` — 기존 백업 보존 위해 유지.
 
-롤백이 필요하면(운영 DB 손상 등):
+### 복구 (운영 DB 손상 시) — 백업 복원
+
+`moilga-backup` 컨테이너가 매일 04:30 `/Volumes/milcho_ex/whenever-backups/daily/` 로
+`whenever-YYYYMMDD.sql.gz` 덤프(plain SQL, 14일 보존 + 주/월 롤업, `whenever-latest.sql.gz`
+= 당일 심링크). 덤프가 plain 포맷이라 **빈 DB 에 복원**하는 게 충돌 없이 안전하다:
 
 ```bash
-docker compose -p moilga --env-file .env.prod -f docker-compose.prod.yml down
-# docker-compose.prod.yml 의 name/container_name 을 whenever 로 되돌린 뒤
-docker compose -p whenever --env-file .env.prod -f docker-compose.prod.yml up -d   # whenever_pgdata 그대로 사용
+ls -lt /Volumes/milcho_ex/whenever-backups/daily/ | head   # 최신 백업 확인
+
+# 1) 손상 DB 비우고 새로 생성 (파괴적 — 복원 성공 확인 전엔 신중)
+docker exec moilga-postgres psql -U whenever -d postgres \
+  -c "DROP DATABASE whenever WITH (FORCE);" -c "CREATE DATABASE whenever;"
+
+# 2) 최신 백업 적용
+gunzip -c /Volumes/milcho_ex/whenever-backups/daily/whenever-latest.sql.gz \
+  | docker exec -i moilga-postgres psql -U whenever -d whenever
 ```
+
+> 복구 후 API 가 스키마 마이그레이션을 자동 재확인한다(Dockerfile CMD `migrate && serve`).
+> 백업 복원이 의심되면 먼저 일회용 컨테이너에 복원해 행 수를 검증한 뒤 운영에 적용할 것.
