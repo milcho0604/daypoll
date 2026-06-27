@@ -45,7 +45,7 @@
   <rect x="0" y="0" width="1600" height="1180" fill="#ffffff"/>
 
   <!-- ===== header ===== -->
-  <text x="48" y="56" font-size="30" font-weight="700" fill="#18181b">언제모여 (moilga.com) — 서버 아키텍처</text>
+  <text x="48" y="56" font-size="30" font-weight="700" fill="#18181b">모일까 (moilga.com) — 서버 아키텍처</text>
   <text x="48" y="86" font-size="15.5" fill="#71717a">회원가입 없는 모임 날짜 투표 · 프론트(Vercel) + 백엔드(맥미니 Docker) · 외부 노출은 Cloudflare Tunnel 만</text>
 
   <!-- ===== CLIENTS ===== -->
@@ -93,7 +93,7 @@
 
   <!-- docker network sub-box -->
   <rect x="706" y="330" width="822" height="232" rx="16" fill="#ffffff" stroke="#e4e4e7"/>
-  <text x="724" y="353" font-size="12.5" font-weight="700" fill="#71717a">docker network · moilga</text>
+  <text x="724" y="353" font-size="12.5" font-weight="700" fill="#71717a">docker network</text>
 
   <!-- moilga-api -->
   <rect x="722" y="366" width="252" height="184" rx="14" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
@@ -204,14 +204,12 @@
   <text x="158" y="306" font-size="11.5" font-weight="600" fill="#b45309">① 페이지 HTTPS</text>
 
   <path d="M248 206 L360 240" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
-  <text x="250" y="186" font-size="11.5" font-weight="600" fill="#b45309">② API + 실시간 (HTTPS / WSS)</text>
+  <text x="304" y="200" text-anchor="middle" font-size="11.5" font-weight="600" fill="#b45309">② API · 실시간</text>
 
   <path d="M616 244 L706 240" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
-  <text x="624" y="226" font-size="11.5" font-weight="600" fill="#b45309">③ outbound QUIC 터널</text>
-  <text x="624" y="208" font-size="10.5" fill="#a1a1aa">맥미니가 바깥으로 연결 · 인바운드 X</text>
+  <text x="660" y="225" text-anchor="middle" font-size="11.5" font-weight="600" fill="#b45309">③ QUIC 터널</text>
 
-  <path d="M813 300 L848 366" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
-  <text x="828" y="338" font-size="11" font-weight="600" fill="#b45309">localhost:3001</text>
+  <path d="M813 300 L846 364" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrAmber)"/>
 
   <!-- api <-> postgres -->
   <path d="M974 458 L990 458" fill="none" stroke="#52525b" stroke-width="2.5" marker-end="url(#arrZinc)" marker-start="url(#arrZincStart)"/>
@@ -223,7 +221,7 @@
 
   <!-- backup -> external SSD -->
   <path d="M1367 450 L1410 600" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrDash)"/>
-  <text x="1404" y="530" text-anchor="middle" font-size="10.5" fill="#a1a1aa">.sql.gz</text>
+  <text x="1444" y="582" text-anchor="middle" font-size="10.5" fill="#a1a1aa">.sql.gz</text>
 
   <!-- CI edges -->
   <path d="M248 838 L300 838" fill="none" stroke="#52525b" stroke-width="2" marker-end="url(#arrZinc)"/>
