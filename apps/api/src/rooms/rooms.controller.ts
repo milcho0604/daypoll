@@ -16,6 +16,7 @@ import { clientIp } from '../common/client-ip';
 import { RateLimitService } from '../common/rate-limit.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateDeadlineDto } from './dto/update-deadline.dto';
+import { UpdateRegionDto } from './dto/update-region.dto';
 import { RoomsService } from './rooms.service';
 
 @Controller('rooms')
@@ -40,6 +41,20 @@ export class RoomsController {
   @Get(':roomId/results')
   results(@Param('roomId') roomId: string) {
     return this.rooms.getResults(roomId);
+  }
+
+  @Get(':roomId/weather')
+  weather(@Param('roomId') roomId: string) {
+    return this.rooms.getWeather(roomId);
+  }
+
+  @Patch(':roomId/region')
+  updateRegion(
+    @Param('roomId') roomId: string,
+    @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
+    @Body() dto: UpdateRegionDto,
+  ) {
+    return this.rooms.updateRegion(roomId, creatorToken, dto.region);
   }
 
   @Patch(':roomId/deadline')

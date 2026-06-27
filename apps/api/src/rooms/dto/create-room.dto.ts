@@ -4,12 +4,14 @@ import {
   ArrayUnique,
   IsArray,
   IsDateString,
+  IsIn,
   IsISO8601,
   IsOptional,
   IsString,
   Length,
   ValidateIf,
 } from 'class-validator';
+import { REGION_CODES, type RegionCode } from '@whenever/shared';
 
 export class CreateRoomDto {
   @IsString()
@@ -33,4 +35,10 @@ export class CreateRoomDto {
   @IsString()
   @Length(1, 20)
   createdBy?: string;
+
+  // 날씨용 지역 (옵션). 허용된 시·도 코드만. null/미지정 = 날씨 안 보임.
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsIn(REGION_CODES)
+  region?: RegionCode | null;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import type { DateResult, RoomDetail } from '@whenever/shared';
+import type { DateResult, RegionCode, RoomDetail } from '@whenever/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
@@ -12,6 +12,7 @@ import {
   recoverParticipant,
   updateAvailabilities,
   updateDeadline,
+  updateRegion,
 } from '@/lib/rooms';
 import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
@@ -25,6 +26,7 @@ import DeadlineModal from '@/components/room/deadline-modal';
 import RankList from '@/components/room/rank-list';
 import PersonList from '@/components/room/person-list';
 import VotersModal from '@/components/room/voters-modal';
+import WeatherStrip from '@/components/room/weather-strip';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -487,6 +489,20 @@ export default function RoomView({
     }
   }
 
+  async function onSaveRegion(value: RegionCode | null) {
+    if (!creatorToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await updateRegion(roomId, creatorToken, value);
+      setRoom((prev) => ({ ...prev, region: r.region }));
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // 방 종료 = 지금 즉시 마감(deadline=now). 기존 잠금 로직 재사용 → 투표 차단 + 확정 카드.
   // 모달 통합 후엔 closeRoomFromModal 이 모달도 같이 닫음.
   async function closeRoomFromModal() {
@@ -647,6 +663,8 @@ export default function RoomView({
           </div>
         </section>
       )}
+
+      <WeatherStrip roomId={roomId} region={room.region} />
 
       {meLoading ? (
         /* 재방문 참여자 — 내 표 로드 중 가입 폼이 깜빡 보이지 않게 스켈레톤 */
@@ -895,10 +913,12 @@ export default function RoomView({
       {showDeadlineModal && (
         <DeadlineModal
           current={room.deadline}
+          currentRegion={room.region ?? null}
           isLocked={isLocked}
           busy={busy}
           onClose={() => setShowDeadlineModal(false)}
           onSave={onSaveDeadline}
+          onSaveRegion={(v) => void onSaveRegion(v)}
           onCloseNow={() => void closeRoomFromModal()}
         />
       )}

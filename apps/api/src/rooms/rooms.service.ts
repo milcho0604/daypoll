@@ -9,20 +9,25 @@ import { Pool } from 'pg';
 import type {
   CreateRoomResponse,
   DateResult,
+  RegionCode,
   RoomDetail,
+  RoomWeather,
 } from '@whenever/shared';
+import { regionLabel } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
 import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
+import { WeatherService } from './weather.service';
 
 @Injectable()
 export class RoomsService {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly realtime: RealtimeGateway,
+    private readonly weather: WeatherService,
   ) {}
 
   async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
@@ -34,12 +39,20 @@ export class RoomsService {
     const creatorToken = newToken();
 
     const createdBy = dto.createdBy?.trim() || null;
+    const region = dto.region ?? null;
 
     await withTransaction(this.pool, async (c) => {
       await c.query(
-        `INSERT INTO rooms (id, title, creator_token, deadline, created_by)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [roomId, dto.title, creatorToken, dto.deadline ?? null, createdBy],
+        `INSERT INTO rooms (id, title, creator_token, deadline, created_by, region)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          roomId,
+          dto.title,
+          creatorToken,
+          dto.deadline ?? null,
+          createdBy,
+          region,
+        ],
       );
 
       const uniqueDates = Array.from(new Set(dto.dates));
@@ -64,8 +77,9 @@ export class RoomsService {
       deadline: Date | null;
       created_at: Date;
       created_by: string | null;
+      region: string | null;
     }>(
-      `SELECT id, title, deadline, created_at, created_by FROM rooms WHERE id = $1`,
+      `SELECT id, title, deadline, created_at, created_by, region FROM rooms WHERE id = $1`,
       [roomId],
     );
     if (roomRes.rowCount === 0) {
@@ -93,6 +107,7 @@ export class RoomsService {
       deadline: room.deadline ? room.deadline.toISOString() : null,
       createdAt: room.created_at.toISOString(),
       createdBy: room.created_by ?? undefined,
+      region: (room.region as RegionCode | null) ?? null,
       dates: datesRes.rows.map((r) => ({
         id: Number(r.id),
         date: r.the_date,
@@ -189,6 +204,57 @@ export class RoomsService {
     ]);
     this.realtime.emitDeadlineUpdated(roomId, deadline);
     return { deadline };
+  }
+
+  // 개설자가 방 생성 후 지역(날씨)을 켜거나 끄거나 바꾼다. creator_token 인증은 마감일과 동일.
+  async updateRegion(
+    roomId: string,
+    creatorToken: string | undefined,
+    region: RegionCode | null,
+  ): Promise<{ region: RegionCode | null }> {
+    if (!creatorToken) {
+      throw new ForbiddenException('creator token required');
+    }
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      `SELECT creator_token FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      throw new NotFoundException('room not found');
+    }
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
+      throw new ForbiddenException('not the creator');
+    }
+    await this.pool.query(`UPDATE rooms SET region = $1 WHERE id = $2`, [
+      region,
+      roomId,
+    ]);
+    return { region };
+  }
+
+  // 방의 후보날짜 중 예보 범위(약 16일) 안에 드는 날의 날씨. 지역 미설정이면 빈 결과.
+  async getWeather(roomId: string): Promise<RoomWeather> {
+    const roomRes = await this.pool.query<{ region: string | null }>(
+      `SELECT region FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) {
+      throw new NotFoundException('room not found');
+    }
+    const region = (roomRes.rows[0].region as RegionCode | null) ?? null;
+    if (!region) {
+      return { region: null, regionLabel: null, days: [] };
+    }
+    const datesRes = await this.pool.query<{ the_date: string }>(
+      `SELECT to_char(the_date, 'YYYY-MM-DD') AS the_date
+       FROM room_dates WHERE room_id = $1 ORDER BY the_date ASC`,
+      [roomId],
+    );
+    const days = await this.weather.forDates(
+      region,
+      datesRes.rows.map((r) => r.the_date),
+    );
+    return { region, regionLabel: regionLabel(region), days };
   }
 
   private async computeResults(roomId: string): Promise<DateResult[]> {
