@@ -80,7 +80,7 @@ services:
       - /Volumes/milcho_ex/whenever-backups:/backups
 
   # 오래된 방 정리 — 매일 한 번 rooms 테이블에서 created_at 가 임계일 지난 행 DELETE.
-  # CASCADE 로 candidates / votes / voter_picks 자동 정리.
+  # CASCADE 로 room_dates / participants / availabilities 자동 정리.
   cleanup:
     image: postgres:16-alpine
     container_name: moilga-cleanup
@@ -100,8 +100,14 @@ services:
       - /bin/sh
       - -c
       - |
+        # 매일 05:00 UTC(백업 04:30 직후)에 정렬 실행. sleep 86400 고정 인터벌이면
+        # 재배포 때마다 타이머가 리셋되고 첫 정리가 24h 뒤라, 자주 배포하면 영영 안 돌 수 있다.
+        # 매 루프 다음 05:00 까지 남은 시간만 sleep → 재시작해도 시각이 고정된다.
         while true; do
-          sleep 86400
+          now=$$(date -u +%s)
+          target=$$(( now - now % 86400 + 5*3600 ))
+          [ $$target -le $$now ] && target=$$(( target + 86400 ))
+          sleep $$(( target - now ))
           echo "[$$(date -Iseconds)] cleanup: days=$$CLEANUP_DAYS"
           psql -At -c "WITH d AS (DELETE FROM rooms WHERE created_at < now() - ($$CLEANUP_DAYS::int * INTERVAL '1 day') RETURNING 1) SELECT COUNT(*) AS removed FROM d" || true
         done
