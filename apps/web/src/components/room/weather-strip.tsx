@@ -16,6 +16,9 @@ export default function WeatherStrip({
 }) {
   const [data, setData] = useState<RoomWeather | null>(null);
   const [failed, setFailed] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  const PREVIEW = 5; // 기본 5개 노출, 나머지는 더보기
 
   useEffect(() => {
     if (!region) {
@@ -61,29 +64,59 @@ export default function WeatherStrip({
           후보 날짜가 아직 예보 범위(약 2주) 밖이에요. 날짜가 가까워지면 자동으로 보여드릴게요.
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-2">
-          {data.days.map((d) => (
-            <li
-              key={d.date}
-              className="flex h-11 items-center justify-between rounded-xl bg-zinc-50 px-3 dark:bg-zinc-800/50"
-            >
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                {formatDateKR(d.date)}
-              </span>
-              <span className="flex items-center gap-2 text-sm">
-                <span aria-hidden className="text-base">
-                  {d.emoji}
-                </span>
-                <span className="text-zinc-500 dark:text-zinc-400">{d.label}</span>
-                {(d.tempMin !== null || d.tempMax !== null) && (
-                  <span className="tabular-nums text-zinc-400 dark:text-zinc-500">
-                    {d.tempMin ?? '–'}° / {d.tempMax ?? '–'}°
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+        (() => {
+          const visible = showAll ? data.days : data.days.slice(0, PREVIEW);
+          const hidden = data.days.length - PREVIEW;
+          return (
+            <>
+              <ul className="mt-3 flex flex-col gap-2">
+                {visible.map((d) => (
+                  <li
+                    key={d.date}
+                    className="flex h-11 items-center justify-between rounded-xl bg-zinc-50 px-3 dark:bg-zinc-800/50"
+                  >
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                      {formatDateKR(d.date)}
+                    </span>
+                    <span className="flex items-center gap-2 text-sm">
+                      <span aria-hidden className="text-base">
+                        {d.emoji}
+                      </span>
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {d.label}
+                      </span>
+                      {(d.tempMin !== null || d.tempMax !== null) && (
+                        <span className="tabular-nums text-zinc-400 dark:text-zinc-500">
+                          {d.tempMin ?? '–'}° / {d.tempMax ?? '–'}°
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {hidden > 0 && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowAll((v) => !v)}
+                    aria-expanded={showAll}
+                    className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    <span>{showAll ? '접기' : `더 보기 (+${hidden})`}</span>
+                    <span
+                      aria-hidden
+                      className={`text-[10px] transition-transform ${
+                        showAll ? 'rotate-180' : ''
+                      }`}
+                    >
+                      ▾
+                    </span>
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()
       )}
     </section>
   );
