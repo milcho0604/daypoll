@@ -21,6 +21,7 @@ import {
   adminGetStats,
   getAdminToken,
 } from '@/lib/admin';
+import { ApiError } from '@/lib/api';
 import { getSocket, joinAdminChannel } from '@/lib/socket';
 import EmptyState from '@/components/empty-state';
 import ConfirmModal from '@/components/confirm-modal';
@@ -62,8 +63,11 @@ export default function AdminDashboard() {
       try {
         const s = await adminGetStats();
         if (!cancelled) setStats(s);
-      } catch {
-        router.replace('/admin/login');
+      } catch (e) {
+        // 인증 만료(401)일 때만 로그인으로 — 일시적 네트워크 글리치로 튕기지 않게.
+        if (e instanceof ApiError && e.status === 401) {
+          router.replace('/admin/login');
+        }
       }
     };
     refresh.current();
