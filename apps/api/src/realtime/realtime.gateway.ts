@@ -79,6 +79,12 @@ export class RealtimeGateway implements OnGatewayInit {
       .emit('room:deadline_updated', { roomId, deadline });
   }
 
+  emitRegionUpdated(roomId: string, region: string | null) {
+    this.server
+      .to(`room:${roomId}`)
+      .emit('room:region_updated', { roomId, region });
+  }
+
   emitRoomDeleted(roomId: string) {
     this.server.to(`room:${roomId}`).emit('room:deleted', { roomId });
   }
