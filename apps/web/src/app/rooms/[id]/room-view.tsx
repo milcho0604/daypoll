@@ -63,6 +63,8 @@ export default function RoomView({
     'idle' | 'pending' | 'saving' | 'saved' | 'error'
   >('idle');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  // 지역(날씨) 저장 실패는 모달 안에 보여준다 — 메인 에러 박스는 모달(z-50)에 가려짐
+  const [regionError, setRegionError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
@@ -142,6 +144,7 @@ export default function RoomView({
         results: r.results,
         participantCount: r.participantCount,
         deadline: r.deadline,
+        region: r.region,
       }));
       setNow(Date.now());
     } catch {
@@ -162,6 +165,10 @@ export default function RoomView({
       setRoom((prev) => ({ ...prev, deadline: payload.deadline }));
       setNow(Date.now());
     };
+    const onRegion = (payload: { region: RegionCode | null }) => {
+      // 방장이 지역을 켜고/끄면 열려있는 참여자 화면에도 날씨 카드 즉시 반영
+      setRoom((prev) => ({ ...prev, region: payload.region }));
+    };
     const onDeleted = () => {
       // 방이 어드민에 의해 삭제됨 — 홈으로 보낼지, 토스트로 알릴지. 일단 페이지 새로고침.
       window.location.reload();
@@ -172,6 +179,7 @@ export default function RoomView({
     socket.on('disconnect', onDisconnect);
     socket.on('room:results_updated', onResults);
     socket.on('room:deadline_updated', onDeadline);
+    socket.on('room:region_updated', onRegion);
     socket.on('room:deleted', onDeleted);
 
     // 첫 페인트가 ISR 캐시(최대 30초 묵음)일 수 있어 마운트 직후 한 번 동기화.
@@ -190,6 +198,7 @@ export default function RoomView({
       socket.off('disconnect', onDisconnect);
       socket.off('room:results_updated', onResults);
       socket.off('room:deadline_updated', onDeadline);
+      socket.off('room:region_updated', onRegion);
       socket.off('room:deleted', onDeleted);
       leaveRoomChannel(roomId);
     };
@@ -492,12 +501,13 @@ export default function RoomView({
   async function onSaveRegion(value: RegionCode | null) {
     if (!creatorToken) return;
     setBusy(true);
-    setError(null);
+    setRegionError(null);
     try {
       const r = await updateRegion(roomId, creatorToken, value);
       setRoom((prev) => ({ ...prev, region: r.region }));
-    } catch (err) {
-      setError(extractMsg(err));
+    } catch {
+      // 셀렉트는 room.region(서버값) 기준 controlled 라 실패 시 자동으로 되돌아간다
+      setRegionError('지역 저장이 안 됐어요. 잠시 후 다시 시도해주세요.');
     } finally {
       setBusy(false);
     }
@@ -914,9 +924,13 @@ export default function RoomView({
         <DeadlineModal
           current={room.deadline}
           currentRegion={room.region ?? null}
+          regionError={regionError}
           isLocked={isLocked}
           busy={busy}
-          onClose={() => setShowDeadlineModal(false)}
+          onClose={() => {
+            setShowDeadlineModal(false);
+            setRegionError(null);
+          }}
           onSave={onSaveDeadline}
           onSaveRegion={(v) => void onSaveRegion(v)}
           onCloseNow={() => void closeRoomFromModal()}
