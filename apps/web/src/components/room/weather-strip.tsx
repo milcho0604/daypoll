@@ -21,13 +21,15 @@ export default function WeatherStrip({
   const PREVIEW = 5; // 기본 5개 노출, 나머지는 더보기
 
   useEffect(() => {
-    if (!region) {
-      // 지역 해제 시 이전 날씨/에러 초기화 — region 은 거의 안 바뀌어 cascading 아님
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(null);
-      setFailed(false);
-      return;
-    }
+    // 지역 해제/변경 시 이전 데이터·에러·펼침을 매번 초기화한다.
+    // 특히 failed 를 리셋 안 하면 한 번 실패가 고착돼(재시도 없이) 날씨가 영영 숨는다.
+    // region 은 거의 안 바뀌어 cascading 아님.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setData(null);
+    setFailed(false);
+    setShowAll(false);
+    if (!region) return;
+
     let cancelled = false;
     const ctrl = new AbortController();
     getRoomWeather(roomId, ctrl.signal)
@@ -35,6 +37,7 @@ export default function WeatherStrip({
         if (!cancelled) setData(w);
       })
       .catch(() => {
+        // abort(언마운트/지역변경)는 cancelled 로 걸러져 실패로 안 잡힌다.
         if (!cancelled) setFailed(true);
       });
     return () => {
