@@ -121,11 +121,12 @@ export class RoomsService {
     results: DateResult[];
     participantCount: number;
     deadline: string | null;
+    region: RegionCode | null;
   }> {
-    const roomRes = await this.pool.query<{ deadline: Date | null }>(
-      `SELECT deadline FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    const roomRes = await this.pool.query<{
+      deadline: Date | null;
+      region: string | null;
+    }>(`SELECT deadline, region FROM rooms WHERE id = $1`, [roomId]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -140,6 +141,7 @@ export class RoomsService {
       deadline: roomRes.rows[0].deadline
         ? roomRes.rows[0].deadline.toISOString()
         : null,
+      region: (roomRes.rows[0].region as RegionCode | null) ?? null,
     };
   }
 
@@ -229,6 +231,8 @@ export class RoomsService {
       region,
       roomId,
     ]);
+    // 이미 방을 열어둔 참여자들도 새로고침 없이 날씨 카드가 뜨거나 사라지게.
+    this.realtime.emitRegionUpdated(roomId, region);
     return { region };
   }
 

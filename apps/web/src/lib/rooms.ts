@@ -33,6 +33,7 @@ export function getResults(roomId: string, signal?: AbortSignal) {
     results: DateResult[];
     participantCount: number;
     deadline: string | null;
+    region: RegionCode | null;
   }>(`/rooms/${roomId}/results`, { signal });
 }
 

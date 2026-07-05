@@ -9,6 +9,7 @@ import { useEscClose } from './use-esc-close';
 export default function DeadlineModal({
   current,
   currentRegion,
+  regionError,
   isLocked,
   onClose,
   onSave,
@@ -18,6 +19,7 @@ export default function DeadlineModal({
 }: {
   current: string | null;
   currentRegion: RegionCode | null;
+  regionError?: string | null;
   isLocked: boolean;
   onClose: () => void;
   onSave: (value: string | null) => void;
@@ -25,7 +27,6 @@ export default function DeadlineModal({
   onCloseNow: () => void;
   busy?: boolean;
 }) {
-  const [region, setRegion] = useState<string>(currentRegion ?? '');
   const [useDeadline, setUseDeadline] = useState(!!current);
   const [value, setValue] = useState(() => {
     const base = current ? new Date(current) : new Date(Date.now() + 86400000);
@@ -78,14 +79,11 @@ export default function DeadlineModal({
           <p className="mt-1 text-xs text-zinc-500">
             고르면 후보 날짜에 날씨가 같이 보여요. 바꾸면 바로 저장돼요.
           </p>
+          {/* room.region(서버 확정값) 기준 controlled — 저장 실패 시 자동으로 원래 값 복귀 */}
           <select
             id="room-region"
-            value={region}
-            onChange={(e) => {
-              const v = e.target.value;
-              setRegion(v);
-              onSaveRegion((v as RegionCode) || null);
-            }}
+            value={currentRegion ?? ''}
+            onChange={(e) => onSaveRegion((e.target.value as RegionCode) || null)}
             disabled={busy}
             className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
           >
@@ -96,6 +94,11 @@ export default function DeadlineModal({
               </option>
             ))}
           </select>
+          {regionError && (
+            <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+              {regionError}
+            </p>
+          )}
         </div>
 
         <div className="mt-5 flex gap-2">

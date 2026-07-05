@@ -61,6 +61,17 @@ export class WeatherService {
         this.cache.set(region, entry);
         return entry;
       })
+      .catch((err: unknown) => {
+        // Open-Meteo 일시 장애 시 어제 캐시라도 반환 — 하루 지난 예보가
+        // 아예 없는 것보단 낫다. 캐시 day 는 안 갱신해 다음 요청이 재시도한다.
+        if (cached) {
+          this.logger.warn(
+            `weather fetch failed for ${region}, serving stale (${cached.day}): ${String(err)}`,
+          );
+          return cached;
+        }
+        throw err;
+      })
       .finally(() => {
         this.inflight.delete(region);
       });
