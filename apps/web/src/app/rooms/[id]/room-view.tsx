@@ -414,8 +414,21 @@ export default function RoomView({
     setSaveState('saving');
     setError(null);
     try {
-      // 서버는 매번 전량 저장(delete-all-then-insert)이라 항상 두 배열을 다 보낸다.
-      await updateAvailabilities(roomId, clientToken, splitPicks(next));
+      // 서버는 매번 전량 저장(delete-all-then-insert)이라 두 배열을 다 보낸다.
+      //
+      // 단 불가능이 하나도 없으면 unavailableDateIds 를 **아예 뺀다**. API 의
+      // ValidationPipe 가 forbidNonWhitelisted 라, 이 필드를 아직 모르는 옛 API 는
+      // 모르는 속성이 오면 400 을 던진다. 배포 스큐(Vercel 프론트가 맥미니 API 보다
+      // 먼저 뜨는 1~3분) 동안 "못 가요" 를 안 쓰는 사람의 저장까지 깨지지 않게
+      // 옛 API 가 이해하는 모양 그대로 보낸다.
+      const { dateIds, unavailableDateIds } = splitPicks(next);
+      await updateAvailabilities(
+        roomId,
+        clientToken,
+        unavailableDateIds.length > 0
+          ? { dateIds, unavailableDateIds }
+          : { dateIds },
+      );
       dirtyRef.current = false;
       setSaveState('saved');
       const res = await getResults(roomId);
