@@ -7,6 +7,8 @@ export interface PersonAvailability {
   id: number;
   nickname: string;
   dates: { dateId: number; date: string }[];
+  // 못 간다고 한 날. 이게 있으면 "가능 0일" 이어도 응답은 한 사람이다.
+  unavailableDates: { dateId: number; date: string }[];
 }
 
 // 사람별 뷰 — 참여자별 가능 날짜를 grid 로 정렬, 2줄 미리보기 + chevron 더보기.
@@ -34,6 +36,8 @@ export default function PersonList({
         {people.map((p) => {
           const isExp = expanded.has(p.id);
           const shown = isExp ? p.dates : p.dates.slice(0, preview);
+          // 못 가는 날은 펼쳤을 때만 — 접힌 상태에선 헤더의 카운트로 충분.
+          const hasMore = p.dates.length > preview || p.unavailableDates.length > 0;
           return (
             <li
               key={p.id}
@@ -50,25 +54,44 @@ export default function PersonList({
                 </span>
                 <span className="shrink-0 text-xs text-zinc-500">
                   {p.dates.length}일 가능
+                  {p.unavailableDates.length > 0 && (
+                    <span className="text-rose-600 dark:text-rose-400">
+                      {' · '}
+                      {p.unavailableDates.length}일 못 감
+                    </span>
+                  )}
                 </span>
               </div>
-              <ul className="mt-2 grid grid-cols-4 gap-1.5">
-                {shown.map((d) => (
-                  <li key={d.dateId}>
-                    <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-zinc-100 px-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                      {formatDateKR(d.date)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {p.dates.length > preview && (
+              {shown.length > 0 ? (
+                <ul className="mt-2 grid grid-cols-4 gap-1.5">
+                  {shown.map((d) => (
+                    <li key={d.dateId}>
+                      <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-zinc-100 px-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        {formatDateKR(d.date)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-400">가능한 날이 없대요</p>
+              )}
+              {isExp && p.unavailableDates.length > 0 && (
+                <ul className="mt-1.5 grid grid-cols-4 gap-1.5">
+                  {p.unavailableDates.map((d) => (
+                    <li key={d.dateId}>
+                      <span className="flex h-7 w-full items-center justify-center whitespace-nowrap rounded-full bg-rose-50 px-1 text-xs text-rose-700 line-through dark:bg-rose-950/40 dark:text-rose-300">
+                        {formatDateKR(d.date)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {hasMore && (
                 <button
                   type="button"
                   onClick={() => onToggle(p.id)}
                   aria-expanded={isExp}
-                  aria-label={
-                    isExp ? '접기' : `날짜 ${p.dates.length - preview}개 더 보기`
-                  }
+                  aria-label={isExp ? '접기' : '이 사람 날짜 다 보기'}
                   className="press mt-1.5 flex w-full items-center justify-center rounded-lg py-1 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-300"
                 >
                   <svg

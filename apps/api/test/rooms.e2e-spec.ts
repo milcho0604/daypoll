@@ -210,6 +210,123 @@ describe('rooms + participants e2e', () => {
       expect(res.body.results[2].dateId).toBe(d3);
     });
 
+    it('counts 불가능 separately and never as a vote', async () => {
+      const { roomId } = await makeRoom();
+      const [d1] = await getDateIds(roomId);
+
+      const alice = await join(roomId, 'alice');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', alice.clientToken)
+        .send({ dateIds: [d1] })
+        .expect(200);
+
+      const bob = await join(roomId, 'bob');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', bob.clientToken)
+        .send({ dateIds: [], unavailableDateIds: [d1] })
+        .expect(200);
+
+      const res = await request(server()).get(`/rooms/${roomId}/results`);
+      const d1r = res.body.results.find(
+        (r: { dateId: number }) => r.dateId === d1,
+      );
+      // 불가능이 표로 새면 순위가 통째로 틀어진다 — 가장 중요한 불변식.
+      expect(d1r.votes).toBe(1);
+      expect(d1r.noVotes).toBe(1);
+      expect(d1r.voters.map((v: { nickname: string }) => v.nickname)).toEqual([
+        'alice',
+      ]);
+      expect(
+        d1r.unavailableVoters.map((v: { nickname: string }) => v.nickname),
+      ).toEqual(['bob']);
+    });
+
+    it('breaks ties by fewer 불가능, not by date', async () => {
+      const { roomId } = await makeRoom();
+      const [d1, d2] = await getDateIds(roomId);
+
+      // d1(빠른 날): 가능 1 · 불가능 1 / d2(늦은 날): 가능 1 · 불가능 0
+      // 날짜만 보면 d1 이 1등이어야 하지만, 불가능 타이브레이커로 d2 가 이겨야 한다.
+      const alice = await join(roomId, 'alice');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', alice.clientToken)
+        .send({ dateIds: [d1, d2] })
+        .expect(200);
+
+      const bob = await join(roomId, 'bob');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', bob.clientToken)
+        .send({ dateIds: [], unavailableDateIds: [d1] })
+        .expect(200);
+
+      const res = await request(server()).get(`/rooms/${roomId}/results`);
+      expect(res.body.results[0].dateId).toBe(d2);
+      expect(res.body.results[1].dateId).toBe(d1);
+    });
+
+    it('keeps 가능 when a date is sent as both 가능 and 불가능', async () => {
+      const { roomId } = await makeRoom();
+      const [d1] = await getDateIds(roomId);
+      const me = await join(roomId, 'me');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', me.clientToken)
+        .send({ dateIds: [d1], unavailableDateIds: [d1] })
+        .expect(200);
+
+      const res = await request(server())
+        .get(`/rooms/${roomId}/participants/me`)
+        .set('x-client-token', me.clientToken);
+      expect(res.body.me.dateIds).toEqual([d1]);
+      expect(res.body.me.unavailableDateIds).toEqual([]);
+    });
+
+    it('treats a payload without unavailableDateIds as 불가능 없음 (옛 클라이언트)', async () => {
+      const { roomId } = await makeRoom();
+      const [d1, d2] = await getDateIds(roomId);
+      const me = await join(roomId, 'me');
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', me.clientToken)
+        .send({ dateIds: [d1], unavailableDateIds: [d2] })
+        .expect(200);
+
+      // 옛 클라이언트처럼 필드 자체를 안 보냄 → 불가능은 전부 사라져야 (전량 저장 방식)
+      await request(server())
+        .put(`/rooms/${roomId}/participants/me/availabilities`)
+        .set('x-client-token', me.clientToken)
+        .send({ dateIds: [d1] })
+        .expect(200);
+
+      const res = await request(server())
+        .get(`/rooms/${roomId}/participants/me`)
+        .set('x-client-token', me.clientToken);
+      expect(res.body.me.dateIds).toEqual([d1]);
+      expect(res.body.me.unavailableDateIds).toEqual([]);
+    });
+
+    it('rejects 불가능 dateIds from another room', async () => {
+      const a = await makeRoom();
+      const b = await makeRoom(['2026-07-01']);
+      const [otherDateId] = await getDateIds(b.roomId);
+      const me = await join(a.roomId, 'me');
+
+      await request(server())
+        .put(`/rooms/${a.roomId}/participants/me/availabilities`)
+        .set('x-client-token', me.clientToken)
+        .send({ dateIds: [], unavailableDateIds: [otherDateId] })
+        .expect(200);
+
+      const res = await request(server())
+        .get(`/rooms/${a.roomId}/participants/me`)
+        .set('x-client-token', me.clientToken);
+      expect(res.body.me.unavailableDateIds).toEqual([]);
+    });
+
     it('GET me returns own votes', async () => {
       const { roomId } = await makeRoom();
       const [d1, d2] = await getDateIds(roomId);
