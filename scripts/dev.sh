@@ -132,7 +132,14 @@ kill_tree() {
 }
 
 # ── 포트 점유 확인 ────────────────────────────────────────────────────────
-port_holder() { lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}'; }
+# lsof 는 매칭이 없으면 exit 1 이다. 이 파일은 `set -euo pipefail` 이라
+# 파이프라인이 1 을 돌려주면 호출부의 `holder="$(port_holder …)"` 대입에서
+# 스크립트가 조용히 죽는다 — 즉 "포트가 비어 있을 때"(= 정상적인 첫 기동)
+# api/web 이 아예 안 떴다. `|| true` 로 함수가 항상 0 을 돌려주게 한다.
+# 빈 출력 = 아무도 안 잡고 있음, 이라는 호출부의 해석은 그대로.
+port_holder() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}' || true
+}
 
 # ── API (로컬 dev, :3011) ──────────────────────────────────────────────────
 start_api() {
