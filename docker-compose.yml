@@ -15,9 +15,20 @@ services:
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      # named volume (운영 compose 와 동일한 방식). 이름이 compose 프로젝트명 기준
+      # (moilga-dev_pgdata) 이라 **어느 디렉토리에서 띄우든 항상 같은 DB** 를 문다.
+      #
+      # 예전엔 bind mount `./pgdata` 였는데, `./` 가 compose 파일 위치 기준으로
+      # 상대 해석되는 게 함정이었다 — git worktree 에서 띄우면 거기에 별도의 빈
+      # DB 가 생기고, 그 worktree 를 지우면 컨테이너가 삭제된 경로를 문 채 좀비가 됐다.
+      # macOS 는 bind mount I/O 가 느려서 DB 에 특히 불리한 것도 덤.
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-whenever} -d ${POSTGRES_DB:-whenever}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+volumes:
+  # 실제 이름은 moilga-dev_pgdata (프로젝트명 접두). 운영의 moilga_pgdata 와 별개.
+  pgdata:

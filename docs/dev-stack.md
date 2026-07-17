@@ -10,10 +10,17 @@
 | DB     | `moilga-postgres` (내부망 5432, 호스트 비노출) | `moilga-dev-postgres` `:5433` |
 | API    | `moilga-api` `:3001` (cloudflared → moilga.com) | `pnpm dev:api` `:3011`  |
 | Web    | Vercel (원격)                         | `pnpm dev:web` `:3000` → API `:3011` |
-| 데이터  | docker 볼륨 `moilga_pgdata`           | bind mount `./pgdata`              |
+| 데이터  | docker 볼륨 `moilga_pgdata`           | docker 볼륨 `moilga-dev_pgdata`     |
 
 > 포트가 겹치는 건 API 뿐이라(운영 3001 ↔ dev 3011) 분리했고, web(3000)·dev DB(5433)는
 > 원래 비어 있어 그대로 쓴다.
+
+> **dev DB 도 named volume 이다** (2026-07-17 전환. 이전엔 bind mount `./pgdata`).
+> `./` 는 compose 파일 위치 기준 상대 경로라, git worktree 에서 `docker compose up` 하면
+> 거기에 **별도의 빈 DB** 가 생기고 그 worktree 를 지우면 컨테이너가 삭제된 경로를 문 채
+> 좀비가 됐다. named volume 은 이름이 프로젝트명(`moilga-dev`) 기준이라 **어느 디렉토리에서
+> 띄우든 같은 DB** 를 문다. 전환 시 기존 `./pgdata` 내용은 볼륨으로 복사했고, 원본
+> 디렉토리는 백업으로 남겨 뒀다 (확인 후 지워도 됨).
 
 ---
 
