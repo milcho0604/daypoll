@@ -41,6 +41,12 @@ export default function AdminTopbar() {
           <Link href="/admin/rooms" className="shrink-0 hover:underline">
             방 목록
           </Link>
+          <Link href="/admin/visits" className="shrink-0 hover:underline">
+            방문
+          </Link>
+          <Link href="/admin/activity" className="shrink-0 hover:underline">
+            활동
+          </Link>
           <Link href="/admin/notices" className="shrink-0 hover:underline">
             공지
           </Link>

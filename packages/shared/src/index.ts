@@ -137,12 +137,53 @@ export interface TrackRequest {
   path: string;
 }
 
-// 어드민 방문 집계 응답.
+// 어드민 방문 집계 응답 (대시보드 카드용 요약).
 export interface VisitStats {
   today: number;
   last7Days: number;
   daily: { day: string; count: number }[]; // 최근 30일
   topPaths: { path: string; count: number }[]; // 최근 7일 인기 경로
+}
+
+// 경로 1개의 창(window)별 방문 카운트 — 방문 상세 페이지의 표 한 줄.
+export interface VisitPathRow {
+  path: string;
+  today: number;
+  last7Days: number;
+  last30Days: number;
+  allTime: number;
+}
+
+// 어드민 방문 상세 페이지 응답 (요약보다 넓게 — 전체 경로 + 90일 추이).
+export interface VisitDetail {
+  today: number;
+  last7Days: number;
+  last30Days: number;
+  allTime: number;
+  distinctPaths: number;
+  daily: { day: string; count: number }[]; // 최근 90일
+  paths: VisitPathRow[]; // 전체 경로, allTime 내림차순
+}
+
+// 어드민 활동 피드 이벤트 (방 생성·입장·투표·불참을 시간순으로 통합).
+export type ActivityType =
+  | 'room_created'
+  | 'joined'
+  | 'voted'
+  | 'declined';
+
+export interface ActivityEvent {
+  type: ActivityType;
+  ts: string; // ISO8601
+  roomId: string;
+  roomTitle: string;
+  nickname?: string; // room_created 제외
+  count?: number; // voted 일 때 선택한 날짜 수
+}
+
+export interface ActivityFeed {
+  events: ActivityEvent[];
+  nextBefore: string | null; // 다음 페이지 커서 (더 없으면 null)
 }
 
 export interface UpdateDeadlineRequest {

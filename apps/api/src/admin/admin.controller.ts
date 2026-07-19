@@ -36,6 +36,21 @@ export class AdminController {
     return this.analytics.getStats();
   }
 
+  // 방문 상세 — 전체 경로 × 창별 카운트 + 90일 추이 (전용 페이지용)
+  @Get('visits/detail')
+  visitsDetail() {
+    return this.analytics.getVisitsDetail();
+  }
+
+  // 활동 피드 히스토리 — 방 생성·입장·투표·불참 통합 시간축 (커서 페이지네이션)
+  @Get('activity')
+  activity(@Query('limit') limit?: string, @Query('before') before?: string) {
+    return this.admin.getActivity({
+      limit: limit != null ? Number(limit) : undefined,
+      before,
+    });
+  }
+
   // ─── 공지 관리 (전부 AdminGuard 로 보호) ───────────────────
   @Get('notices')
   listNotices() {
