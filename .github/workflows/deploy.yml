@@ -1,11 +1,14 @@
 name: Deploy (ubuntu → Tailscale → mac mini ssh)
 
 # 흐름: main 머지 → GitHub-hosted ubuntu runner → Tailscale 가입 →
-#       맥미니에 ssh → git pull + docker-compose up -d --build → /health 검증.
+#       맥미니에 ssh → origin/main 커밋 스냅샷(git archive)을 clean 빌드 → /health 검증.
 #
 # 맥미니 self-hosted runner 패턴이 Docker Desktop + launchd 의 keychain
 # 정책에 막혀서, 클라우드 runner 가 Tailscale 로 들어와 명령만 보내는 식으로
 # 변경. 클라우드 runner 는 keychain 이슈가 없다.
+#
+# 빌드는 운영자 작업 트리가 아니라 **커밋된 origin/main 만** 쓴다 — 예전엔 working
+# tree 를 통째로 빌드해서 커밋 안 된 오타 한 글자에도 배포가 깨졌다(2026-07-19).
 
 on:
   push:
@@ -50,9 +53,31 @@ jobs:
           set -euo pipefail
           # ssh non-interactive 쉘 은 PATH 가 최소라 docker-compose(/usr/local/bin) 미인식.
           export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
-          cd /Volumes/milcho_ex/project/whenever
-          git pull --ff-only
+
+          REPO=/Volumes/milcho_ex/project/whenever
+          cd "$REPO"
+          git fetch origin main --prune
+
+          # 운영자 작업 체크아웃도 최대한 origin/main 으로 맞춘다 — 실패해도 배포엔
+          # 영향 없음(아래 빌드는 working tree 가 아니라 깨끗한 커밋 스냅샷을 쓴다).
+          git merge --ff-only origin/main \
+            || echo "[deploy] checkout ff 스킵 (working tree dirty) — 빌드는 clean archive 사용"
+
+          # ── 깨끗한 커밋 스냅샷을 빌드 ────────────────────────────────
+          # 예전엔 working tree 를 통째로 빌드해서, 커밋 안 된 오타/쓰레기 한 글자만
+          # 있어도 배포가 깨졌다(2026-07-19 ㅂ 오타 사건). origin/main 을 git archive 로
+          # 풀어 **커밋된 것만** 빌드한다. compose 의 `name: moilga` 덕분에 다른
+          # 디렉터리에서 up 해도 같은 컨테이너/볼륨을 타겟한다.
+          SRC="$HOME/.moilga-deploy-src"
+          rm -rf "$SRC"; mkdir -p "$SRC"
+          git archive origin/main | tar -x -C "$SRC"
+          # gitignore 라 archive 에 없는 운영 시크릿만 복사해 넣는다.
+          cp "$REPO/.env.prod" "$SRC/.env.prod"
+
+          cd "$SRC"
           docker-compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+
+          rm -rf "$SRC"
           EOF
 
       - name: Verify health
