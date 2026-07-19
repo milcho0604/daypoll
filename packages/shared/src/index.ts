@@ -68,11 +68,19 @@ export interface Voter {
   nickname: string;
 }
 
+// 투표 3상태 중 "행으로 저장되는" 두 가지.
+// 미정(아직 답 안 함)은 행 자체가 없는 것으로 표현하므로 여기 없다.
+export type VoteStatus = 'yes' | 'no';
+
 export interface DateResult {
   dateId: number;
   date: string;
   votes: number;
   voters: Voter[]; // 누가 가능한지 (id + nickname). 강퇴/내 표 표시에 사용.
+  // 못 오는 사람. votes 와 달리 순위를 깎지는 않고, 동점일 때만 타이브레이커로 쓴다
+  // (친구 모임이라 한 명 빠져도 진행 가능 → 거부권 X). 1등에 이게 있으면 화면에서 경고.
+  noVotes: number;
+  unavailableVoters: Voter[];
 }
 
 export interface RoomDetail extends RoomSummary {
@@ -122,7 +130,10 @@ export interface JoinRoomResponse {
 }
 
 export interface UpdateAvailabilitiesRequest {
-  dateIds: number[];
+  dateIds: number[]; // 가능
+  // 불가능. 선택 필드라 이 값을 모르는 옛 클라이언트가 보내도 그대로 동작한다
+  // (배포 스큐: Vercel 프론트와 맥미니 API 가 따로 올라감).
+  unavailableDateIds?: number[];
 }
 
 export interface UpdateDeadlineRequest {

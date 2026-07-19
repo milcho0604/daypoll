@@ -74,6 +74,7 @@ export class ParticipantsController {
       roomId,
       clientToken,
       dto.dateIds,
+      dto.unavailableDateIds ?? [],
     );
   }
 

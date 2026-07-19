@@ -60,7 +60,13 @@ export async function getMe(
   signal?: AbortSignal,
 ) {
   const res = await api<{
-    me: null | { participantId: number; nickname: string; dateIds: number[] };
+    me: null | {
+      participantId: number;
+      nickname: string;
+      dateIds: number[];
+      // 옛 API 는 안 내려줌 → 없으면 불가능 0개로 취급 (배포 스큐 대비).
+      unavailableDateIds?: number[];
+    };
   }>(`/rooms/${roomId}/participants/me`, {
     headers: { [HEADER_CLIENT_TOKEN]: clientToken },
     signal,
