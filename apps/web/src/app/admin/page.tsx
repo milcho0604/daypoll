@@ -202,7 +202,12 @@ export default function AdminDashboard() {
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-baseline justify-between">
               <h2 className="text-sm font-semibold">방문 (접속)</h2>
-              <span className="text-[11px] text-zinc-400">방 참여 안 한 방문 포함</span>
+              <Link
+                href="/admin/visits"
+                className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+              >
+                자세히 →
+              </Link>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
@@ -232,7 +237,15 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-sm font-semibold">인기 경로 (최근 7일)</h2>
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold">인기 경로 (최근 7일)</h2>
+              <Link
+                href="/admin/visits"
+                className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+              >
+                전체 →
+              </Link>
+            </div>
             {visits.topPaths.length > 0 ? (
               <ul className="mt-3 flex flex-col gap-1.5">
                 {visits.topPaths.map((p) => (
@@ -313,7 +326,17 @@ export default function AdminDashboard() {
           )}
         </Card>
 
-        <Card title="실시간 활동 피드">
+        <Card
+          title="실시간 활동 피드"
+          action={
+            <Link
+              href="/admin/activity"
+              className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              자세히 →
+            </Link>
+          }
+        >
           {feed.length === 0 && stats.recentActions.length === 0 ? (
             <EmptyState emoji="📭" message="아직 활동이 없어요" />
           ) : (
@@ -434,10 +457,21 @@ function Kpi({
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-semibold">{title}</h2>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {action}
+      </div>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -604,6 +638,12 @@ function formatAdminEvent(e: { type: string; [k: string]: unknown }): string {
       return `🆕 새 방 "${e.title}" (${e.roomId})`;
     case 'participant_joined':
       return `👤 ${e.nickname} 가 ${e.roomId} 입장`;
+    case 'voted':
+      return `🗳️ ${e.nickname} 투표${e.count ? ` (${e.count}일)` : ''} · ${e.roomId}`;
+    case 'declined':
+      return `🙅 ${e.nickname} 불참 · ${e.roomId}`;
+    case 'undeclined':
+      return `↩️ ${e.nickname} 참여로 전환 · ${e.roomId}`;
     case 'deadline_updated':
       return `⏰ ${e.roomId} 마감 변경`;
     case 'room_deleted':

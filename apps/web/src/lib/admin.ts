@@ -1,6 +1,12 @@
 'use client';
 
-import type { Notice, NoticeInput, VisitStats } from '@whenever/shared';
+import type {
+  ActivityFeed,
+  Notice,
+  NoticeInput,
+  VisitDetail,
+  VisitStats,
+} from '@whenever/shared';
 import { apiBaseUrl, ApiError } from './api';
 
 const TOKEN_KEY = 'whenever_admin_token';
@@ -161,6 +167,19 @@ export function adminCleanup(days: number) {
 // ───────────── 방문 집계 ─────────────
 export function adminVisits() {
   return adminFetch<VisitStats>('/admin/visits');
+}
+export function adminVisitsDetail() {
+  return adminFetch<VisitDetail>('/admin/visits/detail');
+}
+
+// ───────────── 활동 피드 히스토리 ─────────────
+export function adminActivity(opts: { limit?: number; before?: string } = {}) {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set('limit', String(opts.limit));
+  if (opts.before) params.set('before', opts.before);
+  return adminFetch<ActivityFeed>(
+    `/admin/activity${params.toString() ? `?${params}` : ''}`,
+  );
 }
 
 // ───────────── 공지 관리 ─────────────

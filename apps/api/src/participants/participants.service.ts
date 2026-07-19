@@ -246,14 +246,15 @@ export class ParticipantsService {
     }
 
     // 본인 검증
-    const me = await this.pool.query<{ id: string }>(
-      `SELECT id::text FROM participants WHERE room_id = $1 AND client_token = $2`,
+    const me = await this.pool.query<{ id: string; nickname: string }>(
+      `SELECT id::text, nickname FROM participants WHERE room_id = $1 AND client_token = $2`,
       [roomId, clientToken],
     );
     if (me.rowCount === 0) {
       throw new ForbiddenException('not a participant');
     }
     const participantId = Number(me.rows[0].id);
+    const nickname = me.rows[0].nickname;
 
     // 후보 날짜만 인정 (다른 방의 dateId, 임의 id 차단)
     const allowed = await this.pool.query<{ id: string }>(
@@ -284,6 +285,14 @@ export class ParticipantsService {
     });
 
     this.realtime.emitResultsUpdated(roomId);
+    // 실제 선택이 있을 때만 "투표" 이벤트 — 전체 해제(0개)는 피드에 안 남긴다.
+    if (filtered.length > 0) {
+      this.realtime.emitAdminEvent('voted', {
+        roomId,
+        nickname,
+        count: filtered.length,
+      });
+    }
     return { dateIds: filtered };
   }
 
@@ -305,18 +314,23 @@ export class ParticipantsService {
     if (deadline && deadline.getTime() <= Date.now()) {
       throw new HttpException('room is locked', HttpStatus.LOCKED);
     }
-    const me = await this.pool.query<{ id: string }>(
-      `SELECT id::text FROM participants WHERE room_id = $1 AND client_token = $2`,
+    const me = await this.pool.query<{ id: string; nickname: string }>(
+      `SELECT id::text, nickname FROM participants WHERE room_id = $1 AND client_token = $2`,
       [roomId, clientToken],
     );
     if (me.rowCount === 0) throw new ForbiddenException('not a participant');
     const participantId = Number(me.rows[0].id);
+    const nickname = me.rows[0].nickname;
 
     await withTransaction(this.pool, async (c) => {
-      await c.query(`UPDATE participants SET declined = $2 WHERE id = $1`, [
-        participantId,
-        declined,
-      ]);
+      // declined_at: 불참 처리 순간을 기록(활동 피드용). 참여로 되돌리면 NULL.
+      await c.query(
+        `UPDATE participants
+            SET declined = $2,
+                declined_at = CASE WHEN $2 THEN now() ELSE NULL END
+          WHERE id = $1`,
+        [participantId, declined],
+      );
       if (declined) {
         // 불참이면 가능 날짜는 의미 없으니 비운다.
         await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
@@ -326,6 +340,10 @@ export class ParticipantsService {
     });
 
     this.realtime.emitResultsUpdated(roomId);
+    this.realtime.emitAdminEvent(declined ? 'declined' : 'undeclined', {
+      roomId,
+      nickname,
+    });
     return { declined };
   }
 

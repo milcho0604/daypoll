@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Pool } from 'pg';
+import type { ActivityEvent, ActivityFeed } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
@@ -442,6 +443,74 @@ export class AdminService {
         payload: r.payload,
         createdAt: r.created_at.toISOString(),
       })),
+    };
+  }
+
+  // ─────────────────────────── activity feed ───────────────────────────
+  // 방 생성·입장·투표·불참을 하나의 시간축으로 합쳐 최신순으로 돌려준다.
+  // 소켓 실시간 이벤트(admin:event)와 달리 이건 새로고침해도 남는 히스토리.
+  // 각 소스의 타임스탬프를 UNION ALL 로 묶고 커서(before)로 페이지네이션.
+  async getActivity(opts: {
+    limit?: number;
+    before?: string;
+  }): Promise<ActivityFeed> {
+    const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
+    // before 커서: 유효한 ISO 시각일 때만 적용, 아니면 무시(처음부터).
+    const before =
+      opts.before && !Number.isNaN(Date.parse(opts.before))
+        ? new Date(opts.before)
+        : null;
+
+    // 한 건 더 받아 다음 페이지 존재 여부(nextBefore)를 판단한다.
+    const rows = await this.pool.query<{
+      type: ActivityEvent['type'];
+      ts: Date;
+      room_id: string;
+      room_title: string;
+      nickname: string | null;
+      count: string | null;
+    }>(
+      `
+      WITH events AS (
+        SELECT 'room_created'::text AS type, r.created_at AS ts,
+               r.id AS room_id, r.title AS room_title,
+               NULL::text AS nickname, NULL::bigint AS count
+          FROM rooms r
+        UNION ALL
+        SELECT 'joined', p.created_at, p.room_id, r.title, p.nickname, NULL
+          FROM participants p JOIN rooms r ON r.id = p.room_id
+        UNION ALL
+        SELECT 'voted', MAX(a.created_at), p.room_id, r.title, p.nickname, COUNT(*)
+          FROM availabilities a
+          JOIN participants p ON p.id = a.participant_id
+          JOIN rooms r ON r.id = p.room_id
+         GROUP BY p.id, p.room_id, r.title, p.nickname
+        UNION ALL
+        SELECT 'declined', p.declined_at, p.room_id, r.title, p.nickname, NULL
+          FROM participants p JOIN rooms r ON r.id = p.room_id
+         WHERE p.declined = true AND p.declined_at IS NOT NULL
+      )
+      SELECT type, ts, room_id, room_title, nickname, count::text AS count
+        FROM events
+       WHERE ts IS NOT NULL AND ($1::timestamptz IS NULL OR ts < $1)
+       ORDER BY ts DESC
+       LIMIT $2
+      `,
+      [before, limit + 1],
+    );
+
+    const hasMore = rows.rows.length > limit;
+    const page = rows.rows.slice(0, limit);
+    return {
+      events: page.map((r) => ({
+        type: r.type,
+        ts: r.ts.toISOString(),
+        roomId: r.room_id,
+        roomTitle: r.room_title,
+        ...(r.nickname != null ? { nickname: r.nickname } : {}),
+        ...(r.count != null ? { count: Number(r.count) } : {}),
+      })),
+      nextBefore: hasMore ? page[page.length - 1].ts.toISOString() : null,
     };
   }
 
