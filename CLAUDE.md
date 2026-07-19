@@ -15,11 +15,22 @@
 - **액센트: amber** — **트로피·1등·확정 hot path 한정**. 메달처럼 드물게.
 - **시멘틱**: success=emerald, warning=zinc (강조 zinc-900), danger=rose.
 
-> **amber 사용 한정** — 이전엔 amber 가 여기저기 깔려 "전면 도색" 됐다. 이제 amber 는 다음 4곳만:
-> 1. 🏆 1위 트로피 배지 (`bg-gradient-to-br from-amber-400 to-amber-600`)
-> 2. 1등 막대 그라데이션 (RankList progress bar)
-> 3. 마감 확정 카드 보더+ring (`border-amber-300 ring-amber-200/60`)
-> 4. winners 카드 안 1위 칩 + 더보기 칩 (확정 카드 영역 통일성)
+> **amber 사용 한정 — 1등/확정, 그리고 "단색 한 겹"만** (2026-07-19 개정)
+>
+> 촌스러움의 원인은 amber 색 자체가 아니라 **그라데이션·🏆 이모지·강조 중첩** 이었다.
+> 색(브랜드 온기)은 남기고 장식만 걷어낸다. 그래서 **그라데이션 전면 금지, 단색만.**
+>
+> amber 를 쓰는 곳:
+> 1. 실시간 순위 1위 — 왕관 배지 원(`bg-amber-500`) + 1등 막대(`bg-amber-300`) + `현재 1위` 칩(`bg-amber-50 text-amber-700`). 2등↓ 막대는 `bg-zinc-300`.
+> 2. 마감 확정 카드 보더+ring (`border-amber-300 ring-amber-200/60`)
+> 3. 확정 칩 + "투표 마감" 배지 + 더보기 칩 (`bg-amber-500`, **단색**)
+> 4. 확정 투표자 모달 제목의 왕관 아이콘 (`text-amber-500`)
+>
+> **금지 세부:**
+> - **그라데이션 금지** (`bg-gradient-*` from/to amber) — 얇은 바 위 그라데는 낡은 클리셰. 단색으로.
+> - **🏆 이모지 금지** — OS/브라우저마다 다른 그림이 렌더되고 채도가 높아 튄다. `components/icons/crown.tsx` 의 단색 SVG 사용 (currentColor). 예외: OG 카드·PWA 아이콘·카톡 공유 문구 등 **앱 UI 밖의 텍스트/브랜드 자산**.
+> - **1등 막대는 amber-500 이 아니라 amber-300** — 100% 꽉 차면 amber-500 은 형광펜처럼 튄다.
+> - "현재 1위" 라벨로 잠정성을 못박는다 — 금색이 "우승 확정" 처럼 읽히던 문제를 색이 아니라 말로 해결.
 >
 > 그 외 안내 박스·"이미 N명 답했어요"·me 칩·focus ring·"내 표" dot·캘린더 선택·"(나)" 라벨·메인 칩·hover/focus·법적 페이지 링크 = 전부 zinc 톤.
 
@@ -33,12 +44,13 @@
 | 보조 강조 / 안내 박스 | `bg-zinc-100 text-zinc-700` | `bg-zinc-800 text-zinc-300` |
 | Focus ring | `focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40` | `focus:border-zinc-100 focus:ring-zinc-100/40` |
 | 선택 강조 (캘린더 / 칩) | `bg-zinc-900 text-white shadow-lg shadow-zinc-900/30 ring-2 ring-zinc-300` | `bg-zinc-100 text-zinc-900 ring-zinc-700` |
-| **1등/확정 (amber 한정)** | `bg-gradient-to-br from-amber-400 to-amber-600` + `border-amber-300 ring-amber-200/60` + 🏆 | `dark:border-amber-700 dark:ring-amber-900/60` |
+| **실시간 1위 (단색 amber)** | 막대 `bg-amber-300` (2등↓ `bg-zinc-300`) + `bg-amber-500` 원 안에 왕관 SVG + `현재 1위` `bg-amber-50 text-amber-700` 칩 | 막대 `bg-amber-400` (2등↓ `bg-zinc-600`) / 배지 `bg-amber-600` |
+| **마감 확정 (amber 한정)** | `bg-amber-500` 단색 + `border-amber-300 ring-amber-200/60` + 왕관 SVG | `dark:bg-amber-600` / `dark:border-amber-700 dark:ring-amber-900/60` |
 | 시멘틱 success | `bg-emerald-100 text-emerald-800` / `text-emerald-600` | `bg-emerald-950/40 text-emerald-200` / `text-emerald-400` |
 | 시멘틱 danger / urgent (D-1) | `bg-rose-50 text-rose-700` / `text-rose-600 font-semibold` | `bg-rose-950/40 text-rose-300` / `text-rose-400` |
 | 시멘틱 warning (D-2~3 임박) | `text-rose-500 font-medium` (rose 약하게 — 단계감) | `text-rose-400 font-medium` |
 
-**금지** — 위 토큰 밖의 컬러를 새로 끌어다 쓰지 말 것. 특히 `blue-*`, `indigo-*`, `violet-*`. amber 도 위 4곳 외엔 추가하지 말 것. 외부 라이브러리가 파란색을 기본으로 주면 **CSS 변수 오버라이드로 zinc 톤에 맞춘다** (예: `globals.css` 의 `.rdp-root` 변수 = zinc-900/zinc-100, recharts 의 `stroke`/`fill`).
+**금지** — 위 토큰 밖의 컬러를 새로 끌어다 쓰지 말 것. 특히 `blue-*`, `indigo-*`, `violet-*`. amber 는 **마감 확정 영역 밖에 추가 금지** (실시간 순위 포함). 그라데이션도 금지 — 단색으로. 외부 라이브러리가 파란색을 기본으로 주면 **CSS 변수 오버라이드로 zinc 톤에 맞춘다** (예: `globals.css` 의 `.rdp-root` 변수 = zinc-900/zinc-100, recharts 의 `stroke`/`fill`).
 
 ### 1-2. 차트 색 (recharts)
 - 단일 시리즈: `#f59e0b` (amber-500). 그라데이션이면 `from-amber-400 to-amber-600`.

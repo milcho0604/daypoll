@@ -19,6 +19,7 @@ import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import { formatDateKR } from '@/lib/format';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
+import CrownIcon from '@/components/icons/crown';
 import EmptyState from '@/components/empty-state';
 import ConfirmModal from '@/components/confirm-modal';
 import RecoverModal from '@/components/room/recover-modal';
@@ -583,10 +584,12 @@ export default function RoomView({
 
       {winners.length > 0 && (
         <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm">
-            🏆 투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white shadow-sm dark:bg-amber-600">
+            <CrownIcon className="h-3.5 w-3.5" />
+            투표 마감 — {winners.length > 1 ? '공동 1위!' : '날짜 확정!'}
           </span>
-          {/* amber 그라데이션 칩 grid — 단일은 full width + 큰 임팩트, 다중은 균형. 6개 까지, 나머지는 더보기. */}
+          {/* 확정 칩 grid — 단일은 full width + 큰 임팩트, 다중은 균형. 6개 까지, 나머지는 더보기.
+              그라데이션 → 단색 amber-500. 축하는 여기(진짜 확정된 뒤) 한 곳에만 남긴다. */}
           {(() => {
             const visibleWinners = showAllWinners
               ? winners
@@ -609,7 +612,7 @@ export default function RoomView({
                       type="button"
                       onClick={() => setWinnerVoterDateId(w.dateId)}
                       aria-label={`${formatDateKR(w.date)} 가능한 친구 보기`}
-                      className={`press flex items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 px-4 font-bold text-white shadow-sm transition-shadow hover:shadow-md ${
+                      className={`press flex items-center justify-center rounded-2xl bg-amber-500 px-4 font-bold text-white shadow-sm transition-shadow hover:bg-amber-600 hover:shadow-md dark:bg-amber-600 dark:hover:bg-amber-500 ${
                         winners.length === 1
                           ? 'h-20 text-2xl sm:h-24 sm:text-3xl'
                           : 'h-16 text-xl sm:text-2xl'

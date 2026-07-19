@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import type { Voter } from '@whenever/shared';
 import { formatDateKR } from '@/lib/format';
+import CrownIcon from '@/components/icons/crown';
 
 // 확정된 날짜를 탭하면 누가 가능했는지 팝업으로.
 // CLAUDE.md §4 다이얼로그 패턴 — 모바일 바텀시트 / 데스크탑 카드.
@@ -42,9 +43,11 @@ export default function VotersModal({
         <div className="flex items-center justify-between gap-2">
           <h2
             id="voters-title"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+            className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100"
           >
-            🏆 {formatDateKR(date)} 가능한 친구
+            {/* 확정 카드에서 열리는 모달이라 왕관 유지 — 단 이모지 대신 단색 아이콘 */}
+            <CrownIcon className="h-4 w-4 shrink-0 text-amber-500" />
+            {formatDateKR(date)} 가능한 친구
           </h2>
           <button
             type="button"
