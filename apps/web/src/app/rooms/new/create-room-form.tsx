@@ -184,19 +184,35 @@ export default function CreateRoomForm() {
             고르면 후보 날짜에 날씨를 같이 보여줘요. 가까운 날짜만 나와요.
           </p>
         </div>
-        <select
-          id="region"
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none transition-colors focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
-        >
-          <option value="">날씨 안 볼래요</option>
-          {REGIONS.map((r) => (
-            <option key={r.code} value={r.code}>
-              {r.label}
-            </option>
-          ))}
-        </select>
+        {/* appearance-none + 직접 그린 화살표 — OS 기본 화살표는 rounded 모서리에
+            잘리거나 안 보여서 "목록인지 모르겠다"는 피드백. pr-10 으로 공간 확보. */}
+        <div className="relative">
+          <select
+            id="region"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="h-12 w-full appearance-none rounded-xl border border-zinc-200 bg-white pl-3 pr-10 text-base outline-none transition-colors focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          >
+            <option value="">날씨 안 볼래요</option>
+            {REGIONS.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+          >
+            <path d="m5 8 5 5 5-5" />
+          </svg>
+        </div>
       </section>
 
       {error && (

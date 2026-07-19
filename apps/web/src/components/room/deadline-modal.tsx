@@ -79,21 +79,38 @@ export default function DeadlineModal({
           <p className="mt-1 text-xs text-zinc-500">
             고르면 후보 날짜에 날씨가 같이 보여요. 바꾸면 바로 저장돼요.
           </p>
-          {/* room.region(서버 확정값) 기준 controlled — 저장 실패 시 자동으로 원래 값 복귀 */}
-          <select
-            id="room-region"
-            value={currentRegion ?? ''}
-            onChange={(e) => onSaveRegion((e.target.value as RegionCode) || null)}
-            disabled={busy}
-            className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
-          >
-            <option value="">날씨 안 볼래요</option>
-            {REGIONS.map((r) => (
-              <option key={r.code} value={r.code}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+          {/* room.region(서버 확정값) 기준 controlled — 저장 실패 시 자동으로 원래 값 복귀.
+              appearance-none + 직접 그린 화살표 (OS 화살표 잘림/미표시 방지) */}
+          <div className="relative mt-3">
+            <select
+              id="room-region"
+              value={currentRegion ?? ''}
+              onChange={(e) =>
+                onSaveRegion((e.target.value as RegionCode) || null)
+              }
+              disabled={busy}
+              className="h-12 w-full appearance-none rounded-xl border border-zinc-200 bg-white pl-3 pr-10 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
+            >
+              <option value="">날씨 안 볼래요</option>
+              {REGIONS.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+            >
+              <path d="m5 8 5 5 5-5" />
+            </svg>
+          </div>
           {regionError && (
             <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
               {regionError}
