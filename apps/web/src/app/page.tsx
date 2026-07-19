@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import type { Notice } from '@whenever/shared';
 import RecentRooms from '@/components/recent-rooms';
+import AnnouncementModal from '@/components/announcement-modal';
+import { getActiveNotice } from '@/lib/notice';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
@@ -19,13 +22,23 @@ const JSON_LD = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'KRW' },
 };
 
-export default function Home() {
+export default async function Home() {
+  // 공지는 서버에서 미리 받아 팝업에 넘긴다 (첫 페인트에 깜빡임 없음).
+  // API 가 죽어도 홈은 깨지면 안 되므로 실패 시 null.
+  let notice: Notice | null = null;
+  try {
+    notice = await getActiveNotice();
+  } catch {
+    notice = null;
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-between px-6 pt-10 pb-16 sm:pt-16 sm:pb-20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
       />
+      <AnnouncementModal notice={notice} />
       <section className="flex flex-1 flex-col items-center justify-center gap-10 text-center">
         <div className="fade-up flex flex-col items-center gap-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">

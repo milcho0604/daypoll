@@ -1,5 +1,6 @@
 'use client';
 
+import type { Notice, NoticeInput } from '@whenever/shared';
 import { apiBaseUrl, ApiError } from './api';
 
 const TOKEN_KEY = 'whenever_admin_token';
@@ -157,6 +158,29 @@ export function adminCleanup(days: number) {
     body: { days },
   });
 }
+// ───────────── 공지 관리 ─────────────
+export function adminListNotices() {
+  return adminFetch<Notice[]>('/admin/notices');
+}
+export function adminCreateNotice(input: NoticeInput) {
+  return adminFetch<Notice>('/admin/notices', { method: 'POST', body: input });
+}
+export function adminUpdateNotice(id: number, input: NoticeInput) {
+  return adminFetch<Notice>(`/admin/notices/${id}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+export function adminPublishNotice(id: number, published: boolean) {
+  return adminFetch<Notice>(`/admin/notices/${id}/publish`, {
+    method: 'POST',
+    body: { published },
+  });
+}
+export function adminDeleteNotice(id: number) {
+  return adminFetch<{ ok: true }>(`/admin/notices/${id}`, { method: 'DELETE' });
+}
+
 export function adminListActions(opts: { limit?: number; offset?: number } = {}) {
   const params = new URLSearchParams();
   if (opts.limit != null) params.set('limit', String(opts.limit));
