@@ -7,6 +7,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { AdminModule } from './admin/admin.module';
 import { NoticeModule } from './notice/notice.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     RoomsModule,
     ParticipantsModule,
     NoticeModule,
+    AnalyticsModule,
     AdminModule,
   ],
   controllers: [HealthController],

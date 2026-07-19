@@ -28,6 +28,7 @@ export async function resetDb() {
   `);
   // notices 는 rooms 와 FK 관계가 없어 별도 truncate (테스트 간 격리).
   await pool.query(`TRUNCATE TABLE notices RESTART IDENTITY CASCADE;`);
+  await pool.query(`TRUNCATE TABLE page_views;`);
 }
 
 export async function closeTestPool() {

@@ -1,16 +1,8 @@
 'use client';
 
-import type { DateResult, Voter, VoteStatus } from '@whenever/shared';
+import type { DateResult } from '@whenever/shared';
 import { formatDateKR } from '@/lib/format';
 import CrownIcon from '@/components/icons/crown';
-
-// 못 오는 사람을 이름으로 알려준다 — "2명 못 옴" 보다 "민수 · 지수 못 와요" 가
-// 바로 행동으로 이어짐(그 사람한테 물어보기). 길어지면 잘라 쓴다.
-function namesOf(voters: Voter[], limit = 3): string {
-  const shown = voters.slice(0, limit).map((v) => v.nickname);
-  const rest = voters.length - shown.length;
-  return rest > 0 ? `${shown.join(' · ')} 외 ${rest}명` : shown.join(' · ');
-}
 
 // 날짜별 순위 — 막대 + 행 탭 시 투표자 펼침.
 //
@@ -24,7 +16,7 @@ export default function RankList({
   winnerIds,
   expandedDates,
   onToggleExpanded,
-  picks,
+  selected,
   hasToken,
   isCreator,
   onKick,
@@ -37,7 +29,7 @@ export default function RankList({
   winnerIds: Set<number>;
   expandedDates: Set<number>;
   onToggleExpanded: (id: number) => void;
-  picks: Map<number, VoteStatus>;
+  selected: Set<number>;
   hasToken: boolean;
   isCreator: boolean;
   onKick: (id: number, nickname: string) => void;
@@ -93,16 +85,10 @@ export default function RankList({
                       현재 1위
                     </span>
                   )}
-                  {hasToken && picks.get(r.dateId) === 'yes' && (
+                  {hasToken && selected.has(r.dateId) && (
                     <span
-                      title="내가 가능하다고 한 날"
+                      title="내가 고른 날"
                       className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900 dark:bg-zinc-100"
-                    />
-                  )}
-                  {hasToken && picks.get(r.dateId) === 'no' && (
-                    <span
-                      title="내가 못 간다고 한 날"
-                      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-rose-600 dark:bg-rose-500"
                     />
                   )}
                 </div>
@@ -113,11 +99,6 @@ export default function RankList({
                     </strong>
                     표
                   </span>
-                  {r.noVotes > 0 && (
-                    <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
-                      못 옴 {r.noVotes}
-                    </span>
-                  )}
                   <span
                     aria-hidden
                     className={`text-[10px] text-zinc-400 transition-transform ${
@@ -144,17 +125,9 @@ export default function RankList({
                   }}
                 />
               </div>
-              {/* 1등인데 못 오는 사람이 있으면 이름을 바로 보여준다 — 이 기능의 핵심.
-                  1등이 아닌 날은 위의 "못 옴 N" 카운트만으로 충분(줄 수 절약). */}
-              {winnerIds.has(r.dateId) && r.unavailableVoters?.length > 0 && (
-                <p className="mt-2 flex items-start gap-1 text-xs font-medium text-rose-600 dark:text-rose-400">
-                  <span aria-hidden>⚠️</span>
-                  <span>{namesOf(r.unavailableVoters)} 못 와요</span>
-                </p>
-              )}
             </button>
             {expandedDates.has(r.dateId) && (
-              <div className="flex flex-col gap-2 px-3 pb-3">
+              <div className="px-3 pb-3">
                 {r.voters && r.voters.length > 0 ? (
                   // 참여자 많아도 행이 무한정 길어지지 않게 높이 제한 + 스크롤
                   <ul className="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
@@ -178,22 +151,6 @@ export default function RankList({
                   </ul>
                 ) : (
                   <p className="text-xs text-zinc-400">아직 아무도 안 골랐어요</p>
-                )}
-                {r.unavailableVoters?.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-xs text-rose-600 dark:text-rose-400">
-                      못 가요
-                    </span>
-                    <ul className="flex max-h-32 flex-wrap gap-1 overflow-y-auto pr-1">
-                      {r.unavailableVoters.map((v) => (
-                        <li key={v.id}>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-                            {v.nickname}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 )}
               </div>
             )}

@@ -3,7 +3,6 @@ import {
   ArrayUnique,
   IsArray,
   IsInt,
-  IsOptional,
   Min,
 } from 'class-validator';
 
@@ -16,14 +15,4 @@ export class UpdateAvailabilitiesDto {
   @IsInt({ each: true })
   @Min(1, { each: true })
   dateIds!: number[];
-
-  // 불가능한 날짜. optional 이라 이 필드를 모르는 옛 클라이언트도 그대로 통과한다
-  // (미전송 = 불가능 없음). 미정은 두 배열 어디에도 없는 날짜.
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(60)
-  @ArrayUnique()
-  @IsInt({ each: true })
-  @Min(1, { each: true })
-  unavailableDateIds?: number[];
 }

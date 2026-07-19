@@ -19,6 +19,7 @@ import { CleanupDto } from './dto/cleanup.dto';
 import { AdminUpdateDeadlineDto } from './dto/update-deadline.dto';
 import { AdminNoticeDto, AdminPublishNoticeDto } from './dto/notice.dto';
 import { NoticeService } from '../notice/notice.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
@@ -26,7 +27,14 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly notice: NoticeService,
+    private readonly analytics: AnalyticsService,
   ) {}
+
+  // 방문 집계 (이용 고객 = 방 참여자 외, 그냥 접속한 방문까지)
+  @Get('visits')
+  visits() {
+    return this.analytics.getStats();
+  }
 
   // ─── 공지 관리 (전부 AdminGuard 로 보호) ───────────────────
   @Get('notices')

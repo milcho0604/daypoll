@@ -115,7 +115,9 @@ export class NoticeService {
   }
 
   async remove(id: number): Promise<void> {
-    const res = await this.pool.query(`DELETE FROM notices WHERE id = $1`, [id]);
+    const res = await this.pool.query(`DELETE FROM notices WHERE id = $1`, [
+      id,
+    ]);
     if (!res.rowCount) throw new NotFoundException('notice not found');
   }
 

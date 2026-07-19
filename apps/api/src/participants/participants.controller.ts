@@ -16,6 +16,7 @@ import { clientIp } from '../common/client-ip';
 import { RateLimitService } from '../common/rate-limit.service';
 import { JoinRoomDto, RecoverParticipantDto } from './dto/join-room.dto';
 import { UpdateAvailabilitiesDto } from './dto/update-availabilities.dto';
+import { DeclineDto } from './dto/decline.dto';
 import { ParticipantsService } from './participants.service';
 
 @Controller('rooms/:roomId/participants')
@@ -74,8 +75,18 @@ export class ParticipantsController {
       roomId,
       clientToken,
       dto.dateIds,
-      dto.unavailableDateIds ?? [],
     );
+  }
+
+  @Put('me/decline')
+  setDecline(
+    @Req() req: Request,
+    @Param('roomId') roomId: string,
+    @Headers(HEADER_CLIENT_TOKEN) clientToken: string | undefined,
+    @Body() dto: DeclineDto,
+  ) {
+    this.rl.check(`vote:${clientIp(req)}`, 60, 60);
+    return this.participants.setDeclined(roomId, clientToken, dto.declined);
   }
 
   @Delete(':participantId')

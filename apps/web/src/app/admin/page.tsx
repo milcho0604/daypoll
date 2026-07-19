@@ -14,11 +14,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type { VisitStats } from '@whenever/shared';
 import {
   AdminStats,
   adminCleanup,
   adminDownloadCsv,
   adminGetStats,
+  adminVisits,
   getAdminToken,
 } from '@/lib/admin';
 import { ApiError } from '@/lib/api';
@@ -39,6 +41,7 @@ interface FeedItem {
 export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [visits, setVisits] = useState<VisitStats | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,8 +70,11 @@ export default function AdminDashboard() {
     };
     refresh.current = async () => {
       try {
-        const s = await adminGetStats();
-        if (!cancelled) setStats(s);
+        const [s, v] = await Promise.all([adminGetStats(), adminVisits()]);
+        if (!cancelled) {
+          setStats(s);
+          setVisits(v);
+        }
       } catch (e) {
         // 인증 만료(401)일 때만 로그인으로 — 일시적 네트워크 글리치로 튕기지 않게.
         if (e instanceof ApiError && e.status === 401) {
@@ -189,6 +195,68 @@ export default function AdminDashboard() {
         <Kpi label="종료 방" value={stats.closedRooms} />
         <Kpi label="마감일 설정 방" value={stats.roomsWithDeadline} />
       </section>
+
+      {/* 방문 집계 — 이용 고객(방 참여자) 외 그냥 접속한 방문까지. PII 없음. */}
+      {visits && (
+        <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold">방문 (접속)</h2>
+              <span className="text-[11px] text-zinc-400">방 참여 안 한 방문 포함</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
+                <div className="text-xs text-zinc-500">오늘</div>
+                <div className="mt-0.5 text-2xl font-bold tabular-nums">
+                  {visits.today}
+                </div>
+              </div>
+              <div className="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
+                <div className="text-xs text-zinc-500">최근 7일</div>
+                <div className="mt-0.5 text-2xl font-bold tabular-nums">
+                  {visits.last7Days}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 h-28">
+              {visits.daily.length > 0 ? (
+                <DailyArea
+                  data={visits.daily.map((d) => ({
+                    day: d.day,
+                    count: d.count,
+                  }))}
+                />
+              ) : (
+                <EmptyState emoji="📊" message="데이터가 모이는 중이에요" />
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-sm font-semibold">인기 경로 (최근 7일)</h2>
+            {visits.topPaths.length > 0 ? (
+              <ul className="mt-3 flex flex-col gap-1.5">
+                {visits.topPaths.map((p) => (
+                  <li
+                    key={p.path}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="truncate font-mono text-xs text-zinc-600 dark:text-zinc-300">
+                      {p.path}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-zinc-500">
+                      {p.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-3">
+                <EmptyState emoji="📊" message="데이터가 모이는 중이에요" />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <ChartCard title="최근 30일 방 생성 추이">
