@@ -12,6 +12,7 @@ import type {
   RegionCode,
   RoomDetail,
   RoomWeather,
+  Voter,
 } from '@whenever/shared';
 import { regionLabel } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
@@ -100,6 +101,7 @@ export class RoomsService {
     );
 
     const results = await this.computeResults(roomId);
+    const declined = await this.getDeclined(roomId);
 
     return {
       id: room.id,
@@ -114,6 +116,7 @@ export class RoomsService {
       })),
       participantCount: Number(partCountRes.rows[0].c),
       results,
+      declined,
     };
   }
 
@@ -122,6 +125,7 @@ export class RoomsService {
     participantCount: number;
     deadline: string | null;
     region: RegionCode | null;
+    declined: Voter[];
   }> {
     const roomRes = await this.pool.query<{
       deadline: Date | null;
@@ -135,6 +139,7 @@ export class RoomsService {
       [roomId],
     );
     const results = await this.computeResults(roomId);
+    const declined = await this.getDeclined(roomId);
     return {
       results,
       participantCount: Number(partCountRes.rows[0].c),
@@ -142,6 +147,7 @@ export class RoomsService {
         ? roomRes.rows[0].deadline.toISOString()
         : null,
       region: (roomRes.rows[0].region as RegionCode | null) ?? null,
+      declined,
     };
   }
 
@@ -262,45 +268,29 @@ export class RoomsService {
   }
 
   private async computeResults(roomId: string): Promise<DateResult[]> {
-    // 기획서 7장 집계 쿼리 + 누가 가능/불가능한지 닉네임 배열.
-    //
-    // 순위: 가능 수 DESC → 불가능 수 ASC → 날짜 ASC.
-    // 불가능은 점수를 깎지 않고 동점일 때만 가른다. (가능 5·불가능 2) 가
-    // (가능 3·불가능 0) 에 지는 건 친구 모임 직관과 어긋나서 감점 방식은 안 씀.
+    // 날짜별 집계 — 누가 가능한지(닉네임 배열). 순위 = 가능 수 DESC → 날짜 ASC.
     const res = await this.pool.query<{
       date_id: string;
       the_date: string;
       votes: string;
-      no_votes: string;
       voters: { id: number; nickname: string }[] | null;
-      unavailable_voters: { id: number; nickname: string }[] | null;
     }>(
       `SELECT rd.id::text AS date_id,
               to_char(rd.the_date, 'YYYY-MM-DD') AS the_date,
-              COUNT(a.participant_id) FILTER (WHERE a.status = 'yes')::text AS votes,
-              COUNT(a.participant_id) FILTER (WHERE a.status = 'no')::text  AS no_votes,
+              COUNT(a.participant_id)::text AS votes,
               COALESCE(
                 jsonb_agg(
                   jsonb_build_object('id', p.id, 'nickname', p.nickname)
                   ORDER BY p.created_at
-                ) FILTER (WHERE p.id IS NOT NULL AND a.status = 'yes'),
+                ) FILTER (WHERE p.id IS NOT NULL),
                 '[]'::jsonb
-              ) AS voters,
-              COALESCE(
-                jsonb_agg(
-                  jsonb_build_object('id', p.id, 'nickname', p.nickname)
-                  ORDER BY p.created_at
-                ) FILTER (WHERE p.id IS NOT NULL AND a.status = 'no'),
-                '[]'::jsonb
-              ) AS unavailable_voters
+              ) AS voters
        FROM room_dates rd
        LEFT JOIN availabilities a ON a.room_date_id = rd.id
        LEFT JOIN participants   p ON p.id           = a.participant_id
        WHERE rd.room_id = $1
        GROUP BY rd.id, rd.the_date
-       ORDER BY COUNT(a.participant_id) FILTER (WHERE a.status = 'yes') DESC,
-                COUNT(a.participant_id) FILTER (WHERE a.status = 'no')  ASC,
-                rd.the_date ASC`,
+       ORDER BY COUNT(a.participant_id) DESC, rd.the_date ASC`,
       [roomId],
     );
     return res.rows.map((r) => ({
@@ -308,9 +298,18 @@ export class RoomsService {
       date: r.the_date,
       votes: Number(r.votes),
       voters: r.voters ?? [],
-      noVotes: Number(r.no_votes),
-      unavailableVoters: r.unavailable_voters ?? [],
     }));
+  }
+
+  // 이번 모임 불참자 (사람 단위). 결과 화면에 "불참: 민수" 로 보여준다.
+  private async getDeclined(roomId: string): Promise<Voter[]> {
+    const res = await this.pool.query<{ id: number; nickname: string }>(
+      `SELECT id, nickname FROM participants
+        WHERE room_id = $1 AND declined = true
+        ORDER BY created_at ASC`,
+      [roomId],
+    );
+    return res.rows.map((r) => ({ id: Number(r.id), nickname: r.nickname }));
   }
 }
 

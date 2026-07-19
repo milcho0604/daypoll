@@ -1,11 +1,6 @@
 'use client';
 
-import type {
-  DateResult,
-  RegionCode,
-  RoomDetail,
-  VoteStatus,
-} from '@whenever/shared';
+import type { DateResult, RegionCode, RoomDetail } from '@whenever/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
@@ -16,6 +11,7 @@ import {
   kickParticipant,
   recoverParticipant,
   updateAvailabilities,
+  setDecline,
   updateDeadline,
   updateRegion,
 } from '@/lib/rooms';
@@ -23,10 +19,7 @@ import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import { formatDateKR } from '@/lib/format';
-import DateAvailabilityPicker, {
-  nextState,
-  type PickState,
-} from '@/components/date-availability-picker';
+import DateAvailabilityPicker from '@/components/date-availability-picker';
 import CrownIcon from '@/components/icons/crown';
 import EmptyState from '@/components/empty-state';
 import ConfirmModal from '@/components/confirm-modal';
@@ -44,26 +37,8 @@ type Me = {
   participantId: number;
   nickname: string;
   dateIds: number[];
-  unavailableDateIds: number[];
+  declined: boolean;
 };
-
-// 서버 왕복용 — Map(미정=키 없음) 을 두 배열로 가른다.
-function splitPicks(picks: Map<number, VoteStatus>) {
-  const dateIds: number[] = [];
-  const unavailableDateIds: number[] = [];
-  for (const [id, s] of picks) {
-    if (s === 'yes') dateIds.push(id);
-    else unavailableDateIds.push(id);
-  }
-  return { dateIds, unavailableDateIds };
-}
-
-function picksFrom(dateIds: number[], unavailableDateIds: number[] = []) {
-  const m = new Map<number, VoteStatus>();
-  for (const id of dateIds) m.set(id, 'yes');
-  for (const id of unavailableDateIds) m.set(id, 'no');
-  return m;
-}
 
 export default function RoomView({
   roomId,
@@ -76,8 +51,9 @@ export default function RoomView({
   const [creatorToken, setCreatorToken] = useState<string | undefined>(undefined);
   const [clientToken, setClientToken] = useState<string | undefined>(undefined);
   const [me, setMe] = useState<Me | null>(null);
-  // 미정 = 키 없음 / 'yes' = 가능 / 'no' = 못 감. Set 으로는 3상태를 못 담는다.
-  const [picks, setPicks] = useState<Map<number, VoteStatus>>(new Map());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  // 사람 단위 불참 — 이번 모임 자체를 못 감. 가능 날짜 선택과 상호배타적.
+  const [declined, setDeclined] = useState(false);
   const [nickname, setNickname] = useState('');
   // 이전에 다른 방에서 쓴 닉네임을 자동 채워준다 (재방문 마찰 0).
   useEffect(() => {
@@ -150,8 +126,9 @@ export default function RoomView({
         const m = await getMe(roomId, clientToken);
         if (cancelled) return;
         if (m) {
-          setMe({ ...m, unavailableDateIds: m.unavailableDateIds ?? [] });
-          setPicks(picksFrom(m.dateIds, m.unavailableDateIds ?? []));
+          setMe(m);
+          setSelected(new Set(m.dateIds));
+          setDeclined(m.declined);
         } else {
           // 토큰이 서버에 없는 경우 (예: 방 초기화) → 닉네임 다시 받기
           setMe(null);
@@ -260,52 +237,31 @@ export default function RoomView({
     return () => clearInterval(id);
   }, [room.deadline]);
 
-  // 서버(computeResults)와 같은 기준으로 정렬해야 한다 — 낙관적 반영 중엔 클라 정렬이
-  // 화면을 지배하므로, 여기서 타이브레이커를 빠뜨리면 저장 전후로 순위가 튄다.
-  // 가능 수 ↓ → 못 옴 수 ↑ → 날짜 ↑
   const sortedResults = useMemo<DateResult[]>(() => {
     return [...room.results].sort((a, b) => {
       if (b.votes !== a.votes) return b.votes - a.votes;
-      if ((a.noVotes ?? 0) !== (b.noVotes ?? 0))
-        return (a.noVotes ?? 0) - (b.noVotes ?? 0);
       return a.date.localeCompare(b.date);
     });
   }, [room.results]);
 
-  // 사람별 뷰 — 참여자 → 그 사람이 표시한 날짜들 (날짜별의 역집계).
-  // 못 감만 찍은 사람도 반드시 포함해야 한다. 안 그러면 아래 nonVoterCount 가
-  // "다 못 간다"고 답한 사람을 미응답으로 세서 엉뚱하게 독촉한다.
+  // 사람별 뷰 — 참여자 → 그 사람이 가능 표시한 날짜들 (날짜별의 역집계).
   const byPerson = useMemo(() => {
     const map = new Map<
       number,
-      {
-        id: number;
-        nickname: string;
-        dates: { dateId: number; date: string }[];
-        unavailableDates: { dateId: number; date: string }[];
-      }
+      { id: number; nickname: string; dates: { dateId: number; date: string }[] }
     >();
-    const ensure = (v: { id: number; nickname: string }) => {
-      let p = map.get(v.id);
-      if (!p) {
-        p = { id: v.id, nickname: v.nickname, dates: [], unavailableDates: [] };
-        map.set(v.id, p);
-      }
-      return p;
-    };
     for (const r of room.results) {
-      for (const v of r.unavailableVoters ?? []) {
-        ensure(v).unavailableDates.push({ dateId: r.dateId, date: r.date });
-      }
       for (const v of r.voters ?? []) {
-        ensure(v).dates.push({ dateId: r.dateId, date: r.date });
+        let p = map.get(v.id);
+        if (!p) {
+          p = { id: v.id, nickname: v.nickname, dates: [] };
+          map.set(v.id, p);
+        }
+        p.dates.push({ dateId: r.dateId, date: r.date });
       }
     }
     const arr = [...map.values()];
-    for (const p of arr) {
-      p.dates.sort((a, b) => a.date.localeCompare(b.date));
-      p.unavailableDates.sort((a, b) => a.date.localeCompare(b.date));
-    }
+    for (const p of arr) p.dates.sort((a, b) => a.date.localeCompare(b.date));
     arr.sort(
       (a, b) =>
         b.dates.length - a.dates.length || a.nickname.localeCompare(b.nickname),
@@ -314,13 +270,6 @@ export default function RoomView({
   }, [room.results]);
 
   const maxVotes = sortedResults.reduce((m, r) => Math.max(m, r.votes), 0);
-
-  const myYesCount = useMemo(() => {
-    let n = 0;
-    for (const s of picks.values()) if (s === 'yes') n++;
-    return n;
-  }, [picks]);
-  const myNoCount = picks.size - myYesCount;
 
   // 1위(들) — 동표면 공동 1위. 순위 트로피/하이라이트 + 마감 확정 카드 공용.
   const winnerIds = new Set<number>(
@@ -334,8 +283,13 @@ export default function RoomView({
       ? sortedResults.filter((r) => r.votes === maxVotes)
       : [];
 
-  // 사람별 뷰 하단 — 아직 한 표도 안 던진 참여자 수 (독촉용).
-  const nonVoterCount = Math.max(0, room.participantCount - byPerson.length);
+  // 사람별 뷰 하단 — 아직 응답 안 한 참여자 수 (독촉용).
+  // 불참자는 "응답함"이니 미응답에서 뺀다.
+  const declinedList = room.declined ?? [];
+  const nonVoterCount = Math.max(
+    0,
+    room.participantCount - byPerson.length - declinedList.length,
+  );
 
   // 순위 전체 펼치기/접기 — 행마다 탭하지 않고 누가 어느 날짜에 됐는지 한 번에.
   const expandableIds = sortedResults
@@ -355,43 +309,29 @@ export default function RoomView({
       return next;
     });
 
-  // 특정 날짜를 정해진 상태로 확정 (탭 순환 / 드래그 페인트 공용).
-  const applyPick = (id: number, status: PickState) => {
+  const toggle = (id: number) => {
     if (isLocked || !clientToken) return;
-    const next = new Map(picks);
-    if (status == null) next.delete(id);
-    else next.set(id, status);
-    setPicks(next);
+    const next = new Set(selected);
+    const adding = !next.has(id);
+    if (adding) next.add(id);
+    else next.delete(id);
+    setSelected(next);
 
-    // 낙관적 순위 반영 — 누르는 즉시 막대가 움직이고, 확정값은 저장 후 서버 동기화로 교정
+    // 낙관적 순위 반영 — 토글 즉시 막대가 움직이고, 확정값은 저장 후 서버 동기화로 교정
     if (me) {
       const mine = { id: me.participantId, nickname: me.nickname };
       setRoom((prev) => ({
         ...prev,
         results: prev.results.map((r) => {
           if (r.dateId !== id) return r;
-          // 내 표를 양쪽 목록에서 뺀 뒤, 새 상태인 쪽에만 다시 넣는다.
-          const voters = (r.voters ?? []).filter((v) => v.id !== mine.id);
-          const unavailableVoters = (r.unavailableVoters ?? []).filter(
-            (v) => v.id !== mine.id,
-          );
-          if (status === 'yes') voters.push(mine);
-          else if (status === 'no') unavailableVoters.push(mine);
-          return {
-            ...r,
-            voters,
-            votes: voters.length,
-            unavailableVoters,
-            noVotes: unavailableVoters.length,
-          };
+          const others = (r.voters ?? []).filter((v) => v.id !== mine.id);
+          const voters = adding ? [...others, mine] : others;
+          return { ...r, voters, votes: voters.length };
         }),
       }));
     }
     scheduleSave(next);
   };
-
-  const cycle = (id: number) =>
-    applyPick(id, nextState(picks.get(id) ?? null));
 
   const toggleExpanded = (dateId: number) =>
     setExpandedDates((prev) => {
@@ -402,33 +342,21 @@ export default function RoomView({
     });
 
   // 토글 후 600ms 디바운스 자동 저장 — "저장 버튼 누르기" 단계 제거
-  const scheduleSave = (next: Map<number, VoteStatus>) => {
+  const scheduleSave = (dateIds: Set<number>) => {
     dirtyRef.current = true;
     setSaveState('pending');
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => void saveVotes(next), 600);
+    saveTimerRef.current = setTimeout(() => void saveVotes(dateIds), 600);
   };
 
-  async function saveVotes(next: Map<number, VoteStatus>) {
+  async function saveVotes(dateIds: Set<number>) {
     if (!clientToken) return;
     setSaveState('saving');
     setError(null);
     try {
-      // 서버는 매번 전량 저장(delete-all-then-insert)이라 두 배열을 다 보낸다.
-      //
-      // 단 불가능이 하나도 없으면 unavailableDateIds 를 **아예 뺀다**. API 의
-      // ValidationPipe 가 forbidNonWhitelisted 라, 이 필드를 아직 모르는 옛 API 는
-      // 모르는 속성이 오면 400 을 던진다. 배포 스큐(Vercel 프론트가 맥미니 API 보다
-      // 먼저 뜨는 1~3분) 동안 "못 가요" 를 안 쓰는 사람의 저장까지 깨지지 않게
-      // 옛 API 가 이해하는 모양 그대로 보낸다.
-      const { dateIds, unavailableDateIds } = splitPicks(next);
-      await updateAvailabilities(
-        roomId,
-        clientToken,
-        unavailableDateIds.length > 0
-          ? { dateIds, unavailableDateIds }
-          : { dateIds },
-      );
+      await updateAvailabilities(roomId, clientToken, {
+        dateIds: Array.from(dateIds),
+      });
       dirtyRef.current = false;
       setSaveState('saved');
       const res = await getResults(roomId);
@@ -437,10 +365,48 @@ export default function RoomView({
         results: res.results,
         participantCount: res.participantCount,
         deadline: res.deadline,
+        declined: res.declined,
       }));
     } catch (err) {
       setSaveState('error');
       setError(extractMsg(err));
+    }
+  }
+
+  // 사람 단위 불참 토글. 불참하면 고른 날짜는 서버가 비우므로 로컬도 비운다.
+  async function toggleDecline(next: boolean) {
+    if (isLocked || !clientToken) return;
+    setDeclined(next);
+    if (next) setSelected(new Set()); // 불참이면 가능 날짜 해제
+    // 낙관적: 내 이름을 불참 목록에 넣거나/빼고, 내 표를 결과에서 즉시 제거
+    if (me) {
+      const mine = { id: me.participantId, nickname: me.nickname };
+      setRoom((prev) => ({
+        ...prev,
+        declined: next
+          ? [...(prev.declined ?? []).filter((v) => v.id !== mine.id), mine]
+          : (prev.declined ?? []).filter((v) => v.id !== mine.id),
+        results: next
+          ? prev.results.map((r) => {
+              const voters = (r.voters ?? []).filter((v) => v.id !== mine.id);
+              return { ...r, voters, votes: voters.length };
+            })
+          : prev.results,
+      }));
+    }
+    try {
+      await setDecline(roomId, clientToken, next);
+      const res = await getResults(roomId);
+      setRoom((prev) => ({
+        ...prev,
+        results: res.results,
+        participantCount: res.participantCount,
+        deadline: res.deadline,
+        declined: res.declined,
+      }));
+    } catch (err) {
+      setError(extractMsg(err));
+      setDeclined(!next); // 롤백
     }
   }
 
@@ -475,9 +441,10 @@ export default function RoomView({
         participantId: r.participantId,
         nickname: nickname.trim(),
         dateIds: [],
-        unavailableDateIds: [],
+        declined: false,
       });
-      setPicks(new Map());
+      setSelected(new Set());
+      setDeclined(false);
       void tick(); // 참여자 수 즉시 반영
     } catch (err) {
       setError(extractMsg(err));
@@ -502,8 +469,9 @@ export default function RoomView({
       setShowRecover(false);
       setRecoverNeedsNickname(false);
       const m = await getMe(roomId, r.clientToken);
-      setMe(m ? { ...m, unavailableDateIds: m.unavailableDateIds ?? [] } : null);
-      setPicks(picksFrom(m?.dateIds ?? [], m?.unavailableDateIds ?? []));
+      setMe(m);
+      setSelected(new Set(m?.dateIds ?? []));
+      setDeclined(m?.declined ?? false);
     } catch (err) {
       // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지)
       if (err instanceof ApiError && err.status === 409) {
@@ -868,21 +836,48 @@ export default function RoomView({
               투표가 마감되었습니다. 결과만 확인할 수 있어요.
             </p>
           )}
-          <DateAvailabilityPicker
-            candidates={room.dates}
-            picks={picks}
-            onCycle={cycle}
-            onSet={applyPick}
-            onBulkSet={(ids, status) => {
-              if (isLocked || !clientToken) return;
-              // 칩은 통째로 덮어쓴다 — "주말만" 은 주말=가능, 나머지는 미정.
-              const next = new Map<number, VoteStatus>();
-              if (status != null) for (const id of ids) next.set(id, status);
-              setPicks(next);
-              scheduleSave(next);
-            }}
-            disabled={isLocked}
-          />
+          {declined ? (
+            // 불참 상태 — 캘린더 대신 안내 + 다시 참여 버튼
+            <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center dark:border-rose-900 dark:bg-rose-950/40">
+              <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                🙅 이번 모임엔 참석이 어렵다고 표시했어요.
+              </p>
+              <button
+                type="button"
+                onClick={() => void toggleDecline(false)}
+                disabled={isLocked}
+                className="press mt-3 inline-flex h-10 items-center rounded-full bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-200"
+              >
+                다시 참여할래요
+              </button>
+            </div>
+          ) : (
+            <>
+              <DateAvailabilityPicker
+                candidates={room.dates}
+                selectedIds={selected}
+                onToggle={toggle}
+                onBulkSet={(ids) => {
+                  if (isLocked || !clientToken) return;
+                  const next = new Set(ids);
+                  setSelected(next);
+                  scheduleSave(next);
+                }}
+                disabled={isLocked}
+              />
+              {!isLocked && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => void toggleDecline(true)}
+                    className="press text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
+                  >
+                    이번엔 참석이 어려워요 (불참)
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
 
@@ -962,7 +957,7 @@ export default function RoomView({
             winnerIds={winnerIds}
             expandedDates={expandedDates}
             onToggleExpanded={toggleExpanded}
-            picks={picks}
+            selected={selected}
             hasToken={!!clientToken}
             isCreator={isCreator}
             onKick={(id, nickname) => setKickTarget({ id, nickname })}
@@ -970,6 +965,18 @@ export default function RoomView({
             onToggleShowAll={() => setShowAllResults((v) => !v)}
             preview={RESULTS_PREVIEW}
           />
+        )}
+        {declinedList.length > 0 && (
+          <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span className="font-medium text-rose-600 dark:text-rose-400">
+                🙅 이번 모임 불참 {declinedList.length}명
+              </span>
+              <span className="text-zinc-500 dark:text-zinc-400">
+                {declinedList.map((v) => v.nickname).join(' · ')}
+              </span>
+            </p>
+          </div>
         )}
       </section>
 
@@ -989,14 +996,11 @@ export default function RoomView({
             className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3"
             aria-live="polite"
           >
-            <span className="text-xs text-zinc-500">
-              가능 {myYesCount}개
-              {myNoCount > 0 && ` · 못 가요 ${myNoCount}개`}
-            </span>
+            <span className="text-xs text-zinc-500">{selected.size}개 선택</span>
             {saveState === 'error' ? (
               <button
                 type="button"
-                onClick={() => void saveVotes(picks)}
+                onClick={() => void saveVotes(selected)}
                 className="press h-10 rounded-full bg-rose-50 px-4 text-sm font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
               >
                 저장 실패 — 다시 시도

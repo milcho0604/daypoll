@@ -1,6 +1,6 @@
 'use client';
 
-import type { Notice, NoticeInput } from '@whenever/shared';
+import type { Notice, NoticeInput, VisitStats } from '@whenever/shared';
 import { apiBaseUrl, ApiError } from './api';
 
 const TOKEN_KEY = 'whenever_admin_token';
@@ -158,6 +158,11 @@ export function adminCleanup(days: number) {
     body: { days },
   });
 }
+// ───────────── 방문 집계 ─────────────
+export function adminVisits() {
+  return adminFetch<VisitStats>('/admin/visits');
+}
+
 // ───────────── 공지 관리 ─────────────
 export function adminListNotices() {
   return adminFetch<Notice[]>('/admin/notices');

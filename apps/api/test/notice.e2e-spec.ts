@@ -90,11 +90,19 @@ describe('notice e2e', () => {
       expect(r.status).toBe(400);
     });
     it('400 when scheduledAt is not ISO8601', async () => {
-      const r = await create({ title: 'x', body: 'y', scheduledAt: 'tomorrow' });
+      const r = await create({
+        title: 'x',
+        body: 'y',
+        scheduledAt: 'tomorrow',
+      });
       expect(r.status).toBe(400);
     });
     it('400 when scheduledAt has no timezone (date only)', async () => {
-      const r = await create({ title: 'x', body: 'y', scheduledAt: '2026-07-20' });
+      const r = await create({
+        title: 'x',
+        body: 'y',
+        scheduledAt: '2026-07-20',
+      });
       expect(r.status).toBe(400);
     });
     it('400 when scheduledAt has no timezone (local datetime)', async () => {
@@ -107,12 +115,22 @@ describe('notice e2e', () => {
     });
     it('accepts Z and +09:00 offsets', async () => {
       expect(
-        (await create({ title: 'z', body: 'y', scheduledAt: '2026-07-20T15:00:00.000Z' }))
-          .status,
+        (
+          await create({
+            title: 'z',
+            body: 'y',
+            scheduledAt: '2026-07-20T15:00:00.000Z',
+          })
+        ).status,
       ).toBe(201);
       expect(
-        (await create({ title: 'o', body: 'y', scheduledAt: '2026-07-21T00:00:00+09:00' }))
-          .status,
+        (
+          await create({
+            title: 'o',
+            body: 'y',
+            scheduledAt: '2026-07-21T00:00:00+09:00',
+          })
+        ).status,
       ).toBe(201);
     });
     it('rejects unknown fields (forbidNonWhitelisted)', async () => {
@@ -221,6 +239,46 @@ describe('notice e2e', () => {
       const titles = (r.body as { title: string }[]).map((n) => n.title);
       expect(titles).toContain('draft');
       expect(titles).toContain('pub');
+    });
+  });
+
+  describe('방문 집계 (track/visits)', () => {
+    it('POST /track needs no auth and counts by normalized path', async () => {
+      await request(server()).post('/track').send({ path: '/' }).expect(201);
+      await request(server())
+        .post('/track')
+        .send({ path: '/rooms/ABC123XYZ' })
+        .expect(201);
+      await request(server())
+        .post('/track')
+        .send({ path: '/rooms/DEF456' })
+        .expect(201);
+      await request(server())
+        .post('/track')
+        .send({ path: '/rooms/new' })
+        .expect(201);
+
+      const r = await withAdmin(request(server()).get('/admin/visits'));
+      expect(r.status).toBe(200);
+      expect(r.body.today).toBe(4);
+      const paths = Object.fromEntries(
+        (r.body.topPaths as { path: string; count: number }[]).map((p) => [
+          p.path,
+          p.count,
+        ]),
+      );
+      // /rooms/<id> 두 건이 /rooms/[id] 하나로 정규화(카운트 2), /rooms/new 는 별도.
+      expect(paths['/rooms/[id]']).toBe(2);
+      expect(paths['/rooms/new']).toBe(1);
+      expect(paths['/']).toBe(1);
+    });
+
+    it('POST /track 400 on missing path', async () => {
+      await request(server()).post('/track').send({}).expect(400);
+    });
+
+    it('GET /admin/visits requires admin token', async () => {
+      await request(server()).get('/admin/visits').expect(401);
     });
   });
 });

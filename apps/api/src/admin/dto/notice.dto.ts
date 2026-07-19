@@ -29,7 +29,8 @@ export class AdminNoticeDto {
   @IsOptional()
   @ValidateIf((_o, v) => v !== null)
   @Matches(ISO_WITH_TZ, {
-    message: 'scheduledAt must be an ISO8601 datetime with timezone (e.g. ...Z)',
+    message:
+      'scheduledAt must be an ISO8601 datetime with timezone (e.g. ...Z)',
   })
   scheduledAt?: string | null;
 }

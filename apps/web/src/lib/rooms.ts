@@ -13,6 +13,7 @@ import {
   UpdateAvailabilitiesRequest,
   UpdateDeadlineRequest,
   UpdateRegionRequest,
+  Voter,
 } from '@whenever/shared';
 import { api } from './api';
 
@@ -34,6 +35,7 @@ export function getResults(roomId: string, signal?: AbortSignal) {
     participantCount: number;
     deadline: string | null;
     region: RegionCode | null;
+    declined: Voter[];
   }>(`/rooms/${roomId}/results`, { signal });
 }
 
@@ -64,8 +66,7 @@ export async function getMe(
       participantId: number;
       nickname: string;
       dateIds: number[];
-      // 옛 API 는 안 내려줌 → 없으면 불가능 0개로 취급 (배포 스큐 대비).
-      unavailableDateIds?: number[];
+      declined: boolean;
     };
   }>(`/rooms/${roomId}/participants/me`, {
     headers: { [HEADER_CLIENT_TOKEN]: clientToken },
@@ -85,6 +86,22 @@ export function updateAvailabilities(
       method: 'PUT',
       headers: { [HEADER_CLIENT_TOKEN]: clientToken },
       body,
+    },
+  );
+}
+
+// 사람 단위 불참 토글.
+export function setDecline(
+  roomId: string,
+  clientToken: string,
+  declined: boolean,
+) {
+  return api<{ declined: boolean }>(
+    `/rooms/${roomId}/participants/me/decline`,
+    {
+      method: 'PUT',
+      headers: { [HEADER_CLIENT_TOKEN]: clientToken },
+      body: { declined },
     },
   );
 }

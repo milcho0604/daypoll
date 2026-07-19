@@ -227,8 +227,7 @@ export class ParticipantsService {
     roomId: string,
     clientToken: string | undefined,
     dateIds: number[],
-    unavailableDateIds: number[] = [],
-  ): Promise<{ dateIds: number[]; unavailableDateIds: number[] }> {
+  ): Promise<{ dateIds: number[] }> {
     if (!clientToken) {
       throw new ForbiddenException('client token required');
     }
@@ -265,40 +264,69 @@ export class ParticipantsService {
     const filtered = Array.from(new Set(dateIds)).filter((id) =>
       allowedSet.has(id),
     );
-    // 같은 날짜가 양쪽에 다 오면 '가능'을 살린다. 400 으로 되던지는 대신 조용히
-    // 정규화 — 저장은 600ms 디바운스라 클라 상태가 잠깐 어긋나도 표가 날아가면 안 된다.
-    const yesSet = new Set(filtered);
-    const filteredUnavailable = Array.from(new Set(unavailableDateIds)).filter(
-      (id) => allowedSet.has(id) && !yesSet.has(id),
-    );
 
-    // 미정 = 두 배열 어디에도 없는 날짜 → 행을 아예 안 넣는다.
-    // 기존과 동일하게 참가자의 전체 슬레이트를 지우고 다시 넣는 방식이라
-    // 'no' 행도 매 저장마다 payload 에 다시 실려야 한다 (클라가 항상 전량 전송).
+    // 가능 날짜를 고르는 건 곧 "참석하겠다"는 뜻 → 불참 플래그를 자동으로 해제한다.
     await withTransaction(this.pool, async (c) => {
+      await c.query(`UPDATE participants SET declined = false WHERE id = $1`, [
+        participantId,
+      ]);
       await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
         participantId,
       ]);
       if (filtered.length > 0) {
         await c.query(
-          `INSERT INTO availabilities (participant_id, room_date_id, status)
-           SELECT $1, unnest($2::bigint[]), 'yes'
+          `INSERT INTO availabilities (participant_id, room_date_id)
+           SELECT $1, unnest($2::bigint[])
            ON CONFLICT DO NOTHING`,
           [participantId, filtered],
-        );
-      }
-      if (filteredUnavailable.length > 0) {
-        await c.query(
-          `INSERT INTO availabilities (participant_id, room_date_id, status)
-           SELECT $1, unnest($2::bigint[]), 'no'
-           ON CONFLICT DO NOTHING`,
-          [participantId, filteredUnavailable],
         );
       }
     });
 
     this.realtime.emitResultsUpdated(roomId);
-    return { dateIds: filtered, unavailableDateIds: filteredUnavailable };
+    return { dateIds: filtered };
+  }
+
+  // 사람 단위 불참 토글. declined=true 면 가능 날짜를 전부 비운다(참석 안 하니까).
+  async setDeclined(
+    roomId: string,
+    clientToken: string | undefined,
+    declined: boolean,
+  ): Promise<{ declined: boolean }> {
+    if (!clientToken) {
+      throw new ForbiddenException('client token required');
+    }
+    const roomRes = await this.pool.query<{ deadline: Date | null }>(
+      `SELECT deadline FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
+    const deadline = roomRes.rows[0].deadline;
+    if (deadline && deadline.getTime() <= Date.now()) {
+      throw new HttpException('room is locked', HttpStatus.LOCKED);
+    }
+    const me = await this.pool.query<{ id: string }>(
+      `SELECT id::text FROM participants WHERE room_id = $1 AND client_token = $2`,
+      [roomId, clientToken],
+    );
+    if (me.rowCount === 0) throw new ForbiddenException('not a participant');
+    const participantId = Number(me.rows[0].id);
+
+    await withTransaction(this.pool, async (c) => {
+      await c.query(`UPDATE participants SET declined = $2 WHERE id = $1`, [
+        participantId,
+        declined,
+      ]);
+      if (declined) {
+        // 불참이면 가능 날짜는 의미 없으니 비운다.
+        await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
+          participantId,
+        ]);
+      }
+    });
+
+    this.realtime.emitResultsUpdated(roomId);
+    return { declined };
   }
 
   async removeByCreator(
@@ -331,27 +359,27 @@ export class ParticipantsService {
     if (!clientToken) {
       return null;
     }
-    const me = await this.pool.query<{ id: string; nickname: string }>(
-      `SELECT id::text, nickname FROM participants
+    const me = await this.pool.query<{
+      id: string;
+      nickname: string;
+      declined: boolean;
+    }>(
+      `SELECT id::text, nickname, declined FROM participants
        WHERE room_id = $1 AND client_token = $2`,
       [roomId, clientToken],
     );
     if (me.rowCount === 0) {
       return null;
     }
-    const av = await this.pool.query<{ room_date_id: string; status: string }>(
-      `SELECT room_date_id::text, status FROM availabilities WHERE participant_id = $1`,
+    const av = await this.pool.query<{ room_date_id: string }>(
+      `SELECT room_date_id::text FROM availabilities WHERE participant_id = $1`,
       [me.rows[0].id],
     );
     return {
       participantId: Number(me.rows[0].id),
       nickname: me.rows[0].nickname,
-      dateIds: av.rows
-        .filter((r) => r.status === 'yes')
-        .map((r) => Number(r.room_date_id)),
-      unavailableDateIds: av.rows
-        .filter((r) => r.status === 'no')
-        .map((r) => Number(r.room_date_id)),
+      dateIds: av.rows.map((r) => Number(r.room_date_id)),
+      declined: me.rows[0].declined,
     };
   }
 }
