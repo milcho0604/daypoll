@@ -2,8 +2,14 @@
 
 import type { DateResult } from '@whenever/shared';
 import { formatDateKR } from '@/lib/format';
+import CrownIcon from '@/components/icons/crown';
 
-// 날짜별 순위 — 막대 + 행 탭 시 투표자 펼침. 1위(들) 트로피/amber.
+// 날짜별 순위 — 막대 + 행 탭 시 투표자 펼침.
+//
+// 1위 강조는 "단색 amber 한 겹" 으로만 한다. 예전엔 카드 보더+ring+그라데이션 배지
+// +🏆 이모지+그라데이션 바가 겹쳐 게임 보상 화면처럼 촌스러웠다 ("촌스럽다" 피드백).
+// 촌스러움의 원인은 색이 아니라 **그라데이션·이모지·중첩** 이었으므로, 브랜드의
+// 따뜻함(amber)은 남기고 장식만 걷어낸다 — CLAUDE.md §1-1.
 export default function RankList({
   results,
   maxVotes,
@@ -40,7 +46,7 @@ export default function RankList({
             key={r.dateId}
             className={`lift overflow-hidden rounded-xl border bg-white transition-colors dark:bg-zinc-900 ${
               winnerIds.has(r.dateId)
-                ? 'border-amber-300 ring-1 ring-amber-200/60 dark:border-amber-700 dark:ring-amber-900/60'
+                ? 'border-zinc-300 shadow-sm dark:border-zinc-600'
                 : 'border-zinc-200 dark:border-zinc-800'
             }`}
           >
@@ -54,18 +60,31 @@ export default function RankList({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {winnerIds.has(r.dateId) ? (
-                    // 이모지 글리프가 박스 위쪽으로 치우치는 경향 — leading-none + pt 미세 보정으로 광학적 정렬.
-                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[15px] leading-none shadow-sm">
-                      <span className="block translate-y-[0.5px]">🏆</span>
+                    // 단색 amber 원 + 단색 왕관 SVG.
+                    // 🏆 이모지는 OS 마다 다른 그림이 렌더되고 채도가 높아 zinc 톤에서 혼자 튄다.
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white dark:bg-amber-600">
+                      <CrownIcon className="h-3.5 w-3.5" />
                     </span>
                   ) : (
                     <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold leading-none text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       {idx + 1}
                     </span>
                   )}
-                  <span className="text-sm font-medium">
+                  <span
+                    className={`text-sm ${
+                      winnerIds.has(r.dateId)
+                        ? 'font-semibold text-zinc-900 dark:text-zinc-100'
+                        : 'font-medium'
+                    }`}
+                  >
                     {formatDateKR(r.date)}
                   </span>
+                  {winnerIds.has(r.dateId) && (
+                    // 금색이 "우승 확정" 처럼 읽히던 문제를 색이 아니라 말로 해결한다.
+                    <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                      현재 1위
+                    </span>
+                  )}
                   {hasToken && selected.has(r.dateId) && (
                     <span
                       title="내가 고른 날"
@@ -91,11 +110,15 @@ export default function RankList({
                 </span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                {/* 그라데이션 제거 — 얇은 바 위의 그라데는 낡은 progress-bar 클리셰다.
+                    예전엔 1위=amber 그라데(채도 max) / 나머지=검정이라 바 언어가 불일치했다.
+                    이제 단색으로 통일: 1위만 톤다운한 amber-300, 나머지는 연한 zinc.
+                    amber-500 은 100% 꽉 차면 형광펜처럼 튀어서 한 단계 낮춘다. */}
                 <div
                   className={`h-full transition-all duration-500 ${
                     winnerIds.has(r.dateId)
-                      ? 'bg-gradient-to-r from-amber-400 to-amber-600'
-                      : 'bg-zinc-900 dark:bg-zinc-100'
+                      ? 'bg-amber-300 dark:bg-amber-400'
+                      : 'bg-zinc-300 dark:bg-zinc-600'
                   }`}
                   style={{
                     width: `${maxVotes ? (r.votes / maxVotes) * 100 : 0}%`,
