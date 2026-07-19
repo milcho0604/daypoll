@@ -17,11 +17,61 @@ import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
 import { CleanupDto } from './dto/cleanup.dto';
 import { AdminUpdateDeadlineDto } from './dto/update-deadline.dto';
+import { AdminNoticeDto, AdminPublishNoticeDto } from './dto/notice.dto';
+import { NoticeService } from '../notice/notice.service';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly notice: NoticeService,
+  ) {}
+
+  // ─── 공지 관리 (전부 AdminGuard 로 보호) ───────────────────
+  @Get('notices')
+  listNotices() {
+    return this.notice.list();
+  }
+
+  @Post('notices')
+  async createNotice(@Body() dto: AdminNoticeDto) {
+    NoticeService.assertValidScheduledAt(dto.scheduledAt);
+    const n = await this.notice.create(dto);
+    await this.admin.logNotice('notice_create', { id: n.id, title: n.title });
+    return n;
+  }
+
+  @Patch('notices/:id')
+  async updateNotice(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminNoticeDto,
+  ) {
+    NoticeService.assertValidScheduledAt(dto.scheduledAt);
+    const n = await this.notice.update(id, dto);
+    await this.admin.logNotice('notice_update', { id, title: n.title });
+    return n;
+  }
+
+  @Post('notices/:id/publish')
+  async publishNotice(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminPublishNoticeDto,
+  ) {
+    const n = await this.notice.setPublished(id, dto.published);
+    await this.admin.logNotice(
+      dto.published ? 'notice_publish' : 'notice_unpublish',
+      { id, title: n.title },
+    );
+    return n;
+  }
+
+  @Delete('notices/:id')
+  async deleteNotice(@Param('id', ParseIntPipe) id: number) {
+    await this.notice.remove(id);
+    await this.admin.logNotice('notice_delete', { id });
+    return { ok: true };
+  }
 
   @Get('stats')
   stats() {

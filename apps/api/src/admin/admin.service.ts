@@ -560,6 +560,15 @@ export class AdminService {
     );
   }
 
+  // 공지 작업 audit — room 과 무관하므로 room_id/participant_id 는 null.
+  // action 예: 'notice_create' / 'notice_update' / 'notice_publish' / 'notice_delete'.
+  async logNotice(
+    action: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.logAction(action, null, null, payload);
+  }
+
   // ─────────────────────────── logAction ───────────────────────────
   private async logAction(
     action: string,

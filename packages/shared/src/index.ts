@@ -131,3 +131,25 @@ export interface UpdateDeadlineRequest {
 
 export const HEADER_CLIENT_TOKEN = 'x-client-token';
 export const HEADER_CREATOR_TOKEN = 'x-creator-token';
+
+// ─── 공지 팝업 ───────────────────────────────────────────────
+// 어드민이 작성/게시하는 메인 화면 공지. 공개 GET /notice 는 게시된 최신 1건(또는 null).
+export interface Notice {
+  id: number;
+  title: string;
+  body: string; // 줄바꿈 포함 평문 (프론트에서 whitespace-pre-line 로 렌더)
+  scheduledAt: string | null; // ISO8601, 점검 예정 시각(표시용). 없으면 null.
+  published: boolean;
+  publishedAt: string | null; // ISO8601, 마지막 게시 시각. "현재 공지" 정렬 기준.
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 어드민 작성/수정 입력. published 는 별도 publish 엔드포인트로 토글.
+export interface NoticeInput {
+  title: string;
+  body: string;
+  scheduledAt?: string | null;
+}
+
+export const HEADER_ADMIN_TOKEN = 'x-admin-token';
