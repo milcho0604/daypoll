@@ -37,14 +37,14 @@ export default function RecoverModal({
         }}
         className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl"
       >
-        <h3 className="text-base font-semibold">PIN으로 복원</h3>
+        <h3 className="text-base font-semibold">내 투표 불러오기</h3>
         <p className="mt-1 text-xs text-zinc-500">
           {needsNickname
-            ? '같은 PIN으로 가입한 친구가 여러 명이에요. 닉네임도 같이 알려주세요.'
-            : '이 방에 처음 들어올 때 설정한 PIN으로 본인 표를 되찾아옵니다.'}
+            ? '같은 비밀번호를 쓴 친구가 여러 명이에요. 닉네임도 같이 알려주세요.'
+            : '처음 들어올 때 정한 비밀번호 4자리를 넣으면, 그때 고른 날짜를 그대로 불러와요.'}
         </p>
         <p className="mt-2 text-[11px] text-zinc-400">
-          PIN 까먹었으면? 단톡방에서 개설자한테 강퇴 부탁 → 다시 입장하면 돼요.
+          비밀번호 까먹었으면? 단톡방에서 방 만든 친구한테 부탁해 내보낸 뒤 → 다시 들어오면 돼요.
         </p>
         <div className="mt-4 flex flex-col gap-3">
           <input
