@@ -362,7 +362,7 @@ export default function RoomView({
     e.preventDefault();
     if (!nickname.trim()) return;
     if (usePin && !/^\d{4}$/.test(pin)) {
-      setError('PIN은 4자리 숫자여야 합니다.');
+      setError('비밀번호는 숫자 4자리로 정해주세요.');
       return;
     }
     setBusy(true);
@@ -417,7 +417,7 @@ export default function RoomView({
       // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지)
       if (err instanceof ApiError && err.status === 409) {
         setRecoverNeedsNickname(true);
-        setError('같은 PIN으로 가입한 친구가 여러 명이에요. 닉네임도 알려주세요.');
+        setError('같은 비밀번호를 쓴 친구가 여러 명이에요. 닉네임도 알려주세요.');
       } else {
         setError(extractMsg(err));
       }
@@ -697,11 +697,11 @@ export default function RoomView({
           {isCreator ? (
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               <span aria-hidden>👑</span>
-              방 만든 분이세요! PIN 설정해두면 다른 기기에서도 방 관리 가능
+              방 만든 분이죠? 비밀번호 4자리를 정해두면 다른 폰에서도 이 방을 관리할 수 있어요
             </p>
           ) : (
             <p className="mt-2 text-xs text-zinc-500">
-              ✨ 이 브라우저로 다시 오면 PIN 없이도 자동으로 본인 표 복원돼요.
+              ✨ 지금 이 폰에선 다음에 다시 와도 투표한 게 그대로 있어요.
             </p>
           )}
           {room.participantCount > 0 && (
@@ -727,10 +727,10 @@ export default function RoomView({
                 onChange={(e) => setUsePin(e.target.checked)}
                 className="h-5 w-5 rounded border-zinc-300"
               />
-              4자리 PIN 설정 (다른 기기에서 복원하고 싶을 때)
+              비밀번호 4자리 정하기 (다른 폰에서도 이어서 투표하려면)
             </label>
             <p className="-mt-1 ml-7 text-[11px] leading-5 text-zinc-400">
-              같은 브라우저: 자동 복원 ✓ &nbsp;·&nbsp; 다른 기기: PIN 필요
+              이 폰에선 자동 저장 ✓ &nbsp;·&nbsp; 다른 폰에선 비밀번호로 불러오기
             </p>
             {usePin && (
               <input
@@ -749,7 +749,7 @@ export default function RoomView({
                 onClick={() => setShowRecover(true)}
                 className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
               >
-                다른 기기에서 들어왔어요 (PIN 복원)
+                전에 다른 폰에서 투표했어요
               </button>
               <button
                 type="submit"
