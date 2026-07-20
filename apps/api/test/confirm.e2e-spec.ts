@@ -38,8 +38,14 @@ describe('room confirm e2e', () => {
   async function makeRoom() {
     const r = await request(server())
       .post('/rooms')
-      .send({ title: '모임', dates: ['2026-09-01', '2026-09-02', '2026-09-03'] });
-    return { roomId: r.body.roomId as string, creator: r.body.creatorToken as string };
+      .send({
+        title: '모임',
+        dates: ['2026-09-01', '2026-09-02', '2026-09-03'],
+      });
+    return {
+      roomId: r.body.roomId as string,
+      creator: r.body.creatorToken as string,
+    };
   }
   async function dateIds(roomId: string) {
     const r = await request(server()).get(`/rooms/${roomId}`);
@@ -132,9 +138,30 @@ describe('room confirm e2e', () => {
     await vote(roomId, alice, [d1]).expect(200);
   });
 
+  it('confirmed room blocks creator kick (423), reopens after unconfirm', async () => {
+    const { roomId, creator } = await makeRoom();
+    const [d1] = await dateIds(roomId);
+    const j = await request(server())
+      .post(`/rooms/${roomId}/participants`)
+      .send({ nickname: 'kickme' });
+    const pid = j.body.participantId as number;
+    await confirm(roomId, creator, d1).expect(201);
+    // 확정 상태에선 강퇴 금지 (표수 변동 방지)
+    await request(server())
+      .delete(`/rooms/${roomId}/participants/${pid}`)
+      .set('x-creator-token', creator)
+      .expect(423);
+    // 해제하면 다시 강퇴 가능
+    await unconfirm(roomId, creator).expect(200);
+    await request(server())
+      .delete(`/rooms/${roomId}/participants/${pid}`)
+      .set('x-creator-token', creator)
+      .expect(200);
+  });
+
   it('winner.ics uses the confirmed date, not the vote leader', async () => {
     const { roomId, creator } = await makeRoom();
-    const [d1, d2, d3] = await dateIds(roomId);
+    const [d1, , d3] = await dateIds(roomId);
     // d1 을 1위로 (2표), 하지만 방장은 d3 로 확정
     const a = await join(roomId, 'a');
     const b = await join(roomId, 'b');

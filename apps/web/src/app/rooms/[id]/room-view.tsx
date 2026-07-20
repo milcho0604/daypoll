@@ -1119,7 +1119,8 @@ export default function RoomView({
             onToggleExpanded={toggleExpanded}
             selected={selected}
             hasToken={!!clientToken}
-            isCreator={isCreator}
+            // 잠금/확정되면 강퇴 숨김 — 강퇴는 표수를 바꿔 확정 결과를 흔든다.
+            isCreator={isCreator && !isLocked}
             onKick={(id, nickname) => setKickTarget({ id, nickname })}
             showAll={showAllResults}
             onToggleShowAll={() => setShowAllResults((v) => !v)}
