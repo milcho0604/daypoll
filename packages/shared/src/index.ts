@@ -143,8 +143,11 @@ export interface DeclineRequest {
 }
 
 // 방문 집계 비콘 — 프론트가 페이지 로드 시 1회 전송 (PII 없음).
+// referrer/ref 는 선택 — 서버가 coarse source 라벨로만 분류(원본 URL 저장 안 함).
 export interface TrackRequest {
   path: string;
+  referrer?: string; // document.referrer (원본은 저장 안 됨, 서버가 분류만)
+  ref?: string; // utm_source / ref 쿼리 힌트 (알려진 값만 인정)
 }
 
 // 어드민 방문 집계 응답 (대시보드 카드용 요약).
@@ -164,7 +167,17 @@ export interface VisitPathRow {
   allTime: number;
 }
 
-// 어드민 방문 상세 페이지 응답 (요약보다 넓게 — 전체 경로 + 90일 추이).
+// 유입 경로(source) 1개의 창별 카운트 — 방문 상세 페이지의 "유입 경로" 한 줄.
+// source 는 coarse 라벨 (naver·google·kakao·direct·other host…). PII 없음.
+export interface VisitSourceRow {
+  source: string;
+  today: number;
+  last7Days: number;
+  last30Days: number;
+  allTime: number;
+}
+
+// 어드민 방문 상세 페이지 응답 (요약보다 넓게 — 전체 경로 + 90일 추이 + 유입 경로).
 export interface VisitDetail {
   today: number;
   last7Days: number;
@@ -173,6 +186,7 @@ export interface VisitDetail {
   distinctPaths: number;
   daily: { day: string; count: number }[]; // 최근 90일
   paths: VisitPathRow[]; // 전체 경로, allTime 내림차순
+  sources: VisitSourceRow[]; // 유입 경로, allTime 내림차순
 }
 
 // 어드민 활동 피드 이벤트 (방 생성·입장·투표·불참을 시간순으로 통합).

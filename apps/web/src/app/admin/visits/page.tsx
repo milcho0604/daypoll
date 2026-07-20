@@ -12,12 +12,40 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { VisitDetail, VisitPathRow } from '@whenever/shared';
+import type {
+  VisitDetail,
+  VisitPathRow,
+  VisitSourceRow,
+} from '@whenever/shared';
 import { adminVisitsDetail, getAdminToken } from '@/lib/admin';
 import { ApiError } from '@/lib/api';
 import EmptyState from '@/components/empty-state';
 
 type SortKey = 'today' | 'last7Days' | 'last30Days' | 'allTime';
+
+// coarse source 라벨 → 한국어 표시명. 매핑에 없는 값(그 외 외부 host)은 그대로 노출.
+const SOURCE_LABELS: Record<string, string> = {
+  direct: '직접 방문',
+  naver: '네이버',
+  google: '구글',
+  daum: '다음',
+  kakao: '카카오',
+  instagram: '인스타그램',
+  facebook: '페이스북',
+  youtube: '유튜브',
+  x: 'X (트위터)',
+  bing: '빙',
+};
+function sourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source;
+}
+
+const WINDOW_LABELS: { k: SortKey; label: string }[] = [
+  { k: 'today', label: '오늘' },
+  { k: 'last7Days', label: '7일' },
+  { k: 'last30Days', label: '30일' },
+  { k: 'allTime', label: '전체' },
+];
 
 export default function AdminVisitsPage() {
   const router = useRouter();
@@ -25,6 +53,7 @@ export default function AdminVisitsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('allTime');
+  const [srcWindow, setSrcWindow] = useState<SortKey>('last7Days');
 
   useEffect(() => {
     const token = getAdminToken();
@@ -56,6 +85,16 @@ export default function AdminVisitsPage() {
     if (!data) return [];
     return [...data.paths].sort((a, b) => b[sort] - a[sort]);
   }, [data, sort]);
+
+  // 선택 창(window)에서 방문이 있는 유입 경로만, 많은 순으로.
+  const windowSources = useMemo(() => {
+    if (!data) return { rows: [] as VisitSourceRow[], total: 0 };
+    const rows = data.sources
+      .filter((s) => s[srcWindow] > 0)
+      .sort((a, b) => b[srcWindow] - a[srcWindow]);
+    const total = rows.reduce((sum, s) => sum + s[srcWindow], 0);
+    return { rows, total };
+  }, [data, srcWindow]);
 
   if (loading) {
     return <p className="text-sm text-zinc-500">불러오는 중…</p>;
@@ -142,7 +181,85 @@ export default function AdminVisitsPage() {
           </div>
         )}
       </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">유입 경로</h2>
+            <p className="mt-1 text-[11px] text-zinc-400">
+              어디서 왔는지만 대략 · 원본 주소는 저장 안 함
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {WINDOW_LABELS.map(({ k, label }) => {
+              const on = srcWindow === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setSrcWindow(k)}
+                  className={`press h-9 rounded-full border px-3 text-xs font-medium ${
+                    on
+                      ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                      : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {windowSources.rows.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState emoji="📊" message="데이터가 모이는 중이에요" />
+          </div>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-3">
+            {windowSources.rows.map((s) => (
+              <SourceBar
+                key={s.source}
+                row={s}
+                value={s[srcWindow]}
+                total={windowSources.total}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
+  );
+}
+
+function SourceBar({
+  row,
+  value,
+  total,
+}: {
+  row: VisitSourceRow;
+  value: number;
+  total: number;
+}) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <li className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
+          {sourceLabel(row.source)}
+        </span>
+        <span className="shrink-0 tabular-nums text-zinc-500">
+          {value}
+          <span className="ml-1 text-[11px] text-zinc-400">{pct}%</span>
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+        <div
+          className="h-full rounded-full bg-zinc-300 dark:bg-zinc-600"
+          style={{ width: `${Math.max(pct, 2)}%` }}
+        />
+      </div>
+    </li>
   );
 }
 
