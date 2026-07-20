@@ -17,7 +17,7 @@ export class AnalyticsController {
   async track(@Req() req: Request, @Body() dto: TrackDto) {
     // IP당 1분 120회 — 정상 브라우징 한도 넉넉히, 카운트 뻥튀기 스팸만 억제.
     this.rl.check(`track:${clientIp(req)}`, 120, 60);
-    await this.analytics.recordVisit(dto.path);
+    await this.analytics.recordVisit(dto.path, dto.referrer, dto.ref);
     return { ok: true };
   }
 }

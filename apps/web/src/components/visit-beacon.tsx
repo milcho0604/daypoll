@@ -10,12 +10,23 @@ export default function VisitBeacon() {
   const pathname = usePathname();
   useEffect(() => {
     if (!pathname || pathname.startsWith('/admin')) return;
+    // 유입 경로 분류용 힌트. referrer 원본은 서버가 저장하지 않고 coarse 라벨로만 분류.
+    // utm_source/ref 는 카카오톡 공유처럼 referrer 가 빈 경우를 잡는 보조 힌트.
+    let referrer: string | undefined;
+    let ref: string | undefined;
+    try {
+      referrer = document.referrer || undefined;
+      const q = new URLSearchParams(window.location.search);
+      ref = q.get('utm_source') || q.get('ref') || undefined;
+    } catch {
+      /* 무시 */
+    }
     // fire-and-forget. keepalive 로 페이지 이탈 중에도 전송, 실패는 무시.
     try {
       fetch(`${apiBaseUrl}/track`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: pathname }),
+        body: JSON.stringify({ path: pathname, referrer, ref }),
         keepalive: true,
       }).catch(() => {});
     } catch {
