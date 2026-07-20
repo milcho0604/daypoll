@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Headers,
@@ -14,6 +15,7 @@ import type { Request, Response } from 'express';
 import { HEADER_CREATOR_TOKEN } from '@whenever/shared';
 import { clientIp } from '../common/client-ip';
 import { RateLimitService } from '../common/rate-limit.service';
+import { ConfirmDto } from './dto/confirm.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateDeadlineDto } from './dto/update-deadline.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
@@ -64,6 +66,25 @@ export class RoomsController {
     @Body() dto: UpdateDeadlineDto,
   ) {
     return this.rooms.updateDeadline(roomId, creatorToken, dto.deadline);
+  }
+
+  // 모임 확정 (방장 전용) — 후보 중 하나를 최종 날짜로.
+  @Post(':roomId/confirm')
+  confirm(
+    @Param('roomId') roomId: string,
+    @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
+    @Body() dto: ConfirmDto,
+  ) {
+    return this.rooms.confirmDate(roomId, creatorToken, dto.dateId);
+  }
+
+  // 확정 해제 (방장 전용) — 투표를 다시 연다.
+  @Delete(':roomId/confirm')
+  unconfirm(
+    @Param('roomId') roomId: string,
+    @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
+  ) {
+    return this.rooms.unconfirm(roomId, creatorToken);
   }
 
   @Get(':roomId/winner.ics')

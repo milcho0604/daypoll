@@ -36,6 +36,9 @@ export function getResults(roomId: string, signal?: AbortSignal) {
     deadline: string | null;
     region: RegionCode | null;
     declined: Voter[];
+    confirmedDateId: number | null;
+    confirmedDate: string | null;
+    confirmedAt: string | null;
   }>(`/rooms/${roomId}/results`, { signal });
 }
 
@@ -115,6 +118,30 @@ export function updateDeadline(
     method: 'PATCH',
     headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
     body,
+  });
+}
+
+// 모임 확정 (방장 전용) — 후보 dateId 를 최종 날짜로.
+export function confirmDate(
+  roomId: string,
+  creatorToken: string,
+  dateId: number,
+) {
+  return api<{ confirmedDateId: number; confirmedDate: string }>(
+    `/rooms/${roomId}/confirm`,
+    {
+      method: 'POST',
+      headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
+      body: { dateId },
+    },
+  );
+}
+
+// 확정 해제 (방장 전용).
+export function unconfirmDate(roomId: string, creatorToken: string) {
+  return api<{ confirmedDateId: null }>(`/rooms/${roomId}/confirm`, {
+    method: 'DELETE',
+    headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
   });
 }
 

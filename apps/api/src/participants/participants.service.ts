@@ -6,10 +6,34 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import type { JoinRoomResponse } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
+
+// 트랜잭션 안에서 rooms row 를 FOR UPDATE 로 잠그고 write 가능(미마감·미확정)한지
+// 재검증한다. 확정(confirmDate 의 UPDATE)과 직렬화해, 사전 체크→write 사이 확정이
+// 끼어들어 잠금이 새는 TOCTOU 를 막는다.
+async function assertRoomWritable(
+  c: PoolClient,
+  roomId: string,
+): Promise<void> {
+  const r = await c.query<{
+    deadline: Date | null;
+    confirmed_date_id: string | null;
+  }>(
+    `SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1 FOR UPDATE`,
+    [roomId],
+  );
+  if (r.rowCount === 0) throw new NotFoundException('room not found');
+  const dl = r.rows[0].deadline;
+  if (dl && dl.getTime() <= Date.now()) {
+    throw new HttpException('room is locked', HttpStatus.LOCKED);
+  }
+  if (r.rows[0].confirmed_date_id != null) {
+    throw new HttpException('room is confirmed', HttpStatus.LOCKED);
+  }
+}
 import { newToken } from '../common/ids';
 import { hashPin, verifyPin } from '../common/pin';
 import { secureEquals } from '../common/secure-compare';
@@ -233,16 +257,22 @@ export class ParticipantsService {
     }
 
     // 마감 가드 — 기획서 8장 423 Locked
-    const roomRes = await this.pool.query<{ deadline: Date | null }>(
-      `SELECT deadline FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    const roomRes = await this.pool.query<{
+      deadline: Date | null;
+      confirmed_date_id: string | null;
+    }>(`SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
     const deadline = roomRes.rows[0].deadline;
     if (deadline && deadline.getTime() <= Date.now()) {
       throw new HttpException('room is locked', HttpStatus.LOCKED);
+    }
+    // 확정된 방은 투표/불참 잠금 (방장이 해제하면 다시 열림).
+    if (roomRes.rows[0].confirmed_date_id != null) {
+      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
 
     // 본인 검증
@@ -268,6 +298,10 @@ export class ParticipantsService {
 
     // 가능 날짜를 고르는 건 곧 "참석하겠다"는 뜻 → 불참 플래그를 자동으로 해제한다.
     await withTransaction(this.pool, async (c) => {
+      // race 가드 — 확정/마감을 rooms row 잠금(FOR UPDATE) 후 재확인. 트랜잭션
+      // 밖 사전 체크만으로는 체크→write 사이에 확정 UPDATE 가 커밋되면 잠금이
+      // 새서(확정 후에도 투표가 커밋), 여기서 confirm 과 직렬화해 막는다.
+      await assertRoomWritable(c, roomId);
       await c.query(`UPDATE participants SET declined = false WHERE id = $1`, [
         participantId,
       ]);
@@ -305,14 +339,20 @@ export class ParticipantsService {
     if (!clientToken) {
       throw new ForbiddenException('client token required');
     }
-    const roomRes = await this.pool.query<{ deadline: Date | null }>(
-      `SELECT deadline FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    const roomRes = await this.pool.query<{
+      deadline: Date | null;
+      confirmed_date_id: string | null;
+    }>(`SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
     const deadline = roomRes.rows[0].deadline;
     if (deadline && deadline.getTime() <= Date.now()) {
       throw new HttpException('room is locked', HttpStatus.LOCKED);
+    }
+    // 확정된 방은 투표/불참 잠금 (방장이 해제하면 다시 열림).
+    if (roomRes.rows[0].confirmed_date_id != null) {
+      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
     const me = await this.pool.query<{ id: string; nickname: string }>(
       `SELECT id::text, nickname FROM participants WHERE room_id = $1 AND client_token = $2`,
@@ -323,6 +363,8 @@ export class ParticipantsService {
     const nickname = me.rows[0].nickname;
 
     await withTransaction(this.pool, async (c) => {
+      // race 가드 — updateAvailabilities 와 동일. 확정 UPDATE 와 직렬화.
+      await assertRoomWritable(c, roomId);
       // declined_at: 불참 처리 순간을 기록(활동 피드용). 참여로 되돌리면 NULL.
       await c.query(
         `UPDATE participants
@@ -355,13 +397,21 @@ export class ParticipantsService {
     if (!creatorToken) {
       throw new ForbiddenException('creator token required');
     }
-    const roomRes = await this.pool.query<{ creator_token: string | null }>(
-      `SELECT creator_token FROM rooms WHERE id = $1`,
+    const roomRes = await this.pool.query<{
+      creator_token: string | null;
+      confirmed_date_id: string | null;
+    }>(
+      `SELECT creator_token, confirmed_date_id::text FROM rooms WHERE id = $1`,
       [roomId],
     );
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
     if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
       throw new ForbiddenException('not the creator');
+    }
+    // 확정된 방은 강퇴 금지 — 강퇴하면 그 사람 표가 cascade 삭제돼 확정 후 표수가
+    // 바뀐다. 방장이 확정을 해제하면 다시 강퇴할 수 있다.
+    if (roomRes.rows[0].confirmed_date_id != null) {
+      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
     const del = await this.pool.query(
       `DELETE FROM participants WHERE id = $1 AND room_id = $2`,

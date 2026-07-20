@@ -23,6 +23,7 @@ export default function RankList({
   showAll,
   onToggleShowAll,
   preview,
+  onConfirm,
 }: {
   results: DateResult[];
   maxVotes: number;
@@ -36,6 +37,8 @@ export default function RankList({
   showAll: boolean;
   onToggleShowAll: () => void;
   preview: number;
+  // 방장이 이 날짜를 최종 확정 — 주어지면(방장·미확정·미마감) 펼침 영역에 확정 버튼.
+  onConfirm?: (dateId: number, date: string) => void;
 }) {
   const visible = showAll ? results : results.slice(0, preview);
   return (
@@ -151,6 +154,18 @@ export default function RankList({
                   </ul>
                 ) : (
                   <p className="text-xs text-zinc-400">아직 아무도 안 골랐어요</p>
+                )}
+                {onConfirm && (
+                  // 방장 전용 — 이 날로 최종 확정. 확정은 amber 한 겹(§1-1).
+                  <div className="mt-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => onConfirm(r.dateId, r.date)}
+                      className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
+                    >
+                      <CrownIcon className="h-3.5 w-3.5" />이 날로 확정
+                    </button>
+                  </div>
                 )}
               </div>
             )}

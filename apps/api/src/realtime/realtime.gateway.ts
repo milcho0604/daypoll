@@ -89,6 +89,16 @@ export class RealtimeGateway implements OnGatewayInit {
     this.server.to(`room:${roomId}`).emit('room:deleted', { roomId });
   }
 
+  // 모임 확정/해제 — 방 참여자 전원에게 실시간 배너를 띄우기 위한 브로드캐스트.
+  emitConfirmed(
+    roomId: string,
+    payload: { confirmedDateId: number | null; confirmedDate: string | null },
+  ) {
+    this.server
+      .to(`room:${roomId}`)
+      .emit('room:confirmed', { roomId, ...payload });
+  }
+
   // 어드민 페이지가 구독하는 채널. 이벤트마다 type 을 분리한다.
   // 인증은 단순 token-by-event 로 단순화 — 클라이언트가 'admin:auth' 로
   // 토큰을 보내면 그 소켓만 admin 룸에 합류시킨다.
