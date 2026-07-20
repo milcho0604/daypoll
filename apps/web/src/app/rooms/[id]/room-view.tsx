@@ -4,12 +4,14 @@ import type { DateResult, RegionCode, RoomDetail } from '@whenever/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
+  confirmDate,
   getMe,
   getResults,
   getRoom,
   joinRoom,
   kickParticipant,
   recoverParticipant,
+  unconfirmDate,
   updateAvailabilities,
   setDecline,
   updateDeadline,
@@ -90,6 +92,12 @@ export default function RoomView({
   } | null>(null);
   // 확정된 1위 날짜 탭 → 누가 가능한지 팝업. dateId 만 저장해 실시간 갱신 반영.
   const [winnerVoterDateId, setWinnerVoterDateId] = useState<number | null>(null);
+  // 모임 확정 — 방장이 '이 날로 확정' 누르면 확인 모달, 해제는 별도 확인.
+  const [confirmTarget, setConfirmTarget] = useState<{
+    dateId: number;
+    date: string;
+  } | null>(null);
+  const [showUnconfirm, setShowUnconfirm] = useState(false);
   // 토글 직후 저장 확정 전까지 폴링이 낙관적 표시를 덮어쓰지 않게 막는 플래그
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,7 +106,10 @@ export default function RoomView({
   const PERSON_PREVIEW = 8; // 사람별 뷰 — 2줄(grid-cols-4) 미리보기
   const WINNERS_PREVIEW = 6; // 1위 확정 칩 — 6개 까지, 나머지는 더보기
 
-  const isLocked = !!room.deadline && new Date(room.deadline).getTime() <= now;
+  const isConfirmed = room.confirmedDateId != null;
+  // 확정됐거나 마감 지나면 투표 잠금.
+  const isLocked =
+    isConfirmed || (!!room.deadline && new Date(room.deadline).getTime() <= now);
   const isCreator = !!creatorToken;
 
   // '내 방' 목록에 기록 — 입장/재방문/이미 참여한 방까지 이 한 곳에서 커버.
@@ -155,6 +166,12 @@ export default function RoomView({
         participantCount: r.participantCount,
         deadline: r.deadline,
         region: r.region,
+        // declined 도 반영 — 빠뜨리면 남이 불참해도 "불참 N명" 배지가
+        // 새로고침 전까지 안 뜬다 (소켓/폴링이 tick 만 태우므로).
+        declined: r.declined,
+        confirmedDateId: r.confirmedDateId,
+        confirmedDate: r.confirmedDate,
+        confirmedAt: r.confirmedAt,
       }));
       setNow(Date.now());
     } catch {
@@ -183,6 +200,20 @@ export default function RoomView({
       // 방이 어드민에 의해 삭제됨 — 홈으로 보낼지, 토스트로 알릴지. 일단 페이지 새로고침.
       window.location.reload();
     };
+    const onConfirmed = (payload: {
+      confirmedDateId: number | null;
+      confirmedDate: string | null;
+    }) => {
+      // 방장이 확정/해제하면 열려있는 참여자 화면에 즉시 배너 반영.
+      setRoom((prev) => ({
+        ...prev,
+        confirmedDateId: payload.confirmedDateId,
+        confirmedDate: payload.confirmedDate,
+        confirmedAt:
+          payload.confirmedDateId != null ? new Date().toISOString() : null,
+      }));
+      setNow(Date.now());
+    };
 
     if (socket.connected) onConnect();
     socket.on('connect', onConnect);
@@ -191,6 +222,7 @@ export default function RoomView({
     socket.on('room:deadline_updated', onDeadline);
     socket.on('room:region_updated', onRegion);
     socket.on('room:deleted', onDeleted);
+    socket.on('room:confirmed', onConfirmed);
 
     // 첫 페인트가 ISR 캐시(최대 30초 묵음)일 수 있어 마운트 직후 한 번 동기화.
     // tick 은 async — setState 는 fetch 응답 후에만 일어나 cascading render 아님.
@@ -210,6 +242,7 @@ export default function RoomView({
       socket.off('room:deadline_updated', onDeadline);
       socket.off('room:region_updated', onRegion);
       socket.off('room:deleted', onDeleted);
+      socket.off('room:confirmed', onConfirmed);
       leaveRoomChannel(roomId);
     };
   }, [roomId, tick]);
@@ -277,11 +310,17 @@ export default function RoomView({
       ? sortedResults.filter((r) => r.votes === maxVotes).map((r) => r.dateId)
       : [],
   );
-  // 마감되면 1위(들)가 확정 날짜.
+  // 마감(deadline)으로 잠긴 경우의 1위(들). 명시적 확정은 아래 confirmedResult 로 별도 처리.
   const winners =
-    isLocked && maxVotes > 0
+    isLocked && !isConfirmed && maxVotes > 0
       ? sortedResults.filter((r) => r.votes === maxVotes)
       : [];
+  // 방장이 명시적으로 확정한 날짜 (있으면 전용 확정 카드로 강조).
+  const confirmedResult = isConfirmed
+    ? (sortedResults.find((r) => r.dateId === room.confirmedDateId) ?? null)
+    : null;
+  // 현재 1위 (방장 확정 CTA 의 기본 대상).
+  const leader = sortedResults.length > 0 ? sortedResults[0] : null;
 
   // 사람별 뷰 하단 — 아직 응답 안 한 참여자 수 (독촉용).
   // 불참자는 "응답함"이니 미응답에서 뺀다.
@@ -558,6 +597,42 @@ export default function RoomView({
     }
   }
 
+  // 모임 확정 — 방장이 후보 중 하나를 최종 날짜로. 확정 즉시 투표 잠금.
+  async function onConfirm() {
+    if (!creatorToken || !confirmTarget) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await confirmDate(roomId, creatorToken, confirmTarget.dateId);
+      setConfirmTarget(null);
+      const fresh = await getRoom(roomId);
+      setRoom(fresh);
+      setNow(Date.now());
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 확정 해제 — 투표를 다시 연다.
+  async function onUnconfirm() {
+    if (!creatorToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await unconfirmDate(roomId, creatorToken);
+      setShowUnconfirm(false);
+      const fresh = await getRoom(roomId);
+      setRoom(fresh);
+      setNow(Date.now());
+    } catch (err) {
+      setError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onSaveRegion(value: RegionCode | null) {
     if (!creatorToken) return;
     setBusy(true);
@@ -640,6 +715,57 @@ export default function RoomView({
           <DeadlineLabel deadline={room.deadline} now={now} />
         </div>
       </header>
+
+      {confirmedResult && (
+        <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white shadow-sm dark:bg-amber-600">
+            <CrownIcon className="h-3.5 w-3.5" />
+            모임 확정!
+          </span>
+          <button
+            type="button"
+            onClick={() => setWinnerVoterDateId(confirmedResult.dateId)}
+            aria-label={`${formatDateKR(confirmedResult.date)} 가능한 친구 보기`}
+            className="press mt-3 flex h-20 w-full items-center justify-center rounded-2xl bg-amber-500 px-4 text-2xl font-bold text-white shadow-sm hover:bg-amber-600 hover:shadow-md sm:h-24 sm:text-3xl dark:bg-amber-600 dark:hover:bg-amber-500"
+          >
+            {formatDateKR(confirmedResult.date)}
+          </button>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            이 날로 모여요! 몇 시에 볼지는 단톡방에서 정해요 🙂
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              📅 캘린더에 담기
+            </a>
+            <button
+              type="button"
+              onClick={() => void shareRoom()}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {linkCopied ? '복사됨 ✓' : '🔗 단톡방에 공유'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyResults()}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {resultsCopied ? '복사됨 ✓' : '결과 복사'}
+            </button>
+          </div>
+          {isCreator && (
+            <button
+              type="button"
+              onClick={() => setShowUnconfirm(true)}
+              className="press mt-3 text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              확정 해제 (다시 투표 열기)
+            </button>
+          )}
+        </section>
+      )}
 
       {winners.length > 0 && (
         <section className="fade-up mt-4 rounded-2xl border border-amber-300 bg-white p-5 ring-1 ring-amber-200/60 dark:border-amber-700 dark:bg-zinc-900 dark:ring-amber-900/60">
@@ -833,7 +959,9 @@ export default function RoomView({
           </div>
           {isLocked && (
             <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              투표가 마감되었습니다. 결과만 확인할 수 있어요.
+              {isConfirmed
+                ? '이 모임은 날짜가 확정됐어요. 결과만 확인할 수 있어요.'
+                : '투표가 마감되었습니다. 결과만 확인할 수 있어요.'}
             </p>
           )}
           {declined ? (
@@ -878,6 +1006,38 @@ export default function RoomView({
               )}
             </>
           )}
+        </section>
+      )}
+
+      {isCreator && !isConfirmed && !isLocked && leader && leader.votes > 0 && (
+        <section className="fade-up mt-6 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                이 날로 모임 정할까요?
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                현재 1위{' '}
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  {formatDateKR(leader.date)}
+                </span>{' '}
+                · {leader.votes}표
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmTarget({ dateId: leader.dateId, date: leader.date })
+              }
+              className="press inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-amber-500 px-4 text-sm font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
+            >
+              <CrownIcon className="h-4 w-4" />이 날로 확정하기
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-400">
+            다른 날로 정하려면 아래 순위에서 날짜를 펼쳐 &lsquo;이 날로 확정&rsquo; 을
+            눌러요.
+          </p>
         </section>
       )}
 
@@ -964,7 +1124,31 @@ export default function RoomView({
             showAll={showAllResults}
             onToggleShowAll={() => setShowAllResults((v) => !v)}
             preview={RESULTS_PREVIEW}
+            onConfirm={
+              isCreator && !isLocked
+                ? (dateId, date) => setConfirmTarget({ dateId, date })
+                : undefined
+            }
           />
+        )}
+        {/* 미투표자 넛지 — 조용한 숫자를 행동(재공유)으로. 마감/확정 전에만. */}
+        {nonVoterCount > 0 && !isLocked && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300">
+              아직{' '}
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {nonVoterCount}명
+              </span>
+              이 안 골랐어요
+            </p>
+            <button
+              type="button"
+              onClick={() => void shareRoom()}
+              className="press inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-zinc-900 px-3.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              {linkCopied ? '복사됨 ✓' : '🔗 안 고른 친구 재촉하기'}
+            </button>
+          </div>
         )}
         {declinedList.length > 0 && (
           <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -1040,6 +1224,30 @@ export default function RoomView({
           onCloseNow={() => void closeRoomFromModal()}
         />
       )}
+
+      <ConfirmModal
+        open={confirmTarget !== null}
+        title="이 날로 확정할까요?"
+        message={
+          confirmTarget
+            ? `${formatDateKR(confirmTarget.date)} 로 모임을 확정해요.\n확정하면 투표가 잠겨요 (나중에 해제할 수 있어요).`
+            : ''
+        }
+        confirmLabel="확정하기"
+        busy={busy}
+        onConfirm={() => void onConfirm()}
+        onCancel={() => setConfirmTarget(null)}
+      />
+
+      <ConfirmModal
+        open={showUnconfirm}
+        title="확정을 해제할까요?"
+        message={'투표를 다시 열어요.\n확정된 날짜 표시는 사라져요.'}
+        confirmLabel="확정 해제"
+        busy={busy}
+        onConfirm={() => void onUnconfirm()}
+        onCancel={() => setShowUnconfirm(false)}
+      />
 
       {showRecover && (
         <RecoverModal

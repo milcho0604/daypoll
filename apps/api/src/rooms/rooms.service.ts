@@ -79,8 +79,12 @@ export class RoomsService {
       created_at: Date;
       created_by: string | null;
       region: string | null;
+      confirmed_date_id: string | null;
+      confirmed_at: Date | null;
     }>(
-      `SELECT id, title, deadline, created_at, created_by, region FROM rooms WHERE id = $1`,
+      `SELECT id, title, deadline, created_at, created_by, region,
+              confirmed_date_id::text, confirmed_at
+       FROM rooms WHERE id = $1`,
       [roomId],
     );
     if (roomRes.rowCount === 0) {
@@ -103,6 +107,14 @@ export class RoomsService {
     const results = await this.computeResults(roomId);
     const declined = await this.getDeclined(roomId);
 
+    const confirmedDateId =
+      room.confirmed_date_id != null ? Number(room.confirmed_date_id) : null;
+    const confirmedDate =
+      confirmedDateId != null
+        ? (datesRes.rows.find((r) => Number(r.id) === confirmedDateId)
+            ?.the_date ?? null)
+        : null;
+
     return {
       id: room.id,
       title: room.title,
@@ -117,6 +129,9 @@ export class RoomsService {
       participantCount: Number(partCountRes.rows[0].c),
       results,
       declined,
+      confirmedDateId,
+      confirmedDate,
+      confirmedAt: room.confirmed_at ? room.confirmed_at.toISOString() : null,
     };
   }
 
@@ -126,11 +141,20 @@ export class RoomsService {
     deadline: string | null;
     region: RegionCode | null;
     declined: Voter[];
+    confirmedDateId: number | null;
+    confirmedDate: string | null;
+    confirmedAt: string | null;
   }> {
     const roomRes = await this.pool.query<{
       deadline: Date | null;
       region: string | null;
-    }>(`SELECT deadline, region FROM rooms WHERE id = $1`, [roomId]);
+      confirmed_date_id: string | null;
+      confirmed_at: Date | null;
+    }>(
+      `SELECT deadline, region, confirmed_date_id::text, confirmed_at
+       FROM rooms WHERE id = $1`,
+      [roomId],
+    );
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -140,42 +164,57 @@ export class RoomsService {
     );
     const results = await this.computeResults(roomId);
     const declined = await this.getDeclined(roomId);
+    const row = roomRes.rows[0];
+    const confirmedDateId =
+      row.confirmed_date_id != null ? Number(row.confirmed_date_id) : null;
+    const confirmedDate =
+      confirmedDateId != null
+        ? (results.find((r) => r.dateId === confirmedDateId)?.date ?? null)
+        : null;
     return {
       results,
       participantCount: Number(partCountRes.rows[0].c),
-      deadline: roomRes.rows[0].deadline
-        ? roomRes.rows[0].deadline.toISOString()
-        : null,
-      region: (roomRes.rows[0].region as RegionCode | null) ?? null,
+      deadline: row.deadline ? row.deadline.toISOString() : null,
+      region: (row.region as RegionCode | null) ?? null,
       declined,
+      confirmedDateId,
+      confirmedDate,
+      confirmedAt: row.confirmed_at ? row.confirmed_at.toISOString() : null,
     };
   }
 
   async buildWinnerIcs(roomId: string): Promise<string> {
     const detail = await this.getDetail(roomId);
-    const winner = detail.results[0];
-    if (!winner || winner.votes === 0) {
+    // 확정된 날이 있으면 그 날을, 없으면 1위(잠정)를 캘린더 이벤트로.
+    const confirmed =
+      detail.confirmedDateId != null
+        ? detail.results.find((r) => r.dateId === detail.confirmedDateId)
+        : null;
+    const target = confirmed ?? detail.results[0];
+    if (!target || (!confirmed && target.votes === 0)) {
       throw new NotFoundException('no winner yet');
     }
-    const date = winner.date.replace(/-/g, ''); // YYYYMMDD
-    const endDate = nextDay(winner.date).replace(/-/g, '');
+    const date = target.date.replace(/-/g, ''); // YYYYMMDD
+    const endDate = nextDay(target.date).replace(/-/g, '');
     const now = new Date()
       .toISOString()
       .replace(/[-:]/g, '')
       .replace(/\.\d{3}/, '');
     const summary = escapeIcsText(detail.title);
     const description = escapeIcsText(
-      `Whenever 투표 1위 (${winner.votes}표). 방 ID ${detail.id}.`,
+      confirmed
+        ? `모일까 확정 날짜. 방 ID ${detail.id}.`
+        : `모일까 투표 1위 (${target.votes}표). 방 ID ${detail.id}.`,
     );
 
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//whenever//ko//',
+      'PRODID:-//moilga//ko//',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',
-      `UID:winner-${detail.id}-${winner.dateId}@whenever`,
+      `UID:winner-${detail.id}-${target.dateId}@moilga`,
       `DTSTAMP:${now}`,
       `DTSTART;VALUE=DATE:${date}`,
       `DTEND;VALUE=DATE:${endDate}`,
@@ -186,6 +225,77 @@ export class RoomsService {
       'END:VCALENDAR',
       '',
     ].join('\r\n');
+  }
+
+  // 모임 확정 — 방장이 후보 중 하나를 최종 날짜로 못박는다. 확정 즉시 방 채널로
+  // 브로드캐스트(전원 배너) + 어드민 이벤트. 확정되면 투표/불참이 잠긴다.
+  async confirmDate(
+    roomId: string,
+    creatorToken: string | undefined,
+    dateId: number,
+  ): Promise<{ confirmedDateId: number; confirmedDate: string }> {
+    if (!creatorToken) {
+      throw new ForbiddenException('creator token required');
+    }
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      `SELECT creator_token FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
+      throw new ForbiddenException('not the creator');
+    }
+    // dateId 가 이 방의 후보 날짜인지 검증 (다른 방/임의 id 차단).
+    const dateRes = await this.pool.query<{ the_date: string }>(
+      `SELECT to_char(the_date,'YYYY-MM-DD') AS the_date
+       FROM room_dates WHERE id = $1 AND room_id = $2`,
+      [dateId, roomId],
+    );
+    if (dateRes.rowCount === 0) {
+      throw new BadRequestException('date is not a candidate of this room');
+    }
+    await this.pool.query(
+      `UPDATE rooms SET confirmed_date_id = $1, confirmed_at = now() WHERE id = $2`,
+      [dateId, roomId],
+    );
+    const confirmedDate = dateRes.rows[0].the_date;
+    this.realtime.emitConfirmed(roomId, {
+      confirmedDateId: dateId,
+      confirmedDate,
+    });
+    this.realtime.emitAdminEvent('room_confirmed', {
+      roomId,
+      date: confirmedDate,
+    });
+    return { confirmedDateId: dateId, confirmedDate };
+  }
+
+  // 확정 해제 — 방장이 되돌린다. 투표가 다시 열린다.
+  async unconfirm(
+    roomId: string,
+    creatorToken: string | undefined,
+  ): Promise<{ confirmedDateId: null }> {
+    if (!creatorToken) {
+      throw new ForbiddenException('creator token required');
+    }
+    const roomRes = await this.pool.query<{ creator_token: string | null }>(
+      `SELECT creator_token FROM rooms WHERE id = $1`,
+      [roomId],
+    );
+    if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
+    if (!secureEquals(roomRes.rows[0].creator_token, creatorToken)) {
+      throw new ForbiddenException('not the creator');
+    }
+    await this.pool.query(
+      `UPDATE rooms SET confirmed_date_id = NULL, confirmed_at = NULL WHERE id = $1`,
+      [roomId],
+    );
+    this.realtime.emitConfirmed(roomId, {
+      confirmedDateId: null,
+      confirmedDate: null,
+    });
+    this.realtime.emitAdminEvent('room_unconfirmed', { roomId });
+    return { confirmedDateId: null };
   }
 
   async updateDeadline(

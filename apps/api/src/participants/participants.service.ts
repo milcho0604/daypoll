@@ -233,16 +233,22 @@ export class ParticipantsService {
     }
 
     // 마감 가드 — 기획서 8장 423 Locked
-    const roomRes = await this.pool.query<{ deadline: Date | null }>(
-      `SELECT deadline FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    const roomRes = await this.pool.query<{
+      deadline: Date | null;
+      confirmed_date_id: string | null;
+    }>(`SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
     const deadline = roomRes.rows[0].deadline;
     if (deadline && deadline.getTime() <= Date.now()) {
       throw new HttpException('room is locked', HttpStatus.LOCKED);
+    }
+    // 확정된 방은 투표/불참 잠금 (방장이 해제하면 다시 열림).
+    if (roomRes.rows[0].confirmed_date_id != null) {
+      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
 
     // 본인 검증
@@ -305,14 +311,20 @@ export class ParticipantsService {
     if (!clientToken) {
       throw new ForbiddenException('client token required');
     }
-    const roomRes = await this.pool.query<{ deadline: Date | null }>(
-      `SELECT deadline FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    const roomRes = await this.pool.query<{
+      deadline: Date | null;
+      confirmed_date_id: string | null;
+    }>(`SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1`, [
+      roomId,
+    ]);
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
     const deadline = roomRes.rows[0].deadline;
     if (deadline && deadline.getTime() <= Date.now()) {
       throw new HttpException('room is locked', HttpStatus.LOCKED);
+    }
+    // 확정된 방은 투표/불참 잠금 (방장이 해제하면 다시 열림).
+    if (roomRes.rows[0].confirmed_date_id != null) {
+      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
     const me = await this.pool.query<{ id: string; nickname: string }>(
       `SELECT id::text, nickname FROM participants WHERE room_id = $1 AND client_token = $2`,

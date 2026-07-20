@@ -83,6 +83,16 @@ export interface RoomDetail extends RoomSummary {
   region?: RegionCode | null; // 날씨용 지역 (선택). null/미설정 = 날씨 안 보임.
   // 이번 모임에 아예 참석 못 하는 사람(불참). 날짜가 아니라 사람 단위.
   declined: Voter[];
+  // 모임 확정 — 방장이 후보 중 최종 날짜를 못박으면 채워진다. null = 아직 미확정.
+  // 확정되면 투표/불참이 잠긴다(방장이 해제하면 다시 열림).
+  confirmedDateId: number | null;
+  confirmedDate: string | null; // YYYY-MM-DD (confirmedDateId 의 날짜)
+  confirmedAt: string | null; // ISO8601
+}
+
+// 모임 확정 요청 (방장 전용, creator_token 헤더).
+export interface ConfirmRequest {
+  dateId: number; // 후보 날짜 중 하나
 }
 
 export interface CreateRoomRequest {
