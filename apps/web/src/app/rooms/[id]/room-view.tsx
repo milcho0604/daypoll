@@ -84,6 +84,8 @@ export default function RoomView({
   const [meLoading, setMeLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [resultsCopied, setResultsCopied] = useState(false);
+  // 확정 소식(날짜 확정 알림)을 단톡방에 붙이려고 복사했을 때 잠깐 뜨는 피드백.
+  const [announceCopied, setAnnounceCopied] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Set<number>>(new Set());
   const [expandedPersons, setExpandedPersons] = useState<Set<number>>(new Set());
   const [kickTarget, setKickTarget] = useState<{
@@ -579,6 +581,32 @@ export default function RoomView({
     }
   }
 
+  // 확정 소식 알리기 — 방에 안 들어온 친구도 단톡방에서 바로 알게, "○/○로 확정!"
+  // 문구를 만들어 공유(모바일 공유시트)하거나 클립보드에 복사한다.
+  async function announceConfirmed() {
+    if (!confirmedResult) return;
+    const url = window.location.href;
+    const text =
+      `📅 ${room.title} 날짜 확정!\n` +
+      `👉 ${formatDateKR(confirmedResult.date)}\n` +
+      `아직 못 본 친구들 확인해요`;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: room.title, text, url });
+        return;
+      } catch {
+        /* 공유 시트 취소 — 클립보드 fallback */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setAnnounceCopied(true);
+      setTimeout(() => setAnnounceCopied(false), 2000);
+    } catch {
+      setError('복사가 안 됐어요. 다시 시도해주세요.');
+    }
+  }
+
   async function onSaveDeadline(value: string | null) {
     if (!creatorToken) return;
     setBusy(true);
@@ -734,19 +762,20 @@ export default function RoomView({
             이 날로 모여요! 몇 시에 볼지는 단톡방에서 정해요 🙂
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
+            {/* 주 액션 — 방에 안 들어온 친구도 알게 단톡방에 확정 소식 뿌리기 */}
+            <button
+              type="button"
+              onClick={() => void announceConfirmed()}
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              {announceCopied ? '복사됨 ✓' : '📢 단톡방에 확정 알리기'}
+            </button>
             <a
               href={`${apiBaseUrl}/rooms/${roomId}/winner.ics`}
-              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
             >
               📅 캘린더에 담기
             </a>
-            <button
-              type="button"
-              onClick={() => void shareRoom()}
-              className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-            >
-              {linkCopied ? '복사됨 ✓' : '🔗 단톡방에 공유'}
-            </button>
             <button
               type="button"
               onClick={() => void copyResults()}
