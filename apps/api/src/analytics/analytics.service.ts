@@ -5,18 +5,30 @@ import { PG_POOL } from '../database/database.module';
 
 // 방문 경로 정규화 — 방 id 같은 가변 세그먼트를 묶어 distinct 경로가 무한히
 // 늘지 않게 한다. (/rooms/abc123 → /rooms/[id], /rooms/new 는 유지)
+// 인증 없는 비콘이 임의 경로를 꽂아 page_views 행을 무한 증식시키지 못하게,
+// 최종적으로는 우리 라우트 화이트리스트 밖 경로를 전부 '/other' 로 뭉갠다.
+const KNOWN_PATHS = new Set([
+  '/',
+  '/rooms/new',
+  '/rooms/[id]',
+  '/rooms/[id]/created',
+  '/blog',
+  '/privacy',
+  '/terms',
+]);
+
 export function normalizePath(raw: string): string {
   let p = (raw || '/').split('?')[0].split('#')[0];
   if (!p.startsWith('/')) p = '/' + p;
   if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
   // /rooms/<id>...  (단 /rooms/new 제외)
   p = p.replace(/^\/rooms\/(?!new(\/|$))[^/]+/, '/rooms/[id]');
-  if (p.length > 80) p = p.slice(0, 80);
-  return p || '/';
+  if (!p) return '/';
+  if (KNOWN_PATHS.has(p)) return p;
+  if (p.startsWith('/blog/')) return '/blog/[slug]';
+  if (p === '/admin' || p.startsWith('/admin/')) return '/admin';
+  return '/other';
 }
-
-// 그 외 외부 host 를 저장할 때 길이 상한 — normalizePath 처럼 카디널리티 폭주 방지.
-const SOURCE_HOST_MAX = 60;
 
 // 명시적 utm_source/ref 로 인정하는 알려진 source 키 (그 외 임의 문자열은 무시).
 const KNOWN_SOURCES = new Set([
@@ -87,8 +99,9 @@ export function classifyReferrer(
     return 'x';
   if (host.includes('bing.')) return 'bing';
 
-  // 그 외 외부 host — path/query 는 버리고 host 만, 길이 제한.
-  return host.length > SOURCE_HOST_MAX ? host.slice(0, SOURCE_HOST_MAX) : host;
+  // 그 외 외부 host — 그대로 저장하면 인증 없는 비콘으로 임의 host 를 무한히
+  // 꽂아 visit_sources 카디널리티를 터뜨릴 수 있다. 'other' 하나로 뭉갠다.
+  return 'other';
 }
 
 // referrer + 명시적 ref 힌트를 합쳐 최종 source 라벨을 정한다.
@@ -224,7 +237,8 @@ export class AnalyticsService {
            SUM(count)::text                                                      AS all
          FROM page_views
          GROUP BY path
-         ORDER BY SUM(count) DESC, path ASC`,
+         ORDER BY SUM(count) DESC, path ASC
+         LIMIT 50`,
       ),
       // 유입 경로(source)별 창별 카운트 — page_views 표와 같은 FILTER 창 규칙(KST).
       this.pool.query<{
@@ -241,7 +255,8 @@ export class AnalyticsService {
            SUM(count)::text                                                      AS all
          FROM visit_sources
          GROUP BY source
-         ORDER BY SUM(count) DESC, source ASC`,
+         ORDER BY SUM(count) DESC, source ASC
+         LIMIT 30`,
       ),
     ]);
     const t = totals.rows[0];

@@ -492,13 +492,16 @@ export class AdminService {
       )
       SELECT type, ts, room_id, room_title, nickname, count::text AS count
         FROM events
-       WHERE ts IS NOT NULL AND ($1::timestamptz IS NULL OR ts < $1)
+       WHERE ts IS NOT NULL AND ($1::timestamptz IS NULL OR ts <= $1)
        ORDER BY ts DESC
        LIMIT $2
       `,
       [before, limit + 1],
     );
 
+    // 커서는 ts <= before (포함) — strict(<) 비교는 경계와 같은 ts 의 다른
+    // 이벤트를 다음 페이지에서 건너뛰었다. 경계 행 재전송은 클라이언트가
+    // (type,ts,roomId,text) 키로 dedup 하므로 무해.
     const hasMore = rows.rows.length > limit;
     const page = rows.rows.slice(0, limit);
     return {

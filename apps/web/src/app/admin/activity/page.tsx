@@ -86,7 +86,9 @@ export default function AdminActivityPage() {
     try {
       const feed = await adminActivity({ limit: PAGE, before: nextBefore });
       setHistory((prev) => [...prev, ...feed.events.map(historyToRow)]);
-      setNextBefore(feed.nextBefore);
+      // 커서가 포함(<=) 비교라, 페이지 전체가 같은 ts 면 커서가 제자리걸음
+      // → 같은 페이지 무한 반복 방지 가드.
+      setNextBefore(feed.nextBefore === nextBefore ? null : feed.nextBefore);
     } catch {
       setError('더 불러오지 못했어요.');
     } finally {

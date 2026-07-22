@@ -103,6 +103,8 @@ export default function RoomView({
   // 토글 직후 저장 확정 전까지 폴링이 낙관적 표시를 덮어쓰지 않게 막는 플래그
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 저장 세대 — 진행 중 저장이 완료됐을 때 그 사이 새 토글이 있었는지 판별
+  const saveSeqRef = useRef(0);
 
   const RESULTS_PREVIEW = 5;
   const PERSON_PREVIEW = 8; // 사람별 뷰 — 2줄(grid-cols-4) 미리보기
@@ -386,11 +388,12 @@ export default function RoomView({
   const scheduleSave = (dateIds: Set<number>) => {
     dirtyRef.current = true;
     setSaveState('pending');
+    const seq = ++saveSeqRef.current;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => void saveVotes(dateIds), 600);
+    saveTimerRef.current = setTimeout(() => void saveVotes(dateIds, seq), 600);
   };
 
-  async function saveVotes(dateIds: Set<number>) {
+  async function saveVotes(dateIds: Set<number>, seq: number) {
     if (!clientToken) return;
     setSaveState('saving');
     setError(null);
@@ -398,9 +401,13 @@ export default function RoomView({
       await updateAvailabilities(roomId, clientToken, {
         dateIds: Array.from(dateIds),
       });
+      // 저장 도중 새 토글이 예약됐으면(더 새 seq) 이 응답으로
+      // '저장됨'을 표시하거나 서버 스냅샷으로 낙관적 표시를 덮지 않는다.
+      if (seq !== saveSeqRef.current) return;
       dirtyRef.current = false;
       setSaveState('saved');
       const res = await getResults(roomId);
+      if (seq !== saveSeqRef.current) return;
       setRoom((prev) => ({
         ...prev,
         results: res.results,
@@ -409,6 +416,7 @@ export default function RoomView({
         declined: res.declined,
       }));
     } catch (err) {
+      if (seq !== saveSeqRef.current) return; // 이미 새 저장이 예약됨
       setSaveState('error');
       setError(extractMsg(err));
     }
@@ -417,6 +425,8 @@ export default function RoomView({
   // 사람 단위 불참 토글. 불참하면 고른 날짜는 서버가 비우므로 로컬도 비운다.
   async function toggleDecline(next: boolean) {
     if (isLocked || !clientToken) return;
+    const prevSelected = selected; // 실패 롤백용 스냅샷
+    dirtyRef.current = true; // 서버 확정 전 폴링이 낙관적 표시를 덮지 않게
     setDeclined(next);
     if (next) setSelected(new Set()); // 불참이면 가능 날짜 해제
     // 낙관적: 내 이름을 불참 목록에 넣거나/빼고, 내 표를 결과에서 즉시 제거
@@ -437,6 +447,7 @@ export default function RoomView({
     }
     try {
       await setDecline(roomId, clientToken, next);
+      dirtyRef.current = false;
       const res = await getResults(roomId);
       setRoom((prev) => ({
         ...prev,
@@ -447,7 +458,12 @@ export default function RoomView({
       }));
     } catch (err) {
       setError(extractMsg(err));
-      setDeclined(!next); // 롤백
+      // 롤백 — 낙관적으로 비운 선택까지 복원해야 이후 자동저장이
+      // 빈 집합을 저장해 기존 표를 지우는 사고가 안 난다.
+      setDeclined(!next);
+      if (next) setSelected(prevSelected);
+      dirtyRef.current = false;
+      void tick(); // 서버 기준으로 결과/불참 목록 재동기화
     }
   }
 
@@ -740,7 +756,10 @@ export default function RoomView({
           <span aria-hidden>·</span>
           <span>참여자 {room.participantCount}명</span>
           <span aria-hidden>·</span>
-          <DeadlineLabel deadline={room.deadline} now={now} />
+          {/* ISR(30s) HTML 과 클라이언트 시각이 분 단위로 어긋날 수 있어 경고 억제 */}
+          <span suppressHydrationWarning>
+            <DeadlineLabel deadline={room.deadline} now={now} />
+          </span>
         </div>
       </header>
 
@@ -1214,7 +1233,7 @@ export default function RoomView({
             {saveState === 'error' ? (
               <button
                 type="button"
-                onClick={() => void saveVotes(selected)}
+                onClick={() => void saveVotes(selected, ++saveSeqRef.current)}
                 className="press h-10 rounded-full bg-rose-50 px-4 text-sm font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
               >
                 저장 실패 — 다시 시도
@@ -1292,9 +1311,11 @@ export default function RoomView({
       )}
 
       {(() => {
+        // 확정 카드/1위 칩 어느 쪽에서 열려도 찾도록 전체 결과에서 조회
+        // (winners 는 마감·미확정일 때만 채워져서 확정 상태에선 빈 배열).
         const opened =
           winnerVoterDateId != null
-            ? winners.find((w) => w.dateId === winnerVoterDateId) ?? null
+            ? sortedResults.find((w) => w.dateId === winnerVoterDateId) ?? null
             : null;
         return (
           <VotersModal
