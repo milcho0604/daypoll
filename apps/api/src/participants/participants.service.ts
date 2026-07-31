@@ -99,13 +99,21 @@ export class ParticipantsService {
         await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
           `nick:${roomId}:${base.toLowerCase()}`,
         ]);
-        const dup = await c.query<{ c: string }>(
-          `SELECT COUNT(*)::text AS c FROM participants
-           WHERE room_id = $1 AND (nickname = $2 OR nickname LIKE $2 || ' (%)')`,
-          [roomId, base],
+        // 접미사는 COUNT 가 아니라 "실제 비어있는 번호" 로 — 강퇴로 구멍이 나도
+        // 기존 닉네임("지수 (2)")과 중복 생성되지 않는다. LIKE 와일드카드는 이스케이프.
+        const esc = base.replace(/([\\%_])/g, '\\$1');
+        const dup = await c.query<{ nickname: string }>(
+          `SELECT nickname FROM participants
+           WHERE room_id = $1 AND (nickname = $2 OR nickname LIKE $3 || ' (%)')`,
+          [roomId, base, esc],
         );
-        const conflicts = Number(dup.rows[0].c);
-        const fn = conflicts === 0 ? base : `${base} (${conflicts + 1})`;
+        const taken = new Set(dup.rows.map((r) => r.nickname));
+        let fn = base;
+        if (taken.has(base)) {
+          let n = 2;
+          while (taken.has(`${base} (${n})`)) n++;
+          fn = `${base} (${n})`;
+        }
         const res = await c.query<{ id: string; nickname: string }>(
           `INSERT INTO participants (room_id, nickname, client_token, pin_hash)
            VALUES ($1, $2, $3, $4)
@@ -152,21 +160,29 @@ export class ParticipantsService {
     roomId: string,
     pin: string,
     nickname?: string,
+    ip?: string,
   ): Promise<JoinRoomResponse> {
-    // lockout 키: 닉네임 있으면 (방, 닉네임), 없으면 (방) 전체.
-    // PIN-only 모드에서는 방 단위로만 묶어서 brute 차단.
-    const key = nickname ? this.pinKey(roomId, nickname) : `${roomId}::__any__`;
+    // lockout 키: 닉네임 있으면 (방, 닉네임), PIN-only 는 (방, IP).
+    // 방 단위로만 묶으면 트롤 한 명이 틀린 PIN 5회로 그 방 전원의 복원을
+    // 30분 잠글 수 있어(DoS), IP 로 스코프를 좁힌다. IP 회전 브루트는
+    // 컨트롤러의 IP+방 rate limit(10회/10분)이 1차로 막는다.
+    const key = nickname
+      ? this.pinKey(roomId, nickname)
+      : `${roomId}::ip:${ip ?? 'unknown'}`;
     const now = Date.now();
     this.sweepPinFailures(now);
-    const entry = this.pinFailures.get(key);
+    let entry = this.pinFailures.get(key);
     if (entry && entry.until > now) {
       throw new HttpException(
         'too many failed attempts — try again later',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    if (entry && entry.until <= now) {
+    if (entry && entry.until > 0 && entry.until <= now) {
+      // 잠금이 만료됐으면 실패 카운트도 리셋 — 안 그러면 만료 후 1회
+      // 실패만으로 (count 6 ≥ 5) 즉시 30분 재잠금돼 사실상 영구 잠금이 된다.
       this.pinFailures.delete(key);
+      entry = undefined;
     }
 
     // 닉네임 있으면 그것만, 없으면 방 전체 PIN 후보 검색.
@@ -305,9 +321,14 @@ export class ParticipantsService {
       await c.query(`UPDATE participants SET declined = false WHERE id = $1`, [
         participantId,
       ]);
-      await c.query(`DELETE FROM availabilities WHERE participant_id = $1`, [
-        participantId,
-      ]);
+      // 전체 삭제 후 재삽입이 아니라 diff 로 — 유지되는 표의 created_at 이
+      // 보존돼 어드민 일별/요일별 투표 추이가 재투표 때마다 왜곡되지 않는다.
+      await c.query(
+        `DELETE FROM availabilities
+          WHERE participant_id = $1
+            AND NOT (room_date_id = ANY($2::bigint[]))`,
+        [participantId, filtered],
+      );
       if (filtered.length > 0) {
         await c.query(
           `INSERT INTO availabilities (participant_id, room_date_id)

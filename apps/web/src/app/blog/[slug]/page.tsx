@@ -9,6 +9,9 @@ export function generateStaticParams() {
   return getAllPosts().map((p) => ({ slug: p.slug }));
 }
 
+// 빌드타임에 존재하는 포스트 외 임의 slug 는 404 — traversal 류 원천 차단.
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);

@@ -75,8 +75,10 @@ describe('유입 경로(visit sources) e2e', () => {
     expect(s['google'].today).toBe(1);
     expect(s['instagram'].today).toBe(1);
     expect(s['direct'].today).toBe(1);
-    // 그 외 외부 host 는 host 만(path/query 제거) 저장
-    expect(s['blog.example.com'].today).toBe(1);
+    // 그 외 외부 host 는 'other' 하나로 뭉갬 — 인증 없는 비콘으로 임의 host 를
+    // 무한히 꽂아 visit_sources 카디널리티를 터뜨리지 못하게 한다.
+    expect(s['other'].today).toBe(1);
+    expect(Object.keys(s)).not.toContain('blog.example.com');
     // 원본 referrer URL·쿼리는 어디에도 없어야 한다
     expect(Object.keys(s)).not.toContain('search.naver.com');
     expect(JSON.stringify(s)).not.toContain('%EB%AA%A8%EC%9E%84');

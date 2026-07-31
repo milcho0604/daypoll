@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { cache } from 'react';
 import { marked } from 'marked';
+import sanitize from 'sanitize-html';
 
 const BLOG_DIR = join(process.cwd(), 'content', 'blog');
 
@@ -42,21 +43,26 @@ function parseFrontmatter(raw: string): {
   return { data, body: m[2] };
 }
 
-// 콘텐츠는 우리가 작성한 빌드타임 .md(신뢰됨)지만, 실수로 raw <script> 등이
-// 섞여도 렌더되지 않도록 위험 태그/속성을 제거한다. 완전한 sanitizer 는 아니고
-// 신뢰 콘텐츠에 대한 방어적 보강(defense-in-depth)이다.
+// 콘텐츠는 우리가 작성한 빌드타임 .md(신뢰됨)지만, dangerouslySetInnerHTML 로
+// 주입되므로 파서 기반 sanitizer 로 확실히 정화한다. (기존 정규식 방식은
+// <img/onerror=...>, 태그 재조립, 따옴표 없는 javascript: 등 우회가 가능했음)
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(
-      /<\s*(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi,
-      '',
-    )
-    .replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(
-      /(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi,
-      '$1="#"',
-    );
+  return sanitize(html, {
+    allowedTags: [...sanitize.defaults.allowedTags, 'img', 'h1', 'h2'],
+    allowedAttributes: {
+      a: ['href', 'name', 'target', 'rel'],
+      img: ['src', 'alt', 'title', 'width', 'height'],
+      code: ['class'],
+      pre: ['class'],
+      td: ['align'],
+      th: ['align'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    // target=_blank 남용 방지 — 링크에 안전 rel 강제
+    transformTags: {
+      a: sanitize.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    },
+  });
 }
 
 function toMeta(slug: string, data: Record<string, string>): PostMeta {
@@ -89,6 +95,8 @@ export function getAllPosts(): PostMeta[] {
 export const getPost = cache(_getPost);
 
 function _getPost(slug: string): { meta: PostMeta; html: string } | null {
+  // 경로 traversal 방어 — 파일명 문자만 허용 (../, %2F, 널바이트 등 차단).
+  if (!/^[A-Za-z0-9-]+$/.test(slug)) return null;
   let raw: string;
   try {
     raw = readFileSync(join(BLOG_DIR, `${slug}.md`), 'utf8');
