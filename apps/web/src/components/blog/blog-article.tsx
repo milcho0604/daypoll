@@ -97,19 +97,36 @@ export default function BlogArticle({
           aria-label="글 목차"
           className="mb-8 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
         >
-          <h2 className="text-sm font-semibold">이 글에서 다루는 내용</h2>
-          <ol className="mt-3 flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-            {post.toc.map((item) => (
-              <li key={item.id} className={item.level === 3 ? 'pl-4' : ''}>
-                <a
-                  href={`#${item.id}`}
-                  className="hover:text-zinc-900 hover:underline hover:underline-offset-2 dark:hover:text-zinc-100"
+          <details open className="group">
+            <summary className="press -m-2 flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-2 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-500 dark:hover:bg-zinc-800/70 [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-semibold">이 글에서 다루는 내용</h2>
+              <span
+                aria-hidden="true"
+                className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400"
+              >
+                <span className="group-open:hidden">펼치기</span>
+                <span className="hidden group-open:inline">접기</span>
+                <span className="inline-block transition-transform group-open:rotate-180 motion-reduce:transition-none">
+                  ▾
+                </span>
+              </span>
+            </summary>
+            <ol className="mt-5 hidden flex-col gap-2 text-sm text-zinc-600 group-open:flex dark:text-zinc-400">
+              {post.toc.map((item) => (
+                <li
+                  key={item.id}
+                  className={item.level === 3 ? 'pl-4' : ''}
                 >
-                  {item.title}
-                </a>
-              </li>
-            ))}
-          </ol>
+                  <a
+                    href={`#${item.id}`}
+                    className="hover:text-zinc-900 hover:underline hover:underline-offset-2 dark:hover:text-zinc-100"
+                  >
+                    {item.title}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </details>
         </nav>
       )}
 
