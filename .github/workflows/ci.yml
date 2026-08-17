@@ -57,6 +57,9 @@ jobs:
       - name: API unit tests
         run: pnpm --filter @whenever/api test
 
+      - name: Web unit tests
+        run: pnpm --filter @whenever/web test
+
       - name: API e2e tests
         run: pnpm --filter @whenever/api test:e2e
 

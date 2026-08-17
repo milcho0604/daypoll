@@ -13,6 +13,7 @@ export default function SiteHeader() {
 
   // 홈은 hero 의 "방 만들기" CTA 가 같은 역할이라 새 투표 칩은 생략 (중복 회피).
   const isHome = pathname === '/';
+  const isBlog = pathname?.startsWith('/blog');
 
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-100 bg-white/70 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/70">
@@ -26,15 +27,25 @@ export default function SiteHeader() {
           모일까
         </Link>
 
-        {!isHome && (
-          <Link
-            href="/rooms/new"
-            className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-900 px-3.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
-          >
-            <span aria-hidden>+</span>
-            새 투표
-          </Link>
-        )}
+        <nav aria-label="주요 메뉴" className="flex items-center gap-2">
+          {!isBlog && (
+            <Link
+              href="/blog"
+              className="press inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              블로그
+            </Link>
+          )}
+          {!isHome && (
+            <Link
+              href="/rooms/new"
+              className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-900 px-3.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              <span aria-hidden>+</span>
+              새 투표
+            </Link>
+          )}
+        </nav>
       </div>
     </header>
   );

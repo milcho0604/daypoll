@@ -11,7 +11,14 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/rooms/new', '/blog', '/privacy', '/terms'],
+        allow: [
+          '/',
+          '/rooms/new',
+          '/blog',
+          '/blog/feed.xml',
+          '/privacy',
+          '/terms',
+        ],
         disallow: ['/admin', '/api', '/rooms/'],
       },
     ],
