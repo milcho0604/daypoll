@@ -1,111 +1,112 @@
-// content/blog/*.md 를 읽어 메타데이터 파싱 + 마크다운 → HTML 렌더.
-// 외부 frontmatter 라이브러리 없이 단순 포맷만 직접 파싱한다.
-import { readFileSync, readdirSync } from 'node:fs';
+import 'server-only';
+
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { cache } from 'react';
-import { marked } from 'marked';
-import sanitize from 'sanitize-html';
+import { parsePostSource } from './blog-core';
+import type { AdjacentPosts, BlogPost, PostMeta } from './blog-types';
 
 const BLOG_DIR = join(process.cwd(), 'content', 'blog');
+const VALID_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PREVIEW_DRAFTS = process.env.NODE_ENV !== 'production';
 
-export type PostMeta = {
-  slug: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  description: string;
-  tags: string[];
+export type { AdjacentPosts, BlogPost, PostMeta, TocItem } from './blog-types';
+
+type PostQuery = {
+  includePrivate?: boolean;
+  includeDrafts?: boolean;
 };
 
-function unquote(s: string): string {
-  return s.trim().replace(/^["']|["']$/g, '');
-}
-
-function parseTags(raw: string | undefined): string[] {
-  if (!raw) return [];
-  return raw
-    .replace(/^\[|\]$/g, '')
-    .split(',')
-    .map((t) => unquote(t))
-    .filter(Boolean);
-}
-
-function parseFrontmatter(raw: string): {
-  data: Record<string, string>;
-  body: string;
-} {
-  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!m) return { data: {}, body: raw };
-  const data: Record<string, string> = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const kv = line.match(/^([A-Za-z_]+):\s*(.*)$/);
-    if (kv) data[kv[1]] = kv[2].trim();
+const readAllPosts = cache(function readAllPosts(): BlogPost[] {
+  let files: string[];
+  try {
+    files = readdirSync(BLOG_DIR)
+      .filter((file) => file.endsWith('.md'))
+      .sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
   }
-  return { data, body: m[2] };
+  return files
+    .map((file) => {
+      const slug = file.slice(0, -3);
+      const source = readFileSync(join(BLOG_DIR, file), 'utf8');
+      const post = parsePostSource(slug, source);
+      if (
+        post.meta.cover &&
+        !existsSync(join(process.cwd(), 'public', post.meta.cover.slice(1)))
+      ) {
+        throw new Error(
+          `[blog:${slug}] cover 파일을 찾을 수 없습니다: ${post.meta.cover}`,
+        );
+      }
+      return post;
+    })
+    .sort((a, b) => {
+      return (
+        b.meta.date.localeCompare(a.meta.date) ||
+        a.meta.slug.localeCompare(b.meta.slug)
+      );
+    });
+});
+
+function visible(post: BlogPost, query: PostQuery): boolean {
+  if (post.meta.draft && !(query.includeDrafts ?? PREVIEW_DRAFTS)) return false;
+  if (post.meta.visibility === 'private' && !query.includePrivate) return false;
+  return true;
 }
 
-// 콘텐츠는 우리가 작성한 빌드타임 .md(신뢰됨)지만, dangerouslySetInnerHTML 로
-// 주입되므로 파서 기반 sanitizer 로 확실히 정화한다. (기존 정규식 방식은
-// <img/onerror=...>, 태그 재조립, 따옴표 없는 javascript: 등 우회가 가능했음)
-function sanitizeHtml(html: string): string {
-  return sanitize(html, {
-    allowedTags: [...sanitize.defaults.allowedTags, 'img', 'h1', 'h2'],
-    allowedAttributes: {
-      a: ['href', 'name', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height'],
-      code: ['class'],
-      pre: ['class'],
-      td: ['align'],
-      th: ['align'],
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-    // target=_blank 남용 방지 — 링크에 안전 rel 강제
-    transformTags: {
-      a: sanitize.simpleTransform('a', { rel: 'noopener noreferrer' }),
-    },
-  });
+export function getAllPosts(query: PostQuery = {}): PostMeta[] {
+  return readAllPosts()
+    .filter((post) => visible(post, query))
+    .map((post) => post.meta);
 }
 
-function toMeta(slug: string, data: Record<string, string>): PostMeta {
+export const getPost = cache(function getPost(slug: string): BlogPost | null {
+  if (!VALID_SLUG.test(slug)) return null;
+  return readAllPosts().find((post) => post.meta.slug === slug) ?? null;
+});
+
+export function getRelatedPosts(slug: string, limit = 3): PostMeta[] {
+  const current = getPost(slug);
+  if (!current || current.meta.visibility !== 'public') return [];
+  const tagSet = new Set(current.meta.tags);
+  return getAllPosts()
+    .filter((post) => post.slug !== slug)
+    .map((post) => ({
+      post,
+      score:
+        (post.category === current.meta.category ? 4 : 0) +
+        post.tags.filter((tag) => tagSet.has(tag)).length,
+    }))
+    .filter(({ score }) => score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.post.date.localeCompare(a.post.date),
+    )
+    .slice(0, limit)
+    .map(({ post }) => post);
+}
+
+export function getAdjacentPosts(slug: string): AdjacentPosts {
+  const posts = getAllPosts();
+  const index = posts.findIndex((post) => post.slug === slug);
+  if (index < 0) return { newer: null, older: null };
   return {
-    slug,
-    title: unquote(data.title ?? slug),
-    date: unquote(data.date ?? ''),
-    description: unquote(data.description ?? ''),
-    tags: parseTags(data.tags),
+    newer: posts[index - 1] ?? null,
+    older: posts[index + 1] ?? null,
   };
 }
 
-export function getAllPosts(): PostMeta[] {
-  let files: string[] = [];
-  try {
-    files = readdirSync(BLOG_DIR).filter((f) => f.endsWith('.md'));
-  } catch {
-    return [];
-  }
-  return files
-    .map((f) => {
-      const { data } = parseFrontmatter(readFileSync(join(BLOG_DIR, f), 'utf8'));
-      return toMeta(f.replace(/\.md$/, ''), data);
-    })
-    .sort((a, b) => (a.date < b.date ? 1 : -1)); // 최신순
-}
-
-// generateMetadata 와 페이지 본문이 같은 렌더에서 각각 호출 → React cache 로
-// 슬러그당 파일 읽기·marked 파싱을 1회로 메모이즈(빌드 비용 절감).
-export const getPost = cache(_getPost);
-
-function _getPost(slug: string): { meta: PostMeta; html: string } | null {
-  // 경로 traversal 방어 — 파일명 문자만 허용 (../, %2F, 널바이트 등 차단).
-  if (!/^[A-Za-z0-9-]+$/.test(slug)) return null;
-  let raw: string;
-  try {
-    raw = readFileSync(join(BLOG_DIR, `${slug}.md`), 'utf8');
-  } catch {
-    return null;
-  }
-  const { data, body } = parseFrontmatter(raw);
-  const html = sanitizeHtml(
-    marked.parse(body, { async: false, gfm: true }) as string,
-  );
-  return { meta: toMeta(slug, data), html };
+export function getBlogFacets(): { categories: string[]; tags: string[] } {
+  const posts = getAllPosts();
+  return {
+    categories: [...new Set(posts.map((post) => post.category))].sort((a, b) =>
+      a.localeCompare(b, 'ko-KR'),
+    ),
+    tags: [...new Set(posts.flatMap((post) => post.tags))].sort((a, b) =>
+      a.localeCompare(b, 'ko-KR'),
+    ),
+  };
 }

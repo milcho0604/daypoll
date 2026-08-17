@@ -1,31 +1,63 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getAllPosts, getPost } from '@/lib/blog';
+import BlogArticle from '@/components/blog/blog-article';
+import PrivatePostGate from '@/components/blog/private-post-gate';
+import {
+  getAdjacentPosts,
+  getAllPosts,
+  getPost,
+  getRelatedPosts,
+} from '@/lib/blog';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 type Params = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {
-  return getAllPosts().map((p) => ({ slug: p.slug }));
+  return getAllPosts({
+    includePrivate: true,
+    includeDrafts: !IS_PRODUCTION,
+  }).map((post) => ({ slug: post.slug }));
 }
 
-// 빌드타임에 존재하는 포스트 외 임의 slug 는 404 — traversal 류 원천 차단.
 export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);
-  if (!post) return {};
-  const { title, description } = post.meta;
+  if (!post || (post.meta.draft && IS_PRODUCTION)) return {};
+  if (post.meta.visibility === 'private') {
+    return {
+      title: '비공개 글 · 모일까',
+      description: '운영자 인증이 필요한 비공개 글입니다.',
+      robots: { index: false, follow: false, noarchive: true },
+    };
+  }
+
+  const { meta } = post;
+  const image = meta.cover ?? `/blog/${slug}/opengraph-image`;
   return {
-    title: `${title} · 모일까`,
-    description,
+    title: `${meta.title} · 모일까`,
+    description: meta.description,
+    keywords: [meta.category, ...meta.tags],
+    category: meta.category,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: {
       type: 'article',
-      title,
-      description,
+      title: meta.title,
+      description: meta.description,
       url: `/blog/${slug}`,
+      publishedTime: `${meta.date}T00:00:00+09:00`,
+      modifiedTime: `${meta.updated ?? meta.date}T00:00:00+09:00`,
+      tags: meta.tags,
+      images: [{ url: image, alt: meta.coverAlt ?? meta.title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: meta.title,
+      description: meta.description,
+      images: [image],
     },
   };
 }
@@ -33,29 +65,42 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function BlogPostPage({ params }: Params) {
   const { slug } = await params;
   const post = getPost(slug);
-  if (!post) notFound();
+  if (!post || (post.meta.draft && IS_PRODUCTION)) notFound();
+
+  if (post.meta.visibility === 'private') {
+    return <PrivatePostGate slug={slug} />;
+  }
+
+  const related = getRelatedPosts(slug);
+  const adjacent = getAdjacentPosts(slug);
+  const image = post.meta.cover
+    ? new URL(post.meta.cover, SITE_URL).toString()
+    : `${SITE_URL}/blog/${slug}/opengraph-image`;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.meta.title,
+    description: post.meta.description,
+    image,
+    datePublished: post.meta.date,
+    dateModified: post.meta.updated ?? post.meta.date,
+    mainEntityOfPage: `${SITE_URL}/blog/${slug}`,
+    inLanguage: 'ko-KR',
+    articleSection: post.meta.category,
+    keywords: post.meta.tags.join(', '),
+    author: { '@type': 'Organization', name: '모일까' },
+    publisher: { '@type': 'Organization', name: '모일까', url: SITE_URL },
+  };
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 sm:pt-12 sm:pb-20">
-      <header className="mb-8">
-        <Link
-          href="/blog"
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-        >
-          ← 블로그
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold leading-snug tracking-tight">
-          {post.meta.title}
-        </h1>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          {post.meta.date}
-        </p>
-      </header>
-
-      <article
-        className="blog-prose"
-        dangerouslySetInnerHTML={{ __html: post.html }}
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replaceAll('<', '\\u003c'),
+        }}
       />
-    </main>
+      <BlogArticle post={post} related={related} adjacent={adjacent} />
+    </>
   );
 }

@@ -4,7 +4,8 @@
 # 2) 테스트 DB 마이그레이션
 # 3) API e2e (jest + supertest)
 # 4) shared 빌드 → API 빌드
-# 5) API 띄움 → Web smoke (next prod build + 페이지 응답 검증)
+# 5) Web unit
+# 6) API 띄움 → Web smoke (next prod build + 페이지 응답 검증)
 
 set -euo pipefail
 
@@ -19,7 +20,7 @@ echo "  whenever — 통합 테스트"
 echo "=========================================="
 
 # ---- Docker / Postgres ----
-echo "[1/5] Postgres 준비"
+echo "[1/6] Postgres 준비"
 if ! docker info > /dev/null 2>&1; then
   echo "Docker daemon 이 꺼져 있습니다. Docker Desktop을 켜주세요." >&2
   exit 1
@@ -37,23 +38,27 @@ for i in $(seq 1 30); do
 done
 
 # ---- 테스트 DB 보장 ----
-echo "[2/5] 테스트 DB 보장"
+echo "[2/6] 테스트 DB 보장"
 docker exec whenever-postgres psql -U whenever -d whenever -tc "SELECT 1 FROM pg_database WHERE datname='whenever_test'" | grep -q 1 \
   || docker exec whenever-postgres psql -U whenever -d whenever -c "CREATE DATABASE whenever_test;" > /dev/null
 DATABASE_URL="$DB_URL_TEST" node apps/api/scripts/migrate.mjs > /dev/null
 echo "  whenever_test 마이그레이션 완료"
 
 # ---- shared 빌드 ----
-echo "[3/5] shared 패키지 빌드"
+echo "[3/6] shared 패키지 빌드"
 pnpm --filter @whenever/shared build > /dev/null
 echo "  shared dist 생성"
 
 # ---- API e2e ----
-echo "[4/5] API e2e 테스트"
+echo "[4/6] API e2e 테스트"
 pnpm --filter @whenever/api test:e2e
 
+# ---- Web unit ----
+echo "[5/6] Web unit 테스트"
+pnpm --filter @whenever/web test
+
 # ---- Web smoke ----
-echo "[5/5] Web smoke 테스트"
+echo "[6/6] Web smoke 테스트"
 # API 띄움 (개발 DB로)
 lsof -ti :3001 | xargs -r kill 2>/dev/null || true
 pnpm --filter @whenever/api build > /dev/null

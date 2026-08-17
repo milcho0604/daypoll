@@ -16,6 +16,11 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@whenever/shared"],
+  // 비공개 글 API는 런타임에 Markdown 원본을 읽는다. Vercel 서버 함수 번들에
+  // content/blog 파일을 확실히 포함하되 공개 정적 자산으로 복사하지는 않는다.
+  outputFileTracingIncludes: {
+    "/api/blog/private/*": ["./content/blog/**/*.md"],
+  },
   async headers() {
     return [
       {

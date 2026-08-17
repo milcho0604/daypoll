@@ -2,7 +2,10 @@
 title: "Tailscale Funnel 뒤에서는 IP 레이트리밋이 작동하지 않았다"
 date: "2026-06-09"
 description: "맥미니 + Tailscale Funnel 로 노출한 사이드 프로젝트 백엔드에서 IP 기반 레이트리밋이 무력화된 이유와, Cloudflare Tunnel 로 교체해 진짜 클라이언트 IP를 복원한 과정."
+category: "개발 기록"
 tags: [postmortem, infra, cloudflare, tailscale, rate-limit, nestjs]
+visibility: public
+draft: false
 ---
 
 > **TL;DR**
