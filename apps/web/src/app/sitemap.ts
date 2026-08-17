@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/blog';
+import { latestPostModifiedDate } from '@/lib/blog-core';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
@@ -9,6 +10,7 @@ const SITE_URL =
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const posts = getAllPosts();
+  const latestModified = latestPostModifiedDate(posts);
   // 파서가 날짜 형식을 검증하지만 런타임 직렬화도 방어적으로 폴백한다.
   const safeDate = (s: string): Date => {
     const d = new Date(s);
@@ -29,9 +31,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/blog`,
-      lastModified: posts[0]
-        ? safeDate(posts[0].updated ?? posts[0].date)
-        : now,
+      lastModified: latestModified ? safeDate(latestModified) : now,
       changeFrequency: 'weekly',
       priority: 0.6,
     },

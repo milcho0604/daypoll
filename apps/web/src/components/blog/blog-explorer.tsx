@@ -201,6 +201,7 @@ export default function BlogExplorer({
             <li key={post.slug}>
               <Link
                 href={`/blog/${post.slug}`}
+                aria-label={post.title}
                 className="lift press block overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {post.cover && (

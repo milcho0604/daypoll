@@ -1,4 +1,5 @@
 import hljs from 'highlight.js/lib/common';
+import { decodeHTML } from 'entities';
 import { load as parseYaml } from 'js-yaml';
 import { Marked, Renderer, type Tokens } from 'marked';
 import sanitize from 'sanitize-html';
@@ -11,6 +12,32 @@ import type {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
+const FRONTMATTER_FIELDS = new Set([
+  'title',
+  'date',
+  'updated',
+  'description',
+  'category',
+  'tags',
+  'visibility',
+  'draft',
+  'cover',
+  'coverAlt',
+]);
+
+export function latestPostModifiedDate(
+  posts: readonly Pick<PostMeta, 'date' | 'updated'>[],
+): string | null {
+  return posts.reduce<string | null>((latest, post) => {
+    const candidate = post.updated ?? post.date;
+    return latest == null || candidate > latest ? candidate : latest;
+  }, null);
+}
+
+function hasOwn(object: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
 
 function parseFrontmatter(
   slug: string,
@@ -72,6 +99,9 @@ function assertText(
 ): string {
   const text = stringValue(value);
   if (!text) throw new Error(`[blog:${slug}] ${field} 값이 필요합니다.`);
+  if (CONTROL_CHAR_RE.test(text)) {
+    throw new Error(`[blog:${slug}] ${field}에는 제어 문자를 사용할 수 없습니다.`);
+  }
   if (text.length > maxLength) {
     throw new Error(
       `[blog:${slug}] ${field} 값은 ${maxLength}자 이하여야 합니다.`,
@@ -89,18 +119,25 @@ function parseDate(value: unknown, field: string, slug: string): string {
 }
 
 function parseTags(value: unknown, slug: string): string[] {
+  if (!Array.isArray(value) && typeof value !== 'string') {
+    throw new Error(`[blog:${slug}] tags는 문자열 또는 문자열 배열이어야 합니다.`);
+  }
   const raw = Array.isArray(value)
     ? value
-    : typeof value === 'string'
-      ? value.split(',')
-      : [];
+    : value.split(',');
+  if (raw.some((tag) => typeof tag !== 'string')) {
+    throw new Error(`[blog:${slug}] tags 배열에는 문자열만 사용할 수 있습니다.`);
+  }
   const tags = [...new Set(raw.map(stringValue).filter(Boolean))];
   if (tags.length === 0) {
     throw new Error(`[blog:${slug}] tags를 하나 이상 적어 주세요.`);
   }
-  if (tags.length > 10 || tags.some((tag) => tag.length > 30)) {
+  if (
+    tags.length > 10 ||
+    tags.some((tag) => tag.length > 30 || CONTROL_CHAR_RE.test(tag))
+  ) {
     throw new Error(
-      `[blog:${slug}] tags는 최대 10개, 각 태그는 30자 이하여야 합니다.`,
+      `[blog:${slug}] tags는 제어 문자 없이 최대 10개, 각 30자 이하여야 합니다.`,
     );
   }
   return tags;
@@ -113,12 +150,19 @@ function parseVisibility(value: unknown, slug: string): PostVisibility {
   );
 }
 
-function markdownHeadingText(text: string): string {
-  return text
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[`*_~]/g, '')
-    .trim();
+function markdownHeadingText(html: string): string {
+  const plain = sanitize(html, {
+    allowedTags: [],
+    allowedAttributes: {},
+    transformTags: {
+      img: (_tagName, attribs) => ({
+        tagName: 'span',
+        attribs: {},
+        text: attribs.alt ?? '',
+      }),
+    },
+  });
+  return decodeHTML(plain).trim();
 }
 
 function headingSlug(text: string): string {
@@ -153,28 +197,17 @@ function readingStats(markdown: string): {
   };
 }
 
-function markdownWithoutCode(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/~~~[\s\S]*?~~~/g, ' ')
-    .replace(/`[^`]*`/g, ' ');
-}
-
-function hasLevelOneHeading(markdown: string): boolean {
-  const parser = new Marked();
-  const tokens = parser.lexer(markdown, { gfm: true });
-  return tokens.some(
-    (token) => token.type === 'heading' && (token as Tokens.Heading).depth === 1,
-  );
-}
-
-function renderMarkdown(markdown: string): { html: string; toc: TocItem[] } {
+function renderMarkdown(
+  markdown: string,
+  slug: string,
+): { html: string; toc: TocItem[] } {
   const toc: TocItem[] = [];
   const headingCounts = new Map<string, number>();
   const renderer = new Renderer();
 
-  renderer.heading = function heading({ tokens, depth, text }: Tokens.Heading) {
-    const title = markdownHeadingText(text);
+  renderer.heading = function heading({ tokens, depth }: Tokens.Heading) {
+    const content = this.parser.parseInline(tokens);
+    const title = markdownHeadingText(content);
     const baseId = headingSlug(title);
     const count = headingCounts.get(baseId) ?? 0;
     headingCounts.set(baseId, count + 1);
@@ -182,7 +215,6 @@ function renderMarkdown(markdown: string): { html: string; toc: TocItem[] } {
     if (depth === 2 || depth === 3) {
       toc.push({ id, title, level: depth });
     }
-    const content = this.parser.parseInline(tokens);
     return `<h${depth} id="${escapeHtml(id)}">${content}<a class="heading-anchor" href="#${escapeHtml(id)}" aria-label="${escapeHtml(title)} 제목으로 이동"><span aria-hidden="true">#</span></a></h${depth}>`;
   };
 
@@ -229,7 +261,7 @@ function renderMarkdown(markdown: string): { html: string; toc: TocItem[] } {
       h5: ['id'],
       h6: ['id'],
       span: ['class', 'aria-hidden'],
-      input: ['type', 'checked', 'disabled', 'class'],
+      input: ['type', 'checked', 'disabled', 'class', 'aria-label'],
       td: ['align'],
       th: ['align'],
     },
@@ -237,22 +269,50 @@ function renderMarkdown(markdown: string): { html: string; toc: TocItem[] } {
     transformTags: {
       a(tagName, attribs) {
         const href = attribs.href ?? '';
-        if (/^https?:\/\//i.test(href)) {
+        const safeAttribs = { ...attribs };
+        delete safeAttribs.target;
+        delete safeAttribs.rel;
+        if (/^(?:https?:)?\/\//i.test(href)) {
           return {
             tagName,
             attribs: {
-              ...attribs,
+              ...safeAttribs,
               target: '_blank',
               rel: 'noopener noreferrer',
             },
           };
         }
-        return { tagName, attribs };
+        return { tagName, attribs: safeAttribs };
       },
       img(tagName, attribs) {
+        if (!attribs.alt?.trim()) {
+          throw new Error(
+            `[blog:${slug}] 본문 이미지에는 대체 텍스트가 필요합니다.`,
+          );
+        }
         return {
           tagName,
           attribs: { ...attribs, loading: 'lazy', decoding: 'async' },
+        };
+      },
+      input(tagName, attribs) {
+        if (attribs.type?.toLowerCase() !== 'checkbox') {
+          return { tagName: 'span', attribs: {} };
+        }
+        const checked = Object.prototype.hasOwnProperty.call(
+          attribs,
+          'checked',
+        );
+        return {
+          tagName,
+          attribs: {
+            type: 'checkbox',
+            disabled: '',
+            'aria-label': checked
+              ? '완료된 체크리스트 항목'
+              : '미완료 체크리스트 항목',
+            ...(checked ? { checked: '' } : {}),
+          },
         };
       },
     },
@@ -265,6 +325,14 @@ function parseMeta(
   data: Record<string, unknown>,
   body: string,
 ): PostMeta {
+  const unknownFields = Object.keys(data).filter(
+    (field) => !FRONTMATTER_FIELDS.has(field),
+  );
+  if (unknownFields.length > 0) {
+    throw new Error(
+      `[blog:${slug}] 지원하지 않는 frontmatter 필드입니다: ${unknownFields.join(', ')}`,
+    );
+  }
   if (!SLUG_RE.test(slug)) {
     throw new Error(
       `[blog:${slug}] 파일명은 영문 소문자·숫자·하이픈만 사용할 수 있습니다.`,
@@ -273,19 +341,22 @@ function parseMeta(
   const title = assertText(data.title, 'title', slug, 100);
   const description = assertText(data.description, 'description', slug, 200);
   const date = parseDate(data.date, 'date', slug);
-  const updated =
-    data.updated == null ? undefined : parseDate(data.updated, 'updated', slug);
+  const updated = hasOwn(data, 'updated')
+    ? parseDate(data.updated, 'updated', slug)
+    : undefined;
   if (updated && updated < date) {
     throw new Error(`[blog:${slug}] updated는 date보다 빠를 수 없습니다.`);
   }
   const category = assertText(data.category, 'category', slug, 30);
   const tags = parseTags(data.tags, slug);
   const visibility = parseVisibility(data.visibility, slug);
-  if (data.draft != null && typeof data.draft !== 'boolean') {
+  if (hasOwn(data, 'draft') && typeof data.draft !== 'boolean') {
     throw new Error(`[blog:${slug}] draft는 true 또는 false여야 합니다.`);
   }
   const draft = data.draft === true;
-  const cover = data.cover == null ? undefined : stringValue(data.cover);
+  const cover = hasOwn(data, 'cover')
+    ? assertText(data.cover, 'cover', slug, 500)
+    : undefined;
   if (
     cover &&
     (!cover.startsWith('/') ||
@@ -302,10 +373,13 @@ function parseMeta(
       `[blog:${slug}] private 글의 cover는 공개 폴더에 노출되므로 사용할 수 없습니다.`,
     );
   }
+  if (!cover && hasOwn(data, 'coverAlt')) {
+    throw new Error(`[blog:${slug}] coverAlt는 cover가 있을 때만 사용할 수 있습니다.`);
+  }
   const coverAlt = cover
-    ? data.coverAlt == null
-      ? `${title} 대표 이미지`
-      : assertText(data.coverAlt, 'coverAlt', slug, 200)
+    ? hasOwn(data, 'coverAlt')
+      ? assertText(data.coverAlt, 'coverAlt', slug, 200)
+      : `${title} 대표 이미지`
     : undefined;
   const { readingMinutes, wordCount } = readingStats(body);
   return {
@@ -329,26 +403,17 @@ export function parsePostSource(slug: string, raw: string): BlogPost {
   const parsed = parseFrontmatter(slug, raw);
   const body = parsed.content.trim();
   if (!body) throw new Error(`[blog:${slug}] 본문이 비어 있습니다.`);
-  if (hasLevelOneHeading(body)) {
+  const meta = parseMeta(slug, parsed.data, body);
+  const { html, toc } = renderMarkdown(body, slug);
+  if (/<h1\b/i.test(html)) {
     throw new Error(
       `[blog:${slug}] 본문은 ## 제목부터 시작해 주세요. 페이지 제목이 이미 H1입니다.`,
     );
   }
-  const meta = parseMeta(
-    slug,
-    parsed.data,
-    body,
-  );
-  const bodyWithoutCode = markdownWithoutCode(body);
-  if (
-    meta.visibility === 'private' &&
-    (/!\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])/i.test(bodyWithoutCode) ||
-      /<img\b/i.test(bodyWithoutCode))
-  ) {
+  if (meta.visibility === 'private' && /<img\b/i.test(html)) {
     throw new Error(
       `[blog:${slug}] private 글에는 공개 경로로 새는 이미지를 넣을 수 없습니다.`,
     );
   }
-  const { html, toc } = renderMarkdown(body);
   return { meta, html, toc };
 }

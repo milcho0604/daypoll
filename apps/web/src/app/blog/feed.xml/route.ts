@@ -1,4 +1,5 @@
 import { getAllPosts } from '@/lib/blog';
+import { latestPostModifiedDate } from '@/lib/blog-core';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 
@@ -19,8 +20,9 @@ function rssDate(date: string): string {
 
 export function GET() {
   const posts = getAllPosts();
-  const lastBuildDate = posts[0]
-    ? rssDate(posts[0].updated ?? posts[0].date)
+  const latestModified = latestPostModifiedDate(posts);
+  const lastBuildDate = latestModified
+    ? rssDate(latestModified)
     : new Date(0).toUTCString();
   const items = posts
     .map((post) => {
