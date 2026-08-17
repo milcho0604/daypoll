@@ -181,9 +181,15 @@ pnpm --filter @whenever/api migrate
 pnpm --filter @whenever/api dev   # :3001
 pnpm --filter @whenever/web dev   # :3000
 
+# 선택: private 블로그를 로컬에서 확인할 때만 별도 토큰 설정
+BLOG_PRIVATE_TOKEN="관리자 토큰과 다른 16자 이상 값" pnpm --filter @whenever/web dev
+
 # 테스트
 pnpm --filter @whenever/api test          # unit
 pnpm --filter @whenever/api test:e2e      # 50 케이스, 별도 test DB
+pnpm --filter @whenever/web test           # Markdown·인증 unit
+pnpm --filter @whenever/web test:e2e       # headless Chromium UI·접근성·보안
+pnpm blog:check                            # 블로그 콘텐츠 전체 검증
 ```
 
 ## 폴더 구조

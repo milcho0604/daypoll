@@ -6,6 +6,8 @@ import { getAllPosts, getBlogFacets } from '@/lib/blog';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: '블로그 · 모일까',
   description: '모일까를 만들며 겪은 제품·인프라·개발 기록.',

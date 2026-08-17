@@ -1,10 +1,11 @@
 import { ImageResponse } from 'next/og';
-import { getPost } from '@/lib/blog';
+import { getPost, isPostPubliclyVisible } from '@/lib/blog';
 
 export const alt = '모일까 블로그 글 대표 이미지';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const runtime = 'nodejs';
+export const revalidate = 60;
 
 export default async function OpenGraphImage({
   params,
@@ -13,9 +14,9 @@ export default async function OpenGraphImage({
 }) {
   const { slug } = await params;
   const post = getPost(slug);
-  const isPublic = post?.meta.visibility === 'public' && !post.meta.draft;
-  const title = isPublic ? post.meta.title : '비공개 글';
-  const category = isPublic ? post.meta.category : '모일까 블로그';
+  const publicPost = post && isPostPubliclyVisible(post) ? post : null;
+  const title = publicPost?.meta.title ?? '비공개 글';
+  const category = publicPost?.meta.category ?? '모일까 블로그';
 
   return new ImageResponse(
     (

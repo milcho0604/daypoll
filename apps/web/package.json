@@ -7,7 +7,11 @@
     "build": "pnpm --filter @whenever/shared build && next build",
     "start": "next start -p 3000",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "blog:new": "tsx scripts/blog.ts new",
+    "blog:check": "tsx scripts/blog.ts check",
+    "blog:preview": "next dev --turbopack -p 3000"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.57.0",
@@ -28,6 +32,8 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
@@ -38,6 +44,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }
