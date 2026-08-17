@@ -43,7 +43,7 @@ export default function BlogIndex() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 sm:pt-12 sm:pb-20">
+    <main className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 [overflow-wrap:anywhere] sm:pt-12 sm:pb-20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
