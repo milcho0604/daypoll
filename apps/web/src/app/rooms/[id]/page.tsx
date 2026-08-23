@@ -71,15 +71,31 @@ export default async function RoomPage({
       <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12 text-center">
         {/* 삭제/만료된 방이면 '내 방' 목록에서 자동 제거 (일시적 로드 실패는 제외) */}
         {notFound && <ForgetRoomOnMount roomId={id} />}
-        <h1 className="text-xl font-semibold">
-          {notFound ? '방을 찾을 수 없어요' : '방을 불러오지 못했어요'}
+        <h1 className="flex items-center justify-center gap-1.5 text-xl font-semibold">
+          {notFound ? (
+            <span>방을 찾을 수 없어요</span>
+          ) : (
+            <>
+              <span aria-hidden>🛠️</span>
+              <span>잠깐만요, 서버 점검 중이에요</span>
+            </>
+          )}
         </h1>
+        {/* 서버가 잠깐 끊긴 것을 "링크가 만료됐다" 고 안내하면 친구가 자기 링크를
+            잘못된 것으로 오해한다 — 404 일 때만 링크 문제라고 말한다. */}
         <p className="mt-2 text-sm text-zinc-500">
-          링크가 만료됐거나 잘못된 주소일 수 있습니다.
+          {notFound
+            ? '링크가 만료됐거나 잘못된 주소일 수 있습니다.'
+            : '링크는 멀쩡해요! 서버가 잠깐 쉬는 중이라 조금 뒤에 새로고침해주세요.'}
         </p>
+        {!notFound && (
+          <p className="mt-3 rounded-xl bg-zinc-100 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            걱정 마세요! 방이랑 투표한 내용은 그대로 저장돼 있어요.
+          </p>
+        )}
         <Link
           href="/"
-          className="mt-6 inline-flex h-11 items-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
+          className="press mt-6 inline-flex h-11 items-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
         >
           홈으로
         </Link>

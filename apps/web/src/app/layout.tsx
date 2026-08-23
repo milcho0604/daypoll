@@ -5,6 +5,7 @@ import Link from "next/link";
 import "./globals.css";
 import SiteHeader from "@/components/site-header";
 import VisitBeacon from "@/components/visit-beacon";
+import ServiceStatus from "@/components/service-status";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -83,6 +84,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <VisitBeacon />
+        <ServiceStatus />
         <SiteHeader />
         <div className="flex-1">{children}</div>
         {/* 자연 흐름 끝에 깔리는 글로벌 footer. fixed bottom 바가 있는 페이지에서는
