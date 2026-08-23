@@ -37,6 +37,25 @@ function notifyServerReachable(reachable: boolean) {
   );
 }
 
+// 상태 확인 전용 프로브 — 이벤트를 쏘지 않는다(구독자가 이걸 호출하므로 재귀 방지).
+// 한 번의 일시적 실패로 팝업이 깜빡이지 않게, api() 실패를 이걸로 "확인 사살" 한다.
+export async function probeHealth(timeoutMs = 5000): Promise<boolean> {
+  if (typeof window !== 'undefined' && navigator.onLine === false) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE_URL}/health`, {
+      cache: 'no-store',
+      signal: ctrl.signal,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   let res: Response;
   try {
