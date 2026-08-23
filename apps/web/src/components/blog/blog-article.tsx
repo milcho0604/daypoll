@@ -18,17 +18,13 @@ export default function BlogArticle({
   related = [],
   adjacent = { newer: null, older: null },
   privateMode = false,
-  onLock,
-  privateError,
-  locking = false,
+  onAdminLogout,
 }: {
   post: BlogPost;
   related?: PostMeta[];
   adjacent?: AdjacentPosts;
   privateMode?: boolean;
-  onLock?: () => void | Promise<void>;
-  privateError?: string | null;
-  locking?: boolean;
+  onAdminLogout?: () => void;
 }) {
   const { meta } = post;
   return (
@@ -42,25 +38,16 @@ export default function BlogArticle({
           >
             ← 블로그
           </Link>
-          {privateMode && onLock && (
+          {privateMode && onAdminLogout && (
             <button
               type="button"
-              onClick={() => void onLock()}
-              disabled={locking}
+              onClick={onAdminLogout}
               className="press inline-flex h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-              {locking ? '잠그는 중…' : '다시 잠그기'}
+              관리자 로그아웃
             </button>
           )}
         </div>
-        {privateError && (
-          <p
-            role="alert"
-            className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200"
-          >
-            {privateError}
-          </p>
-        )}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             {meta.category}

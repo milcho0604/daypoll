@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import BlogArticle from './blog-article';
+import {
+  clearAdminToken,
+  getAdminToken,
+  setAdminToken,
+} from '@/lib/admin';
 import type { BlogPost } from '@/lib/blog-types';
 
 export default function PrivatePostGate({ slug }: { slug: string }) {
@@ -10,12 +15,21 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadPost = useCallback(async () => {
+  const loadPost = useCallback(async (adminToken: string) => {
     const response = await fetch(
       `/api/blog/private/${encodeURIComponent(slug)}`,
-      { cache: 'no-store' },
+      {
+        headers: { 'x-admin-token': adminToken },
+        cache: 'no-store',
+      },
     );
     if (response.status === 401) return false;
+    if (response.status === 429) {
+      throw new Error('시도가 너무 많아요. 잠시 후 다시 확인해 주세요.');
+    }
+    if (response.status === 503) {
+      throw new Error('어드민 기능이 아직 설정되지 않았어요.');
+    }
     if (response.status === 404) {
       throw new Error('비공개 글을 찾지 못했어요.');
     }
@@ -32,28 +46,12 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
       setChecking(true);
       setError(null);
       try {
-        const response = await fetch('/api/blog/private/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: nextToken.trim() }),
-          cache: 'no-store',
-        });
-        if (response.status === 401) {
-          throw new Error('전용 열람 토큰이 맞지 않아요.');
+        const normalized = nextToken.trim();
+        if (!(await loadPost(normalized))) {
+          throw new Error('관리자 토큰이 맞지 않아요.');
         }
-        if (response.status === 429) {
-          throw new Error('시도가 너무 많아요. 잠시 후 다시 확인해 주세요.');
-        }
-        if (response.status === 503) {
-          throw new Error('비공개 글 열람 기능이 아직 설정되지 않았어요.');
-        }
-        if (!response.ok) {
-          throw new Error('인증을 잠시 처리할 수 없어요.');
-        }
+        setAdminToken(normalized);
         setToken('');
-        if (!(await loadPost())) {
-          throw new Error('열람 세션을 확인하지 못했어요. 다시 시도해 주세요.');
-        }
       } catch (caught) {
         setError((caught as Error).message);
       } finally {
@@ -63,28 +61,29 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
     [loadPost],
   );
 
-  const lock = useCallback(async () => {
-    setChecking(true);
+  const logout = useCallback(() => {
+    clearAdminToken();
+    setPost(null);
+    setToken('');
     setError(null);
-    try {
-      const response = await fetch('/api/blog/private/session', {
-        method: 'DELETE',
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error('lock failed');
-      setPost(null);
-      setToken('');
-    } catch {
-      setError('세션을 잠그지 못했어요. 연결을 확인하고 다시 시도해 주세요.');
-    } finally {
-      setChecking(false);
-    }
+    setChecking(false);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const timeout = window.setTimeout(() => {
-      void loadPost()
+      const storedToken = getAdminToken();
+      if (!storedToken) {
+        if (!cancelled) setChecking(false);
+        return;
+      }
+      void loadPost(storedToken)
+        .then((authorized) => {
+          if (!authorized && !cancelled) {
+            clearAdminToken();
+            setError('관리자 로그인이 만료됐어요. 다시 확인해 주세요.');
+          }
+        })
         .catch((caught) => {
           if (!cancelled) setError((caught as Error).message);
         })
@@ -103,9 +102,7 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
       <BlogArticle
         post={post}
         privateMode
-        onLock={lock}
-        privateError={error}
-        locking={checking}
+        onAdminLogout={logout}
       />
     );
   }
@@ -120,8 +117,8 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
           운영자 확인이 필요해요
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
-          이 글은 목록과 검색엔진에 공개되지 않아요. 관리자 권한과 분리된
-          전용 열람 토큰으로 확인해 주세요.
+          이 글은 목록과 검색엔진에 공개되지 않아요. 모일까 어드민에서
+          사용하는 관리자 권한으로만 확인할 수 있어요.
         </p>
         <form
           onSubmit={(event) => {
@@ -130,16 +127,16 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
           }}
           className="mt-5 flex flex-col gap-3"
         >
-          <label htmlFor="private-blog-token" className="text-xs font-medium">
-            비공개 글 열람 토큰
+          <label htmlFor="admin-token" className="text-xs font-medium">
+            관리자 토큰
           </label>
           <input
-            id="private-blog-token"
+            id="admin-token"
             type="password"
             value={token}
             onChange={(event) => setToken(event.target.value)}
             autoComplete="off"
-            placeholder="BLOG_PRIVATE_TOKEN"
+            placeholder="ADMIN_TOKEN"
             className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/20"
           />
           {error && (
@@ -152,7 +149,7 @@ export default function PrivatePostGate({ slug }: { slug: string }) {
             disabled={checking || !token.trim()}
             className="press h-12 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
           >
-            {checking ? '확인 중…' : '글 열기'}
+            {checking ? '확인 중…' : '관리자 권한으로 열기'}
           </button>
         </form>
       </section>

@@ -93,10 +93,9 @@ tailscale funnel --bg 3001
 3. 환경변수:
    - `NEXT_PUBLIC_API_BASE_URL` = `https://<머신>.<tailnet>.ts.net` (1-4 의 URL)
    - `NEXT_PUBLIC_SITE_URL` = `https://<your>.vercel.app` (Deploy 후 받은 도메인)
-   - `BLOG_PRIVATE_TOKEN` = 관리자 토큰과 다른 32바이트 이상 랜덤 값
 4. Deploy → 5~8분.
 
-`BLOG_PRIVATE_TOKEN`은 `openssl rand -hex 32`처럼 생성하고 Vercel Production·Preview에만 넣는다. 저장소·빌드 로그·브라우저 환경변수(`NEXT_PUBLIC_*`)에는 절대 기록하지 않는다.
+비공개 블로그는 백엔드의 기존 `ADMIN_TOKEN`과 `AdminGuard`를 재사용하므로 Vercel에 별도 비밀값을 추가하지 않는다. `ADMIN_TOKEN`은 계속 API 서버 환경변수에만 두며 저장소·빌드 로그·`NEXT_PUBLIC_*`에는 기록하지 않는다.
 
 > `apps/web/package.json` 의 build 스크립트가 `pnpm --filter @whenever/shared build &&
 > next build` 로 shared 를 먼저 빌드하도록 되어있어, Vercel 의 install/build 기본값으로

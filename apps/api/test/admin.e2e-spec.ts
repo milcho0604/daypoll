@@ -57,6 +57,22 @@ describe('admin e2e', () => {
     });
   });
 
+  describe('GET /admin/auth', () => {
+    it('DB 조회 없이 같은 관리자 권한을 확인한다', async () => {
+      const missing = await request(server()).get('/admin/auth');
+      expect(missing.status).toBe(401);
+
+      const wrong = await request(server())
+        .get('/admin/auth')
+        .set('x-admin-token', 'wrong');
+      expect(wrong.status).toBe(401);
+
+      const valid = await withAdmin(request(server()).get('/admin/auth'));
+      expect(valid.status).toBe(200);
+      expect(valid.body).toEqual({ ok: true });
+    });
+  });
+
   // ---- stats ----
   describe('GET /admin/stats', () => {
     it('returns zero KPIs on empty db', async () => {

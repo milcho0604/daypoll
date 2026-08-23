@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-const PRIVATE_TOKEN = 'playwright-private-blog-token';
+const ADMIN_TOKEN = 'playwright-admin-token';
 
 test.describe('공개 블로그 읽기 경험', () => {
   test('모바일에서 목차·현재 위치·복사·진행률을 조작한다', async ({
@@ -103,7 +103,7 @@ test.describe('공개 블로그 읽기 경험', () => {
 });
 
 test.describe.serial('비공개 블로그 보안', () => {
-  test('본문을 숨기고 전용 HttpOnly 세션으로만 연 뒤 다시 잠근다', async ({
+  test('본문을 숨기고 기존 어드민 권한으로만 연 뒤 로그아웃한다', async ({
     context,
     page,
   }) => {
@@ -111,80 +111,85 @@ test.describe.serial('비공개 블로그 보안', () => {
     expect(response?.status()).toBe(200);
     expect(await page.content()).not.toContain('PRIVATE_CONTENT_SENTINEL');
 
-    const direct = await context.request.get('/api/blog/private/private-roadmap');
+    const direct = await context.request.get(
+      '/api/blog/private/private-roadmap',
+      { headers: { 'x-forwarded-for': '203.0.113.10' } },
+    );
     expect(direct.status()).toBe(401);
 
-    const oversized = await context.request.post('/api/blog/private/session', {
-      data: { token: 'x'.repeat(3_000) },
-    });
-    expect(oversized.status()).toBe(413);
-    const malformed = await context.request.post('/api/blog/private/session', {
-      data: '{',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    expect(malformed.status()).toBe(400);
-
-    await page.getByLabel('비공개 글 열람 토큰').fill('wrong-private-token');
-    await page.getByRole('button', { name: '글 열기' }).click();
+    await page.getByLabel('관리자 토큰').fill('wrong-admin-token');
+    await page.getByRole('button', { name: '관리자 권한으로 열기' }).click();
     await expect(page.locator('p[role="alert"]')).toContainText('맞지 않아요');
     expect(await page.content()).not.toContain('PRIVATE_CONTENT_SENTINEL');
 
-    await page.getByLabel('비공개 글 열람 토큰').fill(PRIVATE_TOKEN);
-    await page.getByRole('button', { name: '글 열기' }).click();
+    await page.getByLabel('관리자 토큰').fill(ADMIN_TOKEN);
+    await page.getByRole('button', { name: '관리자 권한으로 열기' }).click();
     await expect(page.getByText('내부 전용 로드맵')).toBeVisible();
     await expect(page.getByText('PRIVATE_CONTENT_SENTINEL_9f86d081884c7d65')).toBeVisible();
 
-    const session = (await context.cookies()).find(
-      (cookie) => cookie.name === 'whenever_blog_session',
-    );
-    expect(session).toMatchObject({
-      httpOnly: true,
-      sameSite: 'Strict',
-      secure: true,
-    });
-    expect(session?.value).not.toContain(PRIVATE_TOKEN);
-
-    const authorized = await context.request.get(
-      '/api/blog/private/private-roadmap',
-    );
-    expect(authorized.status()).toBe(200);
-    expect(await authorized.text()).toContain('PRIVATE_CONTENT_SENTINEL');
-    expect(authorized.headers()['cache-control']).toContain('no-store');
-    expect(authorized.headers()['x-robots-tag']).toContain('noindex');
-
-    await page.route('**/api/blog/private/session', async (route) => {
-      if (route.request().method() === 'DELETE') await route.abort();
-      else await route.continue();
-    });
-    await page.getByRole('button', { name: '다시 잠그기' }).click();
-    await expect(page.getByText('내부 전용 로드맵')).toBeVisible();
-    await expect(page.locator('p[role="alert"]')).toContainText(
-      '세션을 잠그지 못했어요',
-    );
-    await page.unroute('**/api/blog/private/session');
-
-    await page.getByRole('button', { name: '다시 잠그기' }).click();
-    await expect(page.getByRole('button', { name: '글 열기' })).toBeVisible();
-    expect(await page.content()).not.toContain('PRIVATE_CONTENT_SENTINEL');
+    expect(
+      await page.evaluate(() =>
+        window.sessionStorage.getItem('whenever_admin_token'),
+      ),
+    ).toBe(ADMIN_TOKEN);
     expect(
       (await context.cookies()).some(
         (cookie) => cookie.name === 'whenever_blog_session',
       ),
     ).toBe(false);
+
+    const authorized = await context.request.get(
+      '/api/blog/private/private-roadmap',
+      { headers: { 'x-admin-token': ADMIN_TOKEN } },
+    );
+    expect(authorized.status()).toBe(200);
+    expect(await authorized.text()).toContain('PRIVATE_CONTENT_SENTINEL');
+    expect(authorized.headers()['cache-control']).toContain('no-store');
+    expect(authorized.headers()['x-robots-tag']).toContain('noindex');
+    expect(authorized.headers().vary).toContain('x-admin-token');
+
+    await page.getByRole('button', { name: '관리자 로그아웃' }).click();
+    await expect(
+      page.getByRole('button', { name: '관리자 권한으로 열기' }),
+    ).toBeVisible();
+    expect(await page.content()).not.toContain('PRIVATE_CONTENT_SENTINEL');
+    expect(
+      await page.evaluate(() =>
+        window.sessionStorage.getItem('whenever_admin_token'),
+      ),
+    ).toBeNull();
+
+    await page.evaluate((token) => {
+      window.sessionStorage.setItem('whenever_admin_token', token);
+    }, ADMIN_TOKEN);
+    await page.reload();
+    await expect(page.getByText('내부 전용 로드맵')).toBeVisible();
   });
 
   test('연속 실패를 제한하고 본문을 계속 숨긴다', async ({ page }) => {
-    await page.goto('/blog/private-roadmap');
+    const clientIp = '203.0.113.20';
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await page.getByLabel('비공개 글 열람 토큰').fill(`wrong-${attempt}`);
-      await page.getByRole('button', { name: '글 열기' }).click();
-      await expect(page.locator('p[role="alert"]')).toContainText('맞지 않아요');
+      const response = await page.request.get(
+        '/api/blog/private/private-roadmap',
+        {
+          headers: {
+            'x-admin-token': `wrong-${attempt}`,
+            'x-forwarded-for': clientIp,
+          },
+        },
+      );
+      expect(response.status()).toBe(401);
     }
-    await page.getByLabel('비공개 글 열람 토큰').fill('wrong-blocked');
-    await page.getByRole('button', { name: '글 열기' }).click();
-    await expect(page.locator('p[role="alert"]')).toContainText(
-      '시도가 너무 많아요',
+    const blocked = await page.request.get(
+      '/api/blog/private/private-roadmap',
+      {
+        headers: {
+          'x-admin-token': 'wrong-blocked',
+          'x-forwarded-for': clientIp,
+        },
+      },
     );
-    expect(await page.content()).not.toContain('PRIVATE_CONTENT_SENTINEL');
+    expect(blocked.status()).toBe(429);
+    expect(await blocked.text()).not.toContain('PRIVATE_CONTENT_SENTINEL');
   });
 });
