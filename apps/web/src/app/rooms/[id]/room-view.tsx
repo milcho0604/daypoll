@@ -281,6 +281,15 @@ export default function RoomView({
     });
   }, [room.results]);
 
+  // 실시간 순위에 실제로 그릴 목록 — 0표 날짜는 뺀다.
+  // 0표인데 회색 순위 배지("3위")가 붙으면 "아직 순위에 들어있다" 처럼 읽혀
+  // 투표를 취소한 사람이 취소가 안 된 줄 안다. 후보 날짜 자체는 위 캘린더에
+  // 그대로 보이므로 정보 손실은 없다. (winnerIds/maxVotes 계산은 sortedResults 유지)
+  const rankedResults = useMemo<DateResult[]>(
+    () => sortedResults.filter((r) => r.votes > 0),
+    [sortedResults],
+  );
+
   // 사람별 뷰 — 참여자 → 그 사람이 가능 표시한 날짜들 (날짜별의 역집계).
   const byPerson = useMemo(() => {
     const map = new Map<
@@ -1121,7 +1130,7 @@ export default function RoomView({
             </div>
           )}
         </div>
-        {sortedResults.length > 0 && (
+        {rankedResults.length > 0 && (
           <div className="mt-3 inline-flex rounded-full border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
             <button
               type="button"
@@ -1147,7 +1156,7 @@ export default function RoomView({
             </button>
           </div>
         )}
-        {sortedResults.length === 0 ? (
+        {rankedResults.length === 0 ? (
           <EmptyState emoji="🌱" message="아직 첫 표를 기다리는 중이에요" />
         ) : view === 'person' ? (
           <PersonList
@@ -1160,7 +1169,7 @@ export default function RoomView({
           />
         ) : (
           <RankList
-            results={sortedResults}
+            results={rankedResults}
             maxVotes={maxVotes}
             winnerIds={winnerIds}
             expandedDates={expandedDates}
