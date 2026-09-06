@@ -184,6 +184,9 @@ pnpm --filter @whenever/web dev   # :3000
 # 테스트
 pnpm --filter @whenever/api test          # unit
 pnpm --filter @whenever/api test:e2e      # 50 케이스, 별도 test DB
+pnpm --filter @whenever/web test           # Markdown·어드민 인증 unit
+pnpm --filter @whenever/web test:e2e       # headless Chromium UI·접근성·보안
+pnpm blog:check                            # 블로그 콘텐츠 전체 검증
 ```
 
 ## 폴더 구조
