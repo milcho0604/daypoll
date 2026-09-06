@@ -20,7 +20,7 @@ jobs:
       # Cloudflare Universal SSL 이 자동 갱신 — 따로 손볼 일은 없지만
       # 만료 임박 시 알림이 오면 cloudflared 데몬 / DNS 상태 확인용 트리거.
       # TS_AUTHKEY 는 deploy.yml 의 ssh 우회(ephemeral Tailnet 노드) 용으로만 유지.
-      TS_AUTHKEY_EXPIRY: '2026-09-05'
+      TS_AUTHKEY_EXPIRY: '2026-12-05'
       BACKEND_HOST: 'api.moilga.com'
 
     steps:
