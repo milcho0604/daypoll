@@ -121,7 +121,7 @@ export default function DateBuilder({
             role="tab"
             aria-selected={mode === t.key}
             onClick={() => setMode(t.key)}
-            className={`h-9 rounded-full border px-3 ${
+            className={`press h-9 rounded-full border px-3 ${
               mode === t.key
                 ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900'
                 : 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
