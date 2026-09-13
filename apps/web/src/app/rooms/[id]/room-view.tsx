@@ -77,6 +77,9 @@ export default function RoomView({
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   // 지역(날씨) 저장 실패는 모달 안에 보여준다 — 메인 에러 박스는 모달(z-50)에 가려짐
   const [regionError, setRegionError] = useState<string | null>(null);
+  // 모달 안에서 일어난 실패(PIN 복원·강퇴·마감 저장·확정·해제) 전용.
+  // 메인 `error` 에 넣으면 오버레이 뒤에 그려져 사용자는 "눌렀는데 아무 일도 없네"만 겪는다.
+  const [modalError, setModalError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
   const [showAllResults, setShowAllResults] = useState(false);
@@ -532,7 +535,7 @@ export default function RoomView({
 
   async function onRecover(pin: string, nickname?: string) {
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       const r = await recoverParticipant(roomId, { pin, nickname });
       writeTokens(roomId, {
@@ -550,12 +553,11 @@ export default function RoomView({
       setSelected(new Set(m?.dateIds ?? []));
       setDeclined(m?.declined ?? false);
     } catch (err) {
-      // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지)
+      // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지) — 모달 부제가 이유를 설명한다
       if (err instanceof ApiError && err.status === 409) {
         setRecoverNeedsNickname(true);
-        setError('같은 비밀번호를 쓴 친구가 여러 명이에요. 닉네임도 알려주세요.');
       } else {
-        setError(extractMsg(err));
+        setModalError(recoverMsg(err));
       }
     } finally {
       setBusy(false);
@@ -565,14 +567,14 @@ export default function RoomView({
   async function confirmKick() {
     if (!creatorToken || !kickTarget) return;
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       await kickParticipant(roomId, creatorToken, kickTarget.id);
       setKickTarget(null);
       const fresh = await getRoom(roomId);
       setRoom(fresh);
     } catch (err) {
-      setError(extractMsg(err));
+      setModalError(extractMsg(err));
     } finally {
       setBusy(false);
     }
@@ -646,7 +648,7 @@ export default function RoomView({
   async function onSaveDeadline(value: string | null) {
     if (!creatorToken) return;
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       const r = await updateDeadline(roomId, creatorToken, { deadline: value });
       setRoom((prev) => ({ ...prev, deadline: r.deadline }));
@@ -655,7 +657,7 @@ export default function RoomView({
       const fresh = await getRoom(roomId);
       setRoom(fresh);
     } catch (err) {
-      setError(extractMsg(err));
+      setModalError(extractMsg(err));
     } finally {
       setBusy(false);
     }
@@ -665,7 +667,7 @@ export default function RoomView({
   async function onConfirm() {
     if (!creatorToken || !confirmTarget) return;
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       await confirmDate(roomId, creatorToken, confirmTarget.dateId);
       setConfirmTarget(null);
@@ -673,7 +675,7 @@ export default function RoomView({
       setRoom(fresh);
       setNow(Date.now());
     } catch (err) {
-      setError(extractMsg(err));
+      setModalError(extractMsg(err));
     } finally {
       setBusy(false);
     }
@@ -683,7 +685,7 @@ export default function RoomView({
   async function onUnconfirm() {
     if (!creatorToken) return;
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       await unconfirmDate(roomId, creatorToken);
       setShowUnconfirm(false);
@@ -691,7 +693,7 @@ export default function RoomView({
       setRoom(fresh);
       setNow(Date.now());
     } catch (err) {
-      setError(extractMsg(err));
+      setModalError(extractMsg(err));
     } finally {
       setBusy(false);
     }
@@ -717,7 +719,7 @@ export default function RoomView({
   async function closeRoomFromModal() {
     if (!creatorToken) return;
     setBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       const r = await updateDeadline(roomId, creatorToken, {
         deadline: new Date().toISOString(),
@@ -726,7 +728,7 @@ export default function RoomView({
       setNow(Date.now());
       setShowDeadlineModal(false);
     } catch (err) {
-      setError(extractMsg(err));
+      setModalError(extractMsg(err));
     } finally {
       setBusy(false);
     }
@@ -1327,11 +1329,13 @@ export default function RoomView({
           current={room.deadline}
           currentRegion={room.region ?? null}
           regionError={regionError}
+          error={modalError}
           isLocked={isLocked}
           busy={busy}
           onClose={() => {
             setShowDeadlineModal(false);
             setRegionError(null);
+            setModalError(null);
           }}
           onSave={onSaveDeadline}
           onSaveRegion={(v) => void onSaveRegion(v)}
@@ -1349,8 +1353,12 @@ export default function RoomView({
         }
         confirmLabel="확정하기"
         busy={busy}
+        error={modalError}
         onConfirm={() => void onConfirm()}
-        onCancel={() => setConfirmTarget(null)}
+        onCancel={() => {
+          setConfirmTarget(null);
+          setModalError(null);
+        }}
       />
 
       <ConfirmModal
@@ -1359,8 +1367,12 @@ export default function RoomView({
         message={'투표를 다시 열어요.\n확정된 날짜 표시는 사라져요.'}
         confirmLabel="확정 해제"
         busy={busy}
+        error={modalError}
         onConfirm={() => void onUnconfirm()}
-        onCancel={() => setShowUnconfirm(false)}
+        onCancel={() => {
+          setShowUnconfirm(false);
+          setModalError(null);
+        }}
       />
 
       {showRecover && (
@@ -1368,10 +1380,12 @@ export default function RoomView({
           onClose={() => {
             setShowRecover(false);
             setRecoverNeedsNickname(false);
+            setModalError(null);
           }}
           onSubmit={onRecover}
           busy={busy}
           needsNickname={recoverNeedsNickname}
+          error={modalError}
         />
       )}
 
@@ -1403,8 +1417,12 @@ export default function RoomView({
         confirmLabel="내보내기"
         danger
         busy={busy}
+        error={modalError}
         onConfirm={() => void confirmKick()}
-        onCancel={() => setKickTarget(null)}
+        onCancel={() => {
+          setKickTarget(null);
+          setModalError(null);
+        }}
       />
 
     </main>
@@ -1431,12 +1449,33 @@ function DeadlineLabel({ deadline, now }: { deadline: string | null; now: number
   return <span className={cls}>{minutes}분 후 마감 ⏰</span>;
 }
 
+// PIN 복원 실패 — 서버 메시지("pin does not match")를 그대로 보여주면 영어인 데다
+// 정보가 없다. 흔한 두 경우(틀림 / 5회 잠금)는 친근한 말로 바꾼다.
+function recoverMsg(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) return '비밀번호가 맞지 않아요. 다시 확인해주세요.';
+    if (err.status === 429)
+      return '너무 많이 틀렸어요. 30분 뒤에 다시 시도해주세요.';
+  }
+  return extractMsg(err);
+}
+
+// 서버가 주는 영어 권한 문구 → 사용자가 뭘 하면 되는지 말해주는 한국어.
+// (403 은 전부 이 네 가지 — participants/rooms 서비스의 ForbiddenException)
+const SERVER_MSG_KO: Record<string, string> = {
+  'not the creator': '방장만 할 수 있어요. 방을 만든 폰에서 해주세요.',
+  'creator token required': '방장만 할 수 있어요. 방을 만든 폰에서 해주세요.',
+  'not a participant': '참여 정보를 못 찾았어요. 새로고침 뒤 다시 들어와주세요.',
+  'client token required': '참여 정보를 못 찾았어요. 새로고침 뒤 다시 들어와주세요.',
+};
+
 function extractMsg(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 423) return '투표가 마감되었습니다.';
     if (typeof err.payload === 'object' && err.payload && 'message' in err.payload) {
       const m = (err.payload as { message: unknown }).message;
-      return Array.isArray(m) ? m.join(', ') : String(m);
+      const text = Array.isArray(m) ? m.join(', ') : String(m);
+      return SERVER_MSG_KO[text] ?? text;
     }
     return `API ${err.status}`;
   }

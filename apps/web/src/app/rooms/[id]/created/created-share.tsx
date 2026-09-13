@@ -9,7 +9,10 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  // 실패 안내도 같은 자리에 띄우되 톤은 다르게 (성공 emerald / 실패 rose)
+  const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(
+    null,
+  );
 
   useEffect(() => {
     const u = `${window.location.origin}/rooms/${roomId}`;
@@ -26,22 +29,47 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
       .catch(() => setQrDataUrl(''));
   }, [roomId]);
 
-  function flashNotice(msg: string) {
-    setNotice(msg);
-    setTimeout(() => setNotice(null), 2000);
+  function flashNotice(text: string, ok = true) {
+    setNotice({ text, ok });
+    // 실패 안내는 읽을 시간을 더 준다
+    setTimeout(() => setNotice(null), ok ? 2000 : 4000);
+  }
+
+  // 복사 실패 시 대안 — 공유 시트가 있으면 그쪽, 없으면 주소 길게 눌러 복사
+  const copyFailHint = canNativeShare
+    ? '복사가 안 됐어요. 아래 "공유하기" 를 써보세요.'
+    : '복사가 안 됐어요. 위 주소를 길게 눌러 복사해주세요.';
+
+  // 클립보드 API 가 막힌 환경(카톡 인앱 브라우저 등)은 execCommand 로 한 번 더.
+  // 둘 다 실패하면 false — "복사됨" 을 거짓으로 띄우지 않는다.
+  async function copyText(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      /* fallback 으로 */
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
   }
 
   async function onCopy() {
     if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+    if (!(await copyText(url))) {
+      flashNotice(copyFailHint, false);
+      return;
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -49,13 +77,10 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
   }
 
   async function onCopyMessage() {
+    if (!url) return;
     const msg = `우리 언제 모일까? 🗓️\n가입 X · 가능한 날만 체크하면 끝 (1분 컷)\n👉 ${url}`;
-    try {
-      await navigator.clipboard.writeText(msg);
-      flashNotice('카톡용 문구 복사 완료!');
-    } catch {
-      /* ignore */
-    }
+    if (await copyText(msg)) flashNotice('카톡용 문구 복사 완료!');
+    else flashNotice(copyFailHint, false);
   }
 
   async function onShare() {
@@ -130,11 +155,15 @@ export default function CreatedShare({ roomId }: { roomId: string }) {
 
       <p
         aria-live="polite"
-        className={`min-h-5 text-center text-sm font-medium text-emerald-600 transition-opacity dark:text-emerald-400 ${
+        className={`min-h-5 text-center text-sm font-medium transition-opacity ${
           notice ? 'opacity-100' : 'opacity-0'
+        } ${
+          notice && !notice.ok
+            ? 'text-rose-600 dark:text-rose-400'
+            : 'text-emerald-600 dark:text-emerald-400'
         }`}
       >
-        {notice ?? ''}
+        {notice?.text ?? ''}
       </p>
     </div>
   );

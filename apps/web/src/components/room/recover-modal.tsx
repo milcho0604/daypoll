@@ -9,11 +9,14 @@ export default function RecoverModal({
   onSubmit,
   busy,
   needsNickname,
+  error,
 }: {
   onClose: () => void;
   onSubmit: (pin: string, nickname?: string) => void;
   busy: boolean;
   needsNickname?: boolean;
+  // 틀린 PIN 같은 실패는 여기서 보여준다 — 페이지 에러 박스는 오버레이 뒤라 안 보인다
+  error?: string | null;
 }) {
   const [nickname, setNickname] = useState('');
   const [pin, setPin] = useState('');
@@ -70,18 +73,26 @@ export default function RecoverModal({
             />
           )}
         </div>
+        {error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            {error}
+          </p>
+        )}
         <div className="mt-5 flex gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
+            className="press h-11 flex-1 rounded-full border border-zinc-300 text-sm dark:border-zinc-700"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={busy || pin.length !== 4 || (needsNickname && !nickname.trim())}
-            className="h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900"
+            className="press h-11 flex-1 rounded-full bg-zinc-900 text-sm font-medium text-white disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900"
           >
             {busy ? '복원 중…' : '복원'}
           </button>
