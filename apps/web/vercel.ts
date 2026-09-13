@@ -14,6 +14,9 @@ import { routes, type VercelConfig } from '@vercel/config/v1';
 // route() 의 src 는 정규식 — 프로브 경로만 정확히 잠근다.
 routes.route({ src: '^/_probe/trace$', dest: 'https://api.moilga.com/cdn-cgi/trace' });
 routes.route({ src: '^/_probe/health$', dest: 'https://api.moilga.com/health' });
+// 상류 장애 시 Vercel 이 돌려주는 상태코드/본문 확인용 (DNS 미해결 호스트 / 닫힌 포트)
+routes.route({ src: '^/_probe/broken-dns$', dest: 'https://does-not-exist-9f3a.moilga.com/health' });
+routes.route({ src: '^/_probe/broken-port$', dest: 'https://api.moilga.com:8443/health' });
 routes.route(
   routes.rewrite('/_probe/headers', 'https://httpbin.org/headers', {
     requestHeaders: { 'x-proxy-probe': 'set-by-vercel-rewrite' },
