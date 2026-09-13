@@ -8,7 +8,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const ts = new Date().toISOString();
 
+  // apiMs: 이 함수(리전 = region)에서 백엔드까지 왕복. 사용자 체감이 아니라
+  // "Vercel → Cloudflare → 터널 → 맥미니" 경로가 지금 몇 ms 인지 보는 계기판.
+  // 경로가 해외 POP 으로 돌면 여기서 바로 드러난다.
   let api: 'ok' | 'down' = 'down';
+  let apiMs: number | null = null;
+  const started = Date.now();
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2000);
@@ -17,13 +22,14 @@ export async function GET() {
       signal: ctrl.signal,
     });
     clearTimeout(timer);
+    apiMs = Date.now() - started;
     api = res.ok ? 'ok' : 'down';
   } catch {
     api = 'down';
   }
 
   return NextResponse.json(
-    { status: 'ok', api, ts },
+    { status: 'ok', api, apiMs, region: process.env.VERCEL_REGION ?? null, ts },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

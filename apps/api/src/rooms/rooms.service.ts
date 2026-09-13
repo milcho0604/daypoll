@@ -72,40 +72,42 @@ export class RoomsService {
   }
 
   async getDetail(roomId: string): Promise<RoomDetail> {
-    const roomRes = await this.pool.query<{
-      id: string;
-      title: string;
-      deadline: Date | null;
-      created_at: Date;
-      created_by: string | null;
-      region: string | null;
-      confirmed_date_id: string | null;
-      confirmed_at: Date | null;
-    }>(
-      `SELECT id, title, deadline, created_at, created_by, region,
-              confirmed_date_id::text, confirmed_at
-       FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    // 다섯 쿼리는 서로 의존이 없다 — 순차 await 면 왕복 5번, 병렬이면 1번 값.
+    // (방이 없으면 나머지는 빈 결과로 끝나고 아래서 404 — 낭비는 미미하다)
+    const [roomRes, datesRes, partCountRes, results, declined] =
+      await Promise.all([
+        this.pool.query<{
+          id: string;
+          title: string;
+          deadline: Date | null;
+          created_at: Date;
+          created_by: string | null;
+          region: string | null;
+          confirmed_date_id: string | null;
+          confirmed_at: Date | null;
+        }>(
+          `SELECT id, title, deadline, created_at, created_by, region,
+                  confirmed_date_id::text, confirmed_at
+           FROM rooms WHERE id = $1`,
+          [roomId],
+        ),
+        this.pool.query<{ id: string; the_date: string }>(
+          `SELECT id::text, to_char(the_date, 'YYYY-MM-DD') AS the_date
+           FROM room_dates
+           WHERE room_id = $1 ORDER BY the_date ASC`,
+          [roomId],
+        ),
+        this.pool.query<{ c: string }>(
+          `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+          [roomId],
+        ),
+        this.computeResults(roomId),
+        this.getDeclined(roomId),
+      ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
     const room = roomRes.rows[0];
-
-    const datesRes = await this.pool.query<{ id: string; the_date: string }>(
-      `SELECT id::text, to_char(the_date, 'YYYY-MM-DD') AS the_date
-       FROM room_dates
-       WHERE room_id = $1 ORDER BY the_date ASC`,
-      [roomId],
-    );
-
-    const partCountRes = await this.pool.query<{ c: string }>(
-      `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
-      [roomId],
-    );
-
-    const results = await this.computeResults(roomId);
-    const declined = await this.getDeclined(roomId);
 
     const confirmedDateId =
       room.confirmed_date_id != null ? Number(room.confirmed_date_id) : null;
@@ -145,25 +147,28 @@ export class RoomsService {
     confirmedDate: string | null;
     confirmedAt: string | null;
   }> {
-    const roomRes = await this.pool.query<{
-      deadline: Date | null;
-      region: string | null;
-      confirmed_date_id: string | null;
-      confirmed_at: Date | null;
-    }>(
-      `SELECT deadline, region, confirmed_date_id::text, confirmed_at
-       FROM rooms WHERE id = $1`,
-      [roomId],
-    );
+    // 폴링·소켓 push 마다 불리는 가장 잦은 조회 — getDetail 과 같은 이유로 병렬.
+    const [roomRes, partCountRes, results, declined] = await Promise.all([
+      this.pool.query<{
+        deadline: Date | null;
+        region: string | null;
+        confirmed_date_id: string | null;
+        confirmed_at: Date | null;
+      }>(
+        `SELECT deadline, region, confirmed_date_id::text, confirmed_at
+         FROM rooms WHERE id = $1`,
+        [roomId],
+      ),
+      this.pool.query<{ c: string }>(
+        `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+        [roomId],
+      ),
+      this.computeResults(roomId),
+      this.getDeclined(roomId),
+    ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
-    const partCountRes = await this.pool.query<{ c: string }>(
-      `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
-      [roomId],
-    );
-    const results = await this.computeResults(roomId);
-    const declined = await this.getDeclined(roomId);
     const row = roomRes.rows[0];
     const confirmedDateId =
       row.confirmed_date_id != null ? Number(row.confirmed_date_id) : null;
