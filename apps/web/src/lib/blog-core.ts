@@ -12,11 +12,14 @@ import type {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATETIME_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
 const FRONTMATTER_FIELDS = new Set([
   'title',
   'date',
   'updated',
+  'publishAt',
   'description',
   'category',
   'tags',
@@ -118,6 +121,16 @@ function parseDate(value: unknown, field: string, slug: string): string {
   return date;
 }
 
+function parseDateTime(value: unknown, field: string, slug: string): string {
+  const dateTime = stringValue(value);
+  if (!DATETIME_RE.test(dateTime) || Number.isNaN(Date.parse(dateTime))) {
+    throw new Error(
+      `[blog:${slug}] ${field}는 시간대가 포함된 ISO 8601 형식이어야 합니다.`,
+    );
+  }
+  return dateTime;
+}
+
 function parseTags(value: unknown, slug: string): string[] {
   if (!Array.isArray(value) && typeof value !== 'string') {
     throw new Error(`[blog:${slug}] tags는 문자열 또는 문자열 배열이어야 합니다.`);
@@ -215,7 +228,7 @@ function renderMarkdown(
     if (depth === 2 || depth === 3) {
       toc.push({ id, title, level: depth });
     }
-    return `<h${depth} id="${escapeHtml(id)}">${content}<a class="heading-anchor" href="#${escapeHtml(id)}" aria-label="${escapeHtml(title)} 제목으로 이동"><span aria-hidden="true">#</span></a></h${depth}>`;
+    return `<h${depth} id="${escapeHtml(id)}">${content}<a class="heading-anchor" href="#${escapeHtml(id)}" aria-label="${escapeHtml(title)} 제목 링크 복사"><span aria-hidden="true">#</span></a></h${depth}>`;
   };
 
   renderer.code = function code({ text, lang }: Tokens.Code) {
@@ -290,6 +303,17 @@ function renderMarkdown(
             `[blog:${slug}] 본문 이미지에는 대체 텍스트가 필요합니다.`,
           );
         }
+        const src = attribs.src ?? '';
+        if (
+          !src.startsWith('/') ||
+          src.startsWith('//') ||
+          src.split('/').includes('..') ||
+          /[\s?#]/.test(src)
+        ) {
+          throw new Error(
+            `[blog:${slug}] 본문 이미지는 /로 시작하는 안전한 내부 경로여야 합니다.`,
+          );
+        }
         return {
           tagName,
           attribs: { ...attribs, loading: 'lazy', decoding: 'async' },
@@ -347,9 +371,17 @@ function parseMeta(
   if (updated && updated < date) {
     throw new Error(`[blog:${slug}] updated는 date보다 빠를 수 없습니다.`);
   }
+  const publishAt = hasOwn(data, 'publishAt')
+    ? parseDateTime(data.publishAt, 'publishAt', slug)
+    : undefined;
   const category = assertText(data.category, 'category', slug, 30);
   const tags = parseTags(data.tags, slug);
   const visibility = parseVisibility(data.visibility, slug);
+  if (visibility === 'private' && publishAt) {
+    throw new Error(
+      `[blog:${slug}] publishAt 예약 발행은 public 글에서만 사용할 수 있습니다.`,
+    );
+  }
   if (hasOwn(data, 'draft') && typeof data.draft !== 'boolean') {
     throw new Error(`[blog:${slug}] draft는 true 또는 false여야 합니다.`);
   }
@@ -387,6 +419,7 @@ function parseMeta(
     title,
     date,
     updated,
+    publishAt,
     description,
     category,
     tags,

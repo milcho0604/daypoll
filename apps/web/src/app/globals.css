@@ -255,6 +255,29 @@ html {
   font-size: 0.85rem;
   line-height: 1.6;
 }
+.blog-prose .code-copy-button {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  min-width: 3.25rem;
+  height: 2rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #52525b;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+.blog-prose .code-copy-button:hover {
+  background: #ffffff;
+  color: #18181b;
+}
+.blog-prose .code-copy-button:focus-visible {
+  outline: 2px solid #71717a;
+  outline-offset: 2px;
+}
 .blog-prose pre[data-language]:not([data-language="plaintext"])::before {
   content: attr(data-language);
   display: block;
@@ -358,6 +381,15 @@ html {
   .blog-prose pre {
     background: #18181b; /* zinc-900 */
     color: #e4e4e7;
+  }
+  .blog-prose .code-copy-button {
+    border-color: #3f3f46;
+    background: rgba(39, 39, 42, 0.9);
+    color: #d4d4d8;
+  }
+  .blog-prose .code-copy-button:hover {
+    background: #3f3f46;
+    color: #fafafa;
   }
   .blog-prose .hljs-keyword,
   .blog-prose .hljs-selector-tag,

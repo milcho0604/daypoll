@@ -30,6 +30,13 @@ export class AdminController {
     private readonly analytics: AnalyticsService,
   ) {}
 
+  // 어드민 토큰 유효성만 가볍게 확인한다. 프론트 서버가 관리자 전용
+  // 콘텐츠를 내리기 전에 DB 조회 없이 동일한 AdminGuard를 재사용한다.
+  @Get('auth')
+  auth() {
+    return { ok: true };
+  }
+
   // 방문 집계 (이용 고객 = 방 참여자 외, 그냥 접속한 방문까지)
   @Get('visits')
   visits() {

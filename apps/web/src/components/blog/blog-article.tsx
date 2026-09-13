@@ -1,5 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import BlogReadingTools from './blog-reading-tools';
+import BlogTableOfContents from './blog-table-of-contents';
 import ShareActions from './share-actions';
 import type { AdjacentPosts, BlogPost, PostMeta } from '@/lib/blog-types';
 
@@ -16,22 +18,36 @@ export default function BlogArticle({
   related = [],
   adjacent = { newer: null, older: null },
   privateMode = false,
+  onAdminLogout,
 }: {
   post: BlogPost;
   related?: PostMeta[];
   adjacent?: AdjacentPosts;
   privateMode?: boolean;
+  onAdminLogout?: () => void;
 }) {
   const { meta } = post;
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 [overflow-wrap:anywhere] sm:pt-12 sm:pb-20">
+      <BlogReadingTools slug={meta.slug} trackEvents={!privateMode} />
       <header className="mb-8">
-        <Link
-          href="/blog"
-          className="press inline-flex h-9 items-center rounded-full text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-        >
-          ← 블로그
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/blog"
+            className="press inline-flex h-9 items-center rounded-full text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            ← 블로그
+          </Link>
+          {privateMode && onAdminLogout && (
+            <button
+              type="button"
+              onClick={onAdminLogout}
+              className="press inline-flex h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              관리자 로그아웃
+            </button>
+          )}
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             {meta.category}
@@ -93,44 +109,11 @@ export default function BlogArticle({
       )}
 
       {post.toc.length >= 2 && (
-        <nav
-          aria-label="글 목차"
-          className="mb-8 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <details open className="group">
-            <summary className="press -m-2 flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-2 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-500 dark:hover:bg-zinc-800/70 [&::-webkit-details-marker]:hidden">
-              <h2 className="text-sm font-semibold">이 글에서 다루는 내용</h2>
-              <span
-                aria-hidden="true"
-                className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400"
-              >
-                <span className="group-open:hidden">펼치기</span>
-                <span className="hidden group-open:inline">접기</span>
-                <span className="inline-block transition-transform group-open:rotate-180 motion-reduce:transition-none">
-                  ▾
-                </span>
-              </span>
-            </summary>
-            <ol className="mt-5 hidden flex-col gap-2 text-sm text-zinc-600 group-open:flex dark:text-zinc-400">
-              {post.toc.map((item) => (
-                <li
-                  key={item.id}
-                  className={item.level === 3 ? 'pl-4' : ''}
-                >
-                  <a
-                    href={`#${item.id}`}
-                    className="hover:text-zinc-900 hover:underline hover:underline-offset-2 dark:hover:text-zinc-100"
-                  >
-                    {item.title}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </details>
-        </nav>
+        <BlogTableOfContents toc={post.toc} trackEvents={!privateMode} />
       )}
 
       <article
+        data-blog-article={meta.slug}
         className="blog-prose"
         dangerouslySetInnerHTML={{ __html: post.html }}
       />
@@ -138,7 +121,7 @@ export default function BlogArticle({
       {!privateMode && (
         <section className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
           <p className="text-sm font-medium">도움이 됐다면 같이 나눠주세요.</p>
-          <ShareActions title={meta.title} />
+          <ShareActions title={meta.title} slug={meta.slug} />
         </section>
       )}
 
