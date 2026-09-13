@@ -1,8 +1,12 @@
 name: Certificate expiry check
 
 # 매일 점심 무렵에 TLS / Tailscale auth key 만료일 점검.
-# 30일 이내면 GitHub Issue 자동 생성/갱신 → GitHub 알림으로 이메일/모바일 푸시.
-# 7일 이내면 더 강한 메시지.
+#
+# 두 가지 이슈를 유지한다:
+#  1) 현황 이슈 (label: cert-status) — 항상 1개 열어두고 매일 만료일·D-day 를 갱신.
+#     "우리 인증서 언제 만료되지?" 를 이슈 하나 열어 바로 볼 수 있게. 닫지 않는다.
+#  2) 알림 이슈 (label: auto-alert) — 30일 이내면 생성/갱신, 7일 이내면 더 강한 메시지.
+#     조치 후 사람이 close 하거나, 모두 30일 이상으로 돌아오면 자동 close.
 #
 # 사용자가 캘린더에 직접 메모할 필요 없음 — 시스템이 알아서 알려준다.
 
@@ -17,56 +21,136 @@ jobs:
     permissions:
       issues: write
     env:
-      # Cloudflare Universal SSL 이 자동 갱신 — 따로 손볼 일은 없지만
-      # 만료 임박 시 알림이 오면 cloudflared 데몬 / DNS 상태 확인용 트리거.
       # TS_AUTHKEY 는 deploy.yml 의 ssh 우회(ephemeral Tailnet 노드) 용으로만 유지.
       TS_AUTHKEY_EXPIRY: '2026-12-05'
+      # api: Cloudflare Universal SSL 자동 갱신 (Google Trust Services 발급).
+      # web: Vercel 이 Let's Encrypt 로 자동 갱신. 둘 다 손볼 일은 없지만
+      # 갱신이 멈추면 그날로 서비스가 죽으니 만료일을 같이 본다.
       BACKEND_HOST: 'api.moilga.com'
+      WEB_HOST: 'moilga.com'
 
     steps:
-      - name: Check TLS certificate
+      - name: Check TLS certificate (api)
         id: tls
+        env:
+          HOST: ${{ env.BACKEND_HOST }}
         run: |
-          EXPIRY=$(echo | openssl s_client -servername "$BACKEND_HOST" -connect "$BACKEND_HOST:443" 2>/dev/null \
+          EXPIRY=$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null \
             | openssl x509 -noout -enddate | cut -d= -f2)
           EXPIRY_ISO=$(date -d "$EXPIRY" -u +%Y-%m-%d)
-          EXPIRY_TS=$(date -d "$EXPIRY" +%s)
-          NOW_TS=$(date +%s)
-          DAYS=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          DAYS=$(( ($(date -d "$EXPIRY" +%s) - $(date +%s)) / 86400 ))
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
           echo "expiry=$EXPIRY_ISO" >> "$GITHUB_OUTPUT"
-          echo "TLS expires $EXPIRY_ISO — D-$DAYS"
+          echo "$HOST TLS expires $EXPIRY_ISO — D-$DAYS"
+
+      - name: Check TLS certificate (web)
+        id: web
+        env:
+          HOST: ${{ env.WEB_HOST }}
+        run: |
+          EXPIRY=$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null \
+            | openssl x509 -noout -enddate | cut -d= -f2)
+          EXPIRY_ISO=$(date -d "$EXPIRY" -u +%Y-%m-%d)
+          DAYS=$(( ($(date -d "$EXPIRY" +%s) - $(date +%s)) / 86400 ))
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
+          echo "expiry=$EXPIRY_ISO" >> "$GITHUB_OUTPUT"
+          echo "$HOST TLS expires $EXPIRY_ISO — D-$DAYS"
 
       - name: Check Tailscale auth key
         id: ts
         run: |
-          EXPIRY_TS=$(date -d "$TS_AUTHKEY_EXPIRY" +%s)
-          NOW_TS=$(date +%s)
-          DAYS=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          DAYS=$(( ($(date -d "$TS_AUTHKEY_EXPIRY" +%s) - $(date +%s)) / 86400 ))
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
           echo "expiry=$TS_AUTHKEY_EXPIRY" >> "$GITHUB_OUTPUT"
           echo "TS_AUTHKEY expires $TS_AUTHKEY_EXPIRY — D-$DAYS"
 
-      - name: Open or update alert issue
-        if: steps.tls.outputs.days < 30 || steps.ts.outputs.days < 30
+      # 항상 실행 — 만료 여부와 무관하게 "지금 언제 만료되는지" 를 이슈 한 곳에 남긴다.
+      - name: Upsert status issue
         uses: actions/github-script@v7
         env:
           TLS_DAYS: ${{ steps.tls.outputs.days }}
           TLS_EXPIRY: ${{ steps.tls.outputs.expiry }}
+          WEB_DAYS: ${{ steps.web.outputs.days }}
+          WEB_EXPIRY: ${{ steps.web.outputs.expiry }}
+          TS_DAYS: ${{ steps.ts.outputs.days }}
+          TS_EXPIRY: ${{ steps.ts.outputs.expiry }}
+        with:
+          script: |
+            const rows = [
+              { name: `TLS \`${process.env.BACKEND_HOST}\``, expiry: process.env.TLS_EXPIRY, days: parseInt(process.env.TLS_DAYS, 10), how: 'Cloudflare Universal SSL 자동 갱신' },
+              { name: `TLS \`${process.env.WEB_HOST}\``, expiry: process.env.WEB_EXPIRY, days: parseInt(process.env.WEB_DAYS, 10), how: 'Vercel(Let\'s Encrypt) 자동 갱신' },
+              { name: 'TS_AUTHKEY (deploy)', expiry: process.env.TS_EXPIRY, days: parseInt(process.env.TS_DAYS, 10), how: '수동 — Tailscale 새 키 발급 → `gh secret set TS_AUTHKEY` → `cert-check.yml` 의 `TS_AUTHKEY_EXPIRY` 갱신' },
+            ];
+            const light = (d) => (d < 7 ? '🔴' : d < 30 ? '🟡' : '🟢');
+            const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+
+            const body = [
+              '## 인증서 / 키 만료 현황',
+              '',
+              '| 항목 | 만료일 | 남은 날 | 갱신 방법 |',
+              '|---|---|---|---|',
+              ...rows.map((r) => `| ${r.name} | ${r.expiry} | ${light(r.days)} D-${r.days} | ${r.how} |`),
+              '',
+              '🟢 30일 이상 · 🟡 30일 이내 · 🔴 7일 이내',
+              '',
+              `> 매일 11:00 KST \`cert-check.yml\` 이 이 이슈를 갱신해요 (마지막 점검 ${kst} KST).`,
+              '> 30일 이내로 들어오면 별도 \`auto-alert\` 이슈가 열리고 GitHub 알림이 가요.',
+              '> **이 이슈는 닫지 마세요** — 닫으면 다음 점검 때 새로 만들어져요.',
+            ].join('\n');
+            const title = '📋 인증서/키 만료 현황';
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'cert-status',
+              state: 'open',
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                title,
+                body,
+              });
+              console.log(`Updated status issue #${issues[0].number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['cert-status'],
+              });
+              console.log(`Created status issue #${created.data.number}`);
+            }
+
+      - name: Open or update alert issue
+        if: steps.tls.outputs.days < 30 || steps.web.outputs.days < 30 || steps.ts.outputs.days < 30
+        uses: actions/github-script@v7
+        env:
+          TLS_DAYS: ${{ steps.tls.outputs.days }}
+          TLS_EXPIRY: ${{ steps.tls.outputs.expiry }}
+          WEB_DAYS: ${{ steps.web.outputs.days }}
+          WEB_EXPIRY: ${{ steps.web.outputs.expiry }}
           TS_DAYS: ${{ steps.ts.outputs.days }}
           TS_EXPIRY: ${{ steps.ts.outputs.expiry }}
         with:
           script: |
             const tlsDays = parseInt(process.env.TLS_DAYS, 10);
+            const webDays = parseInt(process.env.WEB_DAYS, 10);
             const tsDays = parseInt(process.env.TS_DAYS, 10);
-            const urgent = tlsDays < 7 || tsDays < 7;
+            const urgent = tlsDays < 7 || webDays < 7 || tsDays < 7;
 
             const lines = [];
             if (tlsDays < 30) {
-              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Cloudflare Universal SSL 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST || 'api.moilga.com'}/health\` 한 번. 안 갱신되면 Cloudflare 대시보드 → SSL/TLS → Edge Certificates 확인.`);
+              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서 (${process.env.BACKEND_HOST})**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Cloudflare Universal SSL 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST}/health\` 한 번. 안 갱신되면 Cloudflare 대시보드 → SSL/TLS → Edge Certificates 확인.`);
+            }
+            if (webDays < 30) {
+              lines.push(`- ${webDays < 7 ? '🔴' : '🟡'} **TLS 인증서 (${process.env.WEB_HOST})**: D-${webDays} (만료 ${process.env.WEB_EXPIRY}). Vercel 이 Let's Encrypt 로 자동 갱신. 안 갱신되면 Vercel 대시보드 → 프로젝트 moilga → Settings → Domains 에서 인증서 상태 확인 (DNS 가 Cloudflare 를 거치면 프록시(주황 구름) 가 꺼져 있어야 갱신됨).`);
             }
             if (tsDays < 30) {
-              lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: D-${tsDays} (만료 ${process.env.TS_EXPIRY}). https://login.tailscale.com/admin/settings/keys 새 키 발급 → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
+              lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: D-${tsDays} (만료 ${process.env.TS_EXPIRY}). https://login.tailscale.com/admin/settings/keys 새 키 발급 (Reusable + Ephemeral) → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
             }
 
             const title = urgent ? '🔴 인증서/키 만료 임박 (D-7 이내)' : '🟡 인증서/키 만료 임박 (D-30 이내)';
@@ -108,7 +192,7 @@ jobs:
             }
 
       - name: Close alert if everything is healthy
-        if: steps.tls.outputs.days >= 30 && steps.ts.outputs.days >= 30
+        if: steps.tls.outputs.days >= 30 && steps.web.outputs.days >= 30 && steps.ts.outputs.days >= 30
         uses: actions/github-script@v7
         with:
           script: |
