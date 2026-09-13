@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { REGIONS, type RegionCode } from '@whenever/shared';
 import { ApiError } from '@/lib/api';
 import { createRoom } from '@/lib/rooms';
@@ -16,12 +16,13 @@ function isoToLocalInput(d: Date) {
 
 const MAX_DATES = 60;
 
+// [0] 은 SSR 이 그리는 고정 힌트 — 나머지는 마운트 후 랜덤으로 갈아끼운다.
 const TITLE_HINTS = [
-  '5월 동기 모임',
-  '주말 등산 ⛰️',
   '팀 회식',
+  '주말 등산 ⛰️',
   '대학 친구들',
   '엄마 생신',
+  '동기 모임',
 ];
 
 const DEADLINE_PRESETS = [
@@ -38,7 +39,14 @@ export default function CreateRoomForm() {
   const [useDeadline, setUseDeadline] = useState(false);
   const [deadline, setDeadline] = useState<string>('');
   const [region, setRegion] = useState<string>('');
-  const [titleHint] = useState(() => TITLE_HINTS[Math.floor(Math.random() * TITLE_HINTS.length)]);
+  // 렌더 중에 랜덤을 뽑으면 서버 HTML 과 클라이언트가 다른 힌트를 그려 hydration mismatch 가 난다.
+  // SSR 은 항상 [0] 을 그리고, 마운트된 뒤에만 랜덤으로 바꾼다.
+  const [titleHint, setTitleHint] = useState(TITLE_HINTS[0]);
+  useEffect(() => {
+    // 마운트 1회뿐이고 placeholder 문구만 바꿔서 cascading render 비용이 없다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTitleHint(TITLE_HINTS[Math.floor(Math.random() * TITLE_HINTS.length)]);
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

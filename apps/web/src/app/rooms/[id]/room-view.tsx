@@ -34,6 +34,7 @@ import WeatherStrip from '@/components/room/weather-strip';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
+const JOIN_PREVIEW = 6; // 입장 전 후보 날짜 칩 — 모바일에서 2줄
 
 type Me = {
   participantId: number;
@@ -289,6 +290,16 @@ export default function RoomView({
     () => sortedResults.filter((r) => r.votes > 0),
     [sortedResults],
   );
+
+  // 입장 폼에 보여줄 후보 날짜 (날짜순). 너무 길면 칩이 카드를 잡아먹어서 앞쪽만.
+  const joinPreviewDates = useMemo(
+    () =>
+      [...room.dates]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, JOIN_PREVIEW),
+    [room.dates],
+  );
+  const joinPreviewHidden = room.dates.length - joinPreviewDates.length;
 
   // 사람별 뷰 — 참여자 → 그 사람이 가능 표시한 날짜들 (날짜별의 역집계).
   const byPerson = useMemo(() => {
@@ -930,6 +941,28 @@ export default function RoomView({
             <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
           </div>
         </section>
+      ) : !clientToken && isLocked ? (
+        /* 마감·확정된 방에 뒤늦게 들어온 친구.
+           백엔드 join() 엔 마감 가드가 없어 입장 자체는 되지만 투표는 423 으로 막힌다.
+           그래서 닉네임부터 받으면 "골라주세요" 라고 해놓고 못 고르게 하는 꼴이 된다.
+           위 확정/마감 카드와 아래 순위가 이미 결과를 말해주므로 입장 폼은 걷어낸다. */
+        <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-base font-semibold">
+            {isConfirmed ? '날짜가 확정된 모임이에요' : '투표가 마감된 모임이에요'}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            {isConfirmed
+              ? '투표는 끝났어요. 확정된 날짜는 위에서 볼 수 있어요.'
+              : '투표는 끝났어요. 결과는 아래에서 볼 수 있어요.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowRecover(true)}
+            className="press mt-3 text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            전에 다른 폰에서 투표했어요
+          </button>
+        </section>
       ) : !clientToken ? (
         <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-base font-semibold">반가워요 👋</h2>
@@ -951,6 +984,29 @@ export default function RoomView({
               <span aria-hidden>✨</span>
               이미 {room.participantCount}명이 답했어요
             </p>
+          )}
+          {/* 입장 전 후보 날짜 미리보기 — 뭘 고르는 모임인지 모르는 채로
+              닉네임부터 적게 하면 이탈한다. 아무도 아직 투표 안 한 방에선
+              아래 '실시간 순위'가 비어 있어 여기가 유일한 단서다. */}
+          {joinPreviewDates.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-zinc-500">이 날짜들 중에 골라요</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {joinPreviewDates.map((d) => (
+                  <span
+                    key={d.id}
+                    className="inline-flex h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                  >
+                    {formatDateKR(d.date)}
+                  </span>
+                ))}
+                {joinPreviewHidden > 0 && (
+                  <span className="inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                    외 {joinPreviewHidden}일
+                  </span>
+                )}
+              </div>
+            </div>
           )}
           <form onSubmit={onJoin} className="mt-4 flex flex-col gap-3">
             <input
