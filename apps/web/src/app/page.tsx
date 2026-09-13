@@ -7,6 +7,10 @@ import { getActiveNotice } from '@/lib/notice';
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 
+// 홈은 공지 1건 말고는 전부 정적 — 60초 ISR 로 엣지 캐시에 태운다.
+// (공지 fetch 도 같은 주기로 캐시: lib/notice.ts)
+export const revalidate = 60;
+
 // 검색 엔진(특히 구글)이 리치 카드를 그리도록 — WebApplication + 한국어 별명.
 const JSON_LD = {
   '@context': 'https://schema.org',

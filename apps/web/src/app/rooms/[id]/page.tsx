@@ -10,6 +10,14 @@ import RoomView from './room-view';
 // 표/마감 같은 실시간 값은 클라이언트에서 소켓 + 폴링으로 즉시 동기화된다.
 export const revalidate = 30;
 
+// 동적 세그먼트에 generateStaticParams 가 없으면 Next 는 revalidate 를 무시하고
+// 라우트를 완전 동적(no-store)으로 만든다 — 실측: 매 요청 iad1 SSR + API 왕복.
+// 빈 목록을 돌려주면 "빌드 땐 아무것도 안 만들고, 첫 요청에 생성해 30초 캐시"
+// (on-demand ISR) 가 된다. 방 id 는 미리 알 수 없으니 이게 맞는 모드다.
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: {
