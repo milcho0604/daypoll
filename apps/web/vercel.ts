@@ -19,6 +19,13 @@ routes.route(
     requestHeaders: { 'x-proxy-probe': 'set-by-vercel-rewrite' },
   }),
 );
+// 실제 설계와 같은 패턴 — 메서드/본문/상태코드/다운로드 헤더/쿼리스트링 통과 확인용.
+// 비밀 헤더 대신 리터럴을 심어 transform 이 경로 캡처($1)와 같이 동작하는지 본다.
+routes.route(
+  routes.rewrite('/_api/(.*)', 'https://api.moilga.com/$1', {
+    requestHeaders: { 'x-proxy-secret': 'probe-literal-not-a-secret' },
+  }),
+);
 
 export const config: VercelConfig = {
   regions: ['icn1'],
