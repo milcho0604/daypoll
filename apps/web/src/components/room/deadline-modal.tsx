@@ -10,6 +10,7 @@ export default function DeadlineModal({
   current,
   currentRegion,
   regionError,
+  error,
   isLocked,
   onClose,
   onSave,
@@ -20,6 +21,8 @@ export default function DeadlineModal({
   current: string | null;
   currentRegion: RegionCode | null;
   regionError?: string | null;
+  // 마감 저장/즉시 종료 실패 — 페이지 에러 박스는 이 오버레이 뒤라 여기서 보여준다
+  error?: string | null;
   isLocked: boolean;
   onClose: () => void;
   onSave: (value: string | null) => void;
@@ -117,6 +120,15 @@ export default function DeadlineModal({
             </p>
           )}
         </div>
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex gap-2">
           <button

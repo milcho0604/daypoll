@@ -12,6 +12,7 @@ export default function ConfirmModal({
   cancelLabel = '취소',
   danger = false,
   busy = false,
+  error = null,
   onConfirm,
   onCancel,
 }: {
@@ -22,6 +23,8 @@ export default function ConfirmModal({
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  // 실패 안내는 모달 안에 — 페이지의 에러 박스는 이 오버레이(z-50) 뒤에 가려진다
+  error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -61,6 +64,14 @@ export default function ConfirmModal({
         {message && (
           <p className="mt-2 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-400">
             {message}
+          </p>
+        )}
+        {error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            {error}
           </p>
         )}
         <div className="mt-5 flex gap-2">
