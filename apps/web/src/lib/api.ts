@@ -56,19 +56,37 @@ export async function probeHealth(timeoutMs = 5000): Promise<boolean> {
   }
 }
 
+// fetch 캐시 옵션은 서버/브라우저가 다르다.
+// - 서버(Next SSR/ISR): `next.revalidate` 또는 `cache: 'no-store'` 로 Next 데이터 캐시를 제어.
+// - 브라우저: `cache: 'no-store' | 'no-cache'` 를 주면 Chromium 이 HTTP 캐시뿐 아니라
+//   **CORS preflight 캐시까지 건너뛰어** 호출마다 OPTIONS 왕복이 생긴다 (CDP 실측).
+//   응답 캐시 금지는 API 가 `Cache-Control: no-store` 로 보장하므로 여기선 기본 모드.
+//   호출자가 명시적으로 cache 를 준 경우(헬스 프로브)만 그대로 넘긴다.
+function cacheOptions(opts: ApiOptions): RequestInit & { next?: { revalidate: number } } {
+  if (typeof window === 'undefined') {
+    return opts.revalidate != null
+      ? { next: { revalidate: opts.revalidate } }
+      : { cache: opts.cache ?? 'no-store' };
+  }
+  return opts.cache ? { cache: opts.cache } : {};
+}
+
 export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   let res: Response;
   try {
+    // Content-Type 은 본문이 있을 때만. GET 에까지 application/json 을 붙이면
+    // "simple request" 조건이 깨져 브라우저가 매 GET 앞에 OPTIONS(preflight)를
+    // 보낸다 — 결과 폴링·날씨·헬스 전부 왕복 2배였다 (CDP 로 실측).
+    // x-client-token 이 붙는 요청은 여전히 preflight 되지만, API 쪽
+    // Access-Control-Max-Age 로 10분에 한 번으로 줄인다.
     res = await fetch(`${BASE_URL}${path}`, {
       method: opts.method ?? 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        ...(opts.body != null ? { 'Content-Type': 'application/json' } : {}),
         ...(opts.headers ?? {}),
       },
       body: opts.body != null ? JSON.stringify(opts.body) : undefined,
-      ...(opts.revalidate != null
-        ? { next: { revalidate: opts.revalidate } }
-        : { cache: opts.cache ?? 'no-store' }),
+      ...cacheOptions(opts),
       signal: opts.signal,
     });
   } catch (err) {

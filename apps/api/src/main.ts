@@ -17,14 +17,40 @@ async function bootstrap() {
   // 이 설정이 있어야 express 의 req.ip 가 X-Forwarded-For 를 정확히 파싱한다.
   const expressInstance = app.getHttpAdapter().getInstance() as {
     set: (k: string, v: unknown) => void;
+    use: (
+      handler: (
+        req: unknown,
+        res: { setHeader: (k: string, v: string) => void },
+        next: () => void,
+      ) => void,
+    ) => void;
   };
   expressInstance.set('trust proxy', 'loopback');
+
+  // 모든 응답 no-store — 방/표/내 정보는 실시간 값이라 어떤 캐시에도 남으면 안 된다.
+  // 웹 쪽 fetch 가 `cache: 'no-store'` 로 이걸 대신하고 있었는데, 그 옵션은
+  // Chromium 에서 CORS preflight 캐시까지 무시하게 만들어 호출마다 OPTIONS 가
+  // 붙었다. 캐시 금지는 서버 헤더로 옮기고 fetch 는 기본 캐시 모드를 쓴다.
+  expressInstance.use(
+    (
+      _req: unknown,
+      res: { setHeader: (k: string, v: string) => void },
+      next: () => void,
+    ) => {
+      res.setHeader('Cache-Control', 'no-store');
+      next();
+    },
+  );
 
   const corsOrigin =
     config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000';
   app.enableCors({
     origin: corsOrigin.split(',').map((s) => s.trim()),
     credentials: true,
+    // preflight(OPTIONS) 결과를 브라우저가 10분 캐시. 없으면 Chrome 기본 5초라
+    // x-client-token 이 붙는 호출(내 표·투표 저장)마다 OPTIONS 왕복이 반복됐다.
+    // 해외 POP 을 도는 회선(HKG/LAX)에선 왕복 하나가 150~800ms 라 체감이 크다.
+    maxAge: 600,
   });
 
   app.useGlobalPipes(

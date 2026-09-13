@@ -429,6 +429,15 @@ export default function RoomView({
       if (seq !== saveSeqRef.current) return;
       dirtyRef.current = false;
       setSaveState('saved');
+    } catch (err) {
+      if (seq !== saveSeqRef.current) return; // 이미 새 저장이 예약됨
+      setSaveState('error');
+      setError(extractMsg(err));
+      return;
+    }
+    // 저장은 이미 끝났다. 이 뒤의 결과 동기화가 실패해도 "저장 실패" 로 바꾸면
+    // 안 된다 — 표는 서버에 있고, 다음 폴링/소켓 push 가 순위를 맞춘다.
+    try {
       const res = await getResults(roomId);
       if (seq !== saveSeqRef.current) return;
       setRoom((prev) => ({
@@ -438,10 +447,8 @@ export default function RoomView({
         deadline: res.deadline,
         declined: res.declined,
       }));
-    } catch (err) {
-      if (seq !== saveSeqRef.current) return; // 이미 새 저장이 예약됨
-      setSaveState('error');
-      setError(extractMsg(err));
+    } catch {
+      /* 동기화 실패는 조용히 — 낙관적 표시가 이미 맞는 값이다 */
     }
   }
 

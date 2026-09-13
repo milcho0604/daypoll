@@ -31,11 +31,15 @@ async function adminFetch<T>(
 ): Promise<T> {
   const token = getAdminToken();
   if (!token) throw new ApiError(401, 'no token');
+  // cache: 'no-store' 를 주면 Chromium 이 CORS preflight 캐시도 건너뛰어 호출마다
+  // OPTIONS 가 붙는다. 응답 캐시 금지는 API 의 Cache-Control: no-store 가 보장.
   const res = await fetch(`${apiBaseUrl}${path}`, {
     method: init.method ?? 'GET',
-    headers: { 'Content-Type': 'application/json', [HEADER]: token },
+    headers: {
+      ...(init.body != null ? { 'Content-Type': 'application/json' } : {}),
+      [HEADER]: token,
+    },
     body: init.body != null ? JSON.stringify(init.body) : undefined,
-    cache: 'no-store',
   });
   if (!res.ok) {
     let payload: unknown = null;
@@ -221,7 +225,6 @@ export async function adminDownloadCsv(path: string, filename: string) {
   if (!token) throw new ApiError(401, 'no token');
   const res = await fetch(`${apiBaseUrl}${path}`, {
     headers: { [HEADER]: token },
-    cache: 'no-store',
   });
   if (!res.ok) throw new ApiError(res.status, await res.text());
   const blob = await res.blob();
