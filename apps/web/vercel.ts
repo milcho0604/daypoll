@@ -8,13 +8,19 @@ import { routes, type VercelConfig } from '@vercel/config/v1';
 //                       requestHeaders 로 심은 값이 실제로 붙는지.
 //  - /_probe/health  → Vercel 엣지 → API 왕복 시간.
 // 실측 후 프로브는 제거한다.
+//
+// @vercel/config 0.7: routes.rewrite() 는 객체만 돌려주고 등록하지 않는다. transforms 가 붙는
+// rewrite 는 `rewrites` 가 아니라 `routes` 로 내려가야 하므로 route() 로 등록하고 getConfig() 로 변환.
+// route() 의 src 는 정규식 — 프로브 경로만 정확히 잠근다.
+routes.route({ src: '^/_probe/trace$', dest: 'https://api.moilga.com/cdn-cgi/trace' });
+routes.route({ src: '^/_probe/health$', dest: 'https://api.moilga.com/health' });
+routes.route(
+  routes.rewrite('/_probe/headers', 'https://httpbin.org/headers', {
+    requestHeaders: { 'x-proxy-probe': 'set-by-vercel-rewrite' },
+  }),
+);
+
 export const config: VercelConfig = {
   regions: ['icn1'],
-  rewrites: [
-    routes.rewrite('/_probe/trace', 'https://api.moilga.com/cdn-cgi/trace'),
-    routes.rewrite('/_probe/health', 'https://api.moilga.com/health'),
-    routes.rewrite('/_probe/headers', 'https://httpbin.org/headers', {
-      requestHeaders: { 'x-proxy-probe': 'set-by-vercel-rewrite' },
-    }),
-  ],
+  ...routes.getConfig(),
 };
