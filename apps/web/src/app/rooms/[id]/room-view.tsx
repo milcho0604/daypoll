@@ -941,6 +941,28 @@ export default function RoomView({
             <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
           </div>
         </section>
+      ) : !clientToken && isLocked ? (
+        /* 마감·확정된 방에 뒤늦게 들어온 친구.
+           백엔드 join() 엔 마감 가드가 없어 입장 자체는 되지만 투표는 423 으로 막힌다.
+           그래서 닉네임부터 받으면 "골라주세요" 라고 해놓고 못 고르게 하는 꼴이 된다.
+           위 확정/마감 카드와 아래 순위가 이미 결과를 말해주므로 입장 폼은 걷어낸다. */
+        <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-base font-semibold">
+            {isConfirmed ? '날짜가 확정된 모임이에요' : '투표가 마감된 모임이에요'}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            {isConfirmed
+              ? '투표는 끝났어요. 확정된 날짜는 위에서 볼 수 있어요.'
+              : '투표는 끝났어요. 결과는 아래에서 볼 수 있어요.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowRecover(true)}
+            className="press mt-3 text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            전에 다른 폰에서 투표했어요
+          </button>
+        </section>
       ) : !clientToken ? (
         <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-base font-semibold">반가워요 👋</h2>
