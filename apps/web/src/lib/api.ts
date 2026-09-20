@@ -97,11 +97,17 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   // HTTP 응답을 받았다는 것 자체가 도달 성공. 단 게이트웨이 계열은 백엔드 다운.
   notifyServerReachable(!UNREACHABLE_STATUSES.has(res.status));
   if (!res.ok) {
-    let payload: unknown = null;
+    // 본문은 딱 한 번만 읽는다. res.json() 이 실패한 뒤 res.text() 를 부르면
+    // 스트림이 이미 소비돼 "Body is unusable" TypeError 가 나고, 그게 ApiError
+    // 대신 밖으로 새어 호출부의 `err instanceof ApiError` 판정을 통째로 무너뜨린다.
+    // 백엔드가 Cloudflare Tunnel 뒤에 있어 터널이 끊기면 502/530 에 JSON 이 아닌
+    // HTML 이 오는데, 그게 정확히 이 경로였다.
+    const raw = await res.text().catch(() => '');
+    let payload: unknown = raw;
     try {
-      payload = await res.json();
+      payload = raw ? JSON.parse(raw) : null;
     } catch {
-      payload = await res.text();
+      // JSON 이 아니면 텍스트 그대로 둔다
     }
     throw new ApiError(res.status, payload);
   }
