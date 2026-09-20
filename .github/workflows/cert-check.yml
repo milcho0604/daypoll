@@ -27,7 +27,10 @@ jobs:
       # web: Vercel 이 Let's Encrypt 로 자동 갱신. 둘 다 손볼 일은 없지만
       # 갱신이 멈추면 그날로 서비스가 죽으니 만료일을 같이 본다.
       BACKEND_HOST: 'api.moilga.com'
-      WEB_HOST: 'moilga.com'
+      # web 은 호스트마다 인증서가 따로다. apex 하나만 보다가 www 인증서가 만료된
+      # 채로 2주를 방치한 적이 있다 (2026-09-06 만료 → 09-20 발견). 공백으로 구분해
+      # 여기에 추가하면 현황 표와 알림에 자동으로 따라온다.
+      WEB_HOSTS: 'moilga.com www.moilga.com milcho.moilga.com'
 
     steps:
       - name: Check TLS certificate (api)
@@ -43,18 +46,30 @@ jobs:
           echo "expiry=$EXPIRY_ISO" >> "$GITHUB_OUTPUT"
           echo "$HOST TLS expires $EXPIRY_ISO — D-$DAYS"
 
-      - name: Check TLS certificate (web)
+      - name: Check TLS certificates (web)
         id: web
         env:
-          HOST: ${{ env.WEB_HOST }}
+          HOSTS: ${{ env.WEB_HOSTS }}
         run: |
-          EXPIRY=$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null \
-            | openssl x509 -noout -enddate | cut -d= -f2)
-          EXPIRY_ISO=$(date -d "$EXPIRY" -u +%Y-%m-%d)
-          DAYS=$(( ($(date -d "$EXPIRY" +%s) - $(date +%s)) / 86400 ))
-          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
-          echo "expiry=$EXPIRY_ISO" >> "$GITHUB_OUTPUT"
-          echo "$HOST TLS expires $EXPIRY_ISO — D-$DAYS"
+          RESULTS='[]'
+          MIN=99999
+          for HOST in $HOSTS; do
+            EXPIRY=$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null \
+              | openssl x509 -noout -enddate | cut -d= -f2)
+            if [ -z "$EXPIRY" ]; then
+              # 인증서를 아예 못 읽으면 (연결 실패·핸드셰이크 거부) 조용히 넘기지 않는다.
+              EXPIRY_ISO='읽기 실패'
+              DAYS=0
+            else
+              EXPIRY_ISO=$(date -d "$EXPIRY" -u +%Y-%m-%d)
+              DAYS=$(( ($(date -d "$EXPIRY" +%s) - $(date +%s)) / 86400 ))
+            fi
+            if [ "$DAYS" -lt "$MIN" ]; then MIN=$DAYS; fi
+            RESULTS=$(printf '%s' "$RESULTS" | jq -c --arg h "$HOST" --arg e "$EXPIRY_ISO" --argjson d "$DAYS" '. + [{host: $h, expiry: $e, days: $d}]')
+            echo "$HOST TLS expires $EXPIRY_ISO — D-$DAYS"
+          done
+          echo "hosts=$RESULTS" >> "$GITHUB_OUTPUT"
+          echo "min_days=$MIN" >> "$GITHUB_OUTPUT"
 
       - name: Check Tailscale auth key
         id: ts
@@ -70,18 +85,20 @@ jobs:
         env:
           TLS_DAYS: ${{ steps.tls.outputs.days }}
           TLS_EXPIRY: ${{ steps.tls.outputs.expiry }}
-          WEB_DAYS: ${{ steps.web.outputs.days }}
-          WEB_EXPIRY: ${{ steps.web.outputs.expiry }}
+          WEB_HOSTS_JSON: ${{ steps.web.outputs.hosts }}
           TS_DAYS: ${{ steps.ts.outputs.days }}
           TS_EXPIRY: ${{ steps.ts.outputs.expiry }}
         with:
           script: |
+            const webHosts = JSON.parse(process.env.WEB_HOSTS_JSON);
             const rows = [
               { name: `TLS \`${process.env.BACKEND_HOST}\``, expiry: process.env.TLS_EXPIRY, days: parseInt(process.env.TLS_DAYS, 10), how: 'Cloudflare Universal SSL 자동 갱신' },
-              { name: `TLS \`${process.env.WEB_HOST}\``, expiry: process.env.WEB_EXPIRY, days: parseInt(process.env.WEB_DAYS, 10), how: 'Vercel(Let\'s Encrypt) 자동 갱신' },
+              ...webHosts.map((h) => ({ name: `TLS \`${h.host}\``, expiry: h.expiry, days: h.days, how: 'Vercel(Let\'s Encrypt) 자동 갱신' })),
               { name: 'TS_AUTHKEY (deploy)', expiry: process.env.TS_EXPIRY, days: parseInt(process.env.TS_DAYS, 10), how: '수동 — Tailscale 새 키 발급 → `gh secret set TS_AUTHKEY` → `cert-check.yml` 의 `TS_AUTHKEY_EXPIRY` 갱신' },
             ];
             const light = (d) => (d < 7 ? '🔴' : d < 30 ? '🟡' : '🟢');
+            // 이미 만료된 건 D--13 처럼 깨져 보이면 안 된다 — 제일 급한 줄이다.
+            const dday = (d) => (d < 0 ? `만료됨 (${-d}일 지남)` : `D-${d}`);
             const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
 
             const body = [
@@ -89,7 +106,7 @@ jobs:
               '',
               '| 항목 | 만료일 | 남은 날 | 갱신 방법 |',
               '|---|---|---|---|',
-              ...rows.map((r) => `| ${r.name} | ${r.expiry} | ${light(r.days)} D-${r.days} | ${r.how} |`),
+              ...rows.map((r) => `| ${r.name} | ${r.expiry} | ${light(r.days)} ${dday(r.days)} | ${r.how} |`),
               '',
               '🟢 30일 이상 · 🟡 30일 이내 · 🔴 7일 이내',
               '',
@@ -126,31 +143,31 @@ jobs:
             }
 
       - name: Open or update alert issue
-        if: steps.tls.outputs.days < 30 || steps.web.outputs.days < 30 || steps.ts.outputs.days < 30
+        if: steps.tls.outputs.days < 30 || steps.web.outputs.min_days < 30 || steps.ts.outputs.days < 30
         uses: actions/github-script@v7
         env:
           TLS_DAYS: ${{ steps.tls.outputs.days }}
           TLS_EXPIRY: ${{ steps.tls.outputs.expiry }}
-          WEB_DAYS: ${{ steps.web.outputs.days }}
-          WEB_EXPIRY: ${{ steps.web.outputs.expiry }}
+          WEB_HOSTS_JSON: ${{ steps.web.outputs.hosts }}
           TS_DAYS: ${{ steps.ts.outputs.days }}
           TS_EXPIRY: ${{ steps.ts.outputs.expiry }}
         with:
           script: |
             const tlsDays = parseInt(process.env.TLS_DAYS, 10);
-            const webDays = parseInt(process.env.WEB_DAYS, 10);
+            const webHosts = JSON.parse(process.env.WEB_HOSTS_JSON);
             const tsDays = parseInt(process.env.TS_DAYS, 10);
-            const urgent = tlsDays < 7 || webDays < 7 || tsDays < 7;
+            const urgent = tlsDays < 7 || webHosts.some((h) => h.days < 7) || tsDays < 7;
+            const dday = (d) => (d < 0 ? `만료됨 (${-d}일 지남)` : `D-${d}`);
 
             const lines = [];
             if (tlsDays < 30) {
-              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서 (${process.env.BACKEND_HOST})**: D-${tlsDays} (만료 ${process.env.TLS_EXPIRY}). Cloudflare Universal SSL 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST}/health\` 한 번. 안 갱신되면 Cloudflare 대시보드 → SSL/TLS → Edge Certificates 확인.`);
+              lines.push(`- ${tlsDays < 7 ? '🔴' : '🟡'} **TLS 인증서 (${process.env.BACKEND_HOST})**: ${dday(tlsDays)} · 만료일 ${process.env.TLS_EXPIRY}. Cloudflare Universal SSL 이 자동 갱신하지만 그 즈음 \`curl https://${process.env.BACKEND_HOST}/health\` 한 번. 안 갱신되면 Cloudflare 대시보드 → SSL/TLS → Edge Certificates 확인.`);
             }
-            if (webDays < 30) {
-              lines.push(`- ${webDays < 7 ? '🔴' : '🟡'} **TLS 인증서 (${process.env.WEB_HOST})**: D-${webDays} (만료 ${process.env.WEB_EXPIRY}). Vercel 이 Let's Encrypt 로 자동 갱신. 안 갱신되면 Vercel 대시보드 → 프로젝트 moilga → Settings → Domains 에서 인증서 상태 확인 (DNS 가 Cloudflare 를 거치면 프록시(주황 구름) 가 꺼져 있어야 갱신됨).`);
+            for (const h of webHosts.filter((h) => h.days < 30)) {
+              lines.push(`- ${h.days < 7 ? '🔴' : '🟡'} **TLS 인증서 (${h.host})**: ${dday(h.days)} · 만료일 ${h.expiry}. Vercel 이 Let's Encrypt 로 자동 갱신. 안 갱신되면 Vercel 대시보드 → 프로젝트 moilga → Settings → Domains 에 **그 호스트가 등록돼 있는지** 부터 확인 (등록 안 된 서브도메인은 갱신 대상이 아니라 만료된 옛 인증서가 그대로 나간다). DNS 가 Cloudflare 를 거치면 프록시(주황 구름) 가 꺼져 있어야 갱신됨.`);
             }
             if (tsDays < 30) {
-              lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: D-${tsDays} (만료 ${process.env.TS_EXPIRY}). https://login.tailscale.com/admin/settings/keys 새 키 발급 (Reusable + Ephemeral) → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
+              lines.push(`- ${tsDays < 7 ? '🔴' : '🟡'} **TS_AUTHKEY**: ${dday(tsDays)} · 만료일 ${process.env.TS_EXPIRY}. https://login.tailscale.com/admin/settings/keys 새 키 발급 (Reusable + Ephemeral) → \`printf '%s' '<KEY>' | gh secret set TS_AUTHKEY -R milcho0604/daypoll\` → \`cert-check.yml\` 의 \`TS_AUTHKEY_EXPIRY\` 도 새 날짜로.`);
             }
 
             const title = urgent ? '🔴 인증서/키 만료 임박 (D-7 이내)' : '🟡 인증서/키 만료 임박 (D-30 이내)';
@@ -192,7 +209,7 @@ jobs:
             }
 
       - name: Close alert if everything is healthy
-        if: steps.tls.outputs.days >= 30 && steps.web.outputs.days >= 30 && steps.ts.outputs.days >= 30
+        if: steps.tls.outputs.days >= 30 && steps.web.outputs.min_days >= 30 && steps.ts.outputs.days >= 30
         uses: actions/github-script@v7
         with:
           script: |
