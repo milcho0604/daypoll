@@ -3,6 +3,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// 홈 판정. `/` 뿐 아니라 `/index` 도 홈으로 본다.
+//
+// Vercel 이 홈을 프리렌더할 때 경로를 `/index` 로 넣는다 (RSC payload 가
+// `c: ["", "index"]` — 로컬 빌드는 `["", ""]`). 그래서 usePathname() 이
+// **서버에선 `/index`, 브라우저에선 `/`** 를 준다. `=== '/'` 로만 비교하면
+// 서버는 "새 투표" 칩을 그리고 클라이언트는 지워서 헤더가 서로 달라지고,
+// 홈 전체가 hydration mismatch (React #418) 로 재렌더된다 (#83).
+export function isHomePath(pathname: string | null | undefined): boolean {
+  return pathname === '/' || pathname === '/index';
+}
+
 // 글로벌 상단 바 — 워드마크(=홈) + 새 투표 동선.
 // footer 와 대칭되는 얇은 유리질 바. 콘텐츠를 누르지 않게 z-30 (모달 z-50 아래).
 export default function SiteHeader() {
@@ -12,7 +23,7 @@ export default function SiteHeader() {
   if (pathname?.startsWith('/admin')) return null;
 
   // 홈은 hero 의 "방 만들기" CTA 가 같은 역할이라 새 투표 칩은 생략 (중복 회피).
-  const isHome = pathname === '/';
+  const isHome = isHomePath(pathname);
   const isBlog = pathname?.startsWith('/blog');
 
   return (
