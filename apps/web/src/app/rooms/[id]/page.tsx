@@ -6,17 +6,17 @@ import { formatDateKR } from '@/lib/format';
 import ForgetRoomOnMount from '@/components/forget-room-on-mount';
 import RoomView from './room-view';
 
-// 방 껍데기(제목/후보 날짜)는 생성 후 불변 — 30초 ISR 로 첫 페인트의 백엔드 왕복 제거.
+// 라우트는 동적 렌더, **데이터만 30초 캐시** (getRoom 의 revalidate 인자).
+//
+// 예전엔 페이지 자체를 on-demand ISR 로 캐시했는데, 백엔드가 잠깐 끊긴 사이
+// 만들어진 "점검 중" 화면이 정상 200 으로 캐시에 박혀 서버가 복구된 뒤에도
+// 계속 나갔다 (#80 — 실측: 복구 후에도 30초 넘게, 방문자가 드문 방이면 다음
+// 방문자가 올 때까지 무한정). 실패 화면을 캐시하지 않으려면 라우트가 동적이어야 한다.
+//
+// 성능 의도(첫 페인트의 백엔드 왕복 제거)는 fetch 데이터 캐시가 그대로 지킨다 —
+// 실측: 웹 요청 10회 → API 호출 1회, 30초 만료 후 다시 1회.
 // 표/마감 같은 실시간 값은 클라이언트에서 소켓 + 폴링으로 즉시 동기화된다.
-export const revalidate = 30;
-
-// 동적 세그먼트에 generateStaticParams 가 없으면 Next 는 revalidate 를 무시하고
-// 라우트를 완전 동적(no-store)으로 만든다 — 실측: 매 요청 iad1 SSR + API 왕복.
-// 빈 목록을 돌려주면 "빌드 땐 아무것도 안 만들고, 첫 요청에 생성해 30초 캐시"
-// (on-demand ISR) 가 된다. 방 id 는 미리 알 수 없으니 이게 맞는 모드다.
-export async function generateStaticParams() {
-  return [];
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -91,9 +91,9 @@ export default async function RoomPage({
         </h1>
         {/* 서버가 잠깐 끊긴 것을 "링크가 만료됐다" 고 안내하면 친구가 자기 링크를
             잘못된 것으로 오해한다 — 404 일 때만 링크 문제라고 말한다. */}
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {notFound
-            ? '링크가 만료됐거나 잘못된 주소일 수 있습니다.'
+            ? '링크가 만료됐거나 잘못된 주소일 수 있어요.'
             : '링크는 멀쩡해요! 서버가 잠깐 쉬는 중이라 조금 뒤에 새로고침해주세요.'}
         </p>
         {!notFound && (
