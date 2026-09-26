@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>푸들의 탄생 신화</title>
+<!--
+  푸들의 탄생 신화 — 1080×1920, 30fps, 60초 세로 영상.
+  모든 움직임은 window.seek(t) 한 번으로 결정된다 (결정론적 렌더).
+  render.mjs 가 프레임마다 seek → 스크린샷 → ffmpeg 로 인코딩.
+
+  ===== STYLE GUIDE =====
+  종이: cream #F4EBD9 (+ 종이 결 노이즈, 비네트, 이중 테두리 프레임)
+  팔레트: ink #3A2E2A · terracotta #D0735A · mustard #E3AA4A · sage #8EA88A · teal #5E8C94 · night #2F3654
+  캐릭터 털: apricot #F0CFA6 / 그늘 #DDB083
+  선: 캐릭터 외곽선 6px ink, round join. 세부 3~4px.
+  캐릭터: poodle('natural' | 'clip') — 모든 장면에서 같은 함수로 그린 같은 개.
+-->
+<style>
+  @font-face { font-family: Pretendard; font-weight: 500; src: url(fonts/Pretendard-Medium.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 600; src: url(fonts/Pretendard-SemiBold.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2) format('woff2'); }
+  :root { --paper:#F4EBD9; --ink:#3A2E2A; --terra:#D0735A; --mustard:#E3AA4A; --sage:#8EA88A; --teal:#5E8C94; --night:#2F3654; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { font-family: Pretendard, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; letter-spacing: -0.02em; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  .scene { position: absolute; inset: 0; opacity: 0; overflow: hidden; }
+  .scene > svg { position: absolute; inset: 0; width: 1080px; height: 1920px; overflow: visible; }
+  svg text { font-family: Pretendard, sans-serif; }
+
+  /* 챕터 라벨 (장면마다) */
+  .chap { position: absolute; top: 132px; left: 0; right: 0; display: flex; justify-content: center; }
+  .chap .in {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 20px 44px 22px; border-radius: 28px;
+    background: rgba(255,249,236,.92); border: 3px solid var(--ink);
+    box-shadow: 0 8px 0 rgba(58,46,42,.18);
+  }
+  .chap small { font-size: 30px; font-weight: 700; color: var(--terra); letter-spacing: .02em; }
+  .chap b { font-size: 50px; font-weight: 800; }
+
+  /* 인트로 타이틀 */
+  .title { position: absolute; top: 250px; left: 0; right: 0; text-align: center; }
+  .title small { display: block; font-size: 44px; font-weight: 700; color: var(--terra); letter-spacing: .08em; }
+  .title h1 { margin-top: 10px; font-size: 128px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+  .title .rule { margin: 26px auto 0; width: 360px; height: 18px; display: flex; align-items: center; gap: 14px; }
+  .title .rule i { flex: 1; height: 3px; background: var(--ink); border-radius: 3px; }
+  .title .rule em { width: 16px; height: 16px; transform: rotate(45deg); background: var(--mustard); border: 3px solid var(--ink); }
+
+  /* 엔딩 */
+  .endtext { position: absolute; top: 930px; left: 0; right: 0; text-align: center; }
+  .endtext h2 { font-size: 86px; font-weight: 800; line-height: 1.3; }
+  .endtext h2 .l { display: block; }
+  .endtext p { margin-top: 34px; font-size: 40px; font-weight: 700; color: var(--terra); letter-spacing: .1em; }
+
+  /* 오버레이: 종이 결 + 비네트 + 책 테두리 */
+  #grain { position: absolute; inset: 0; mix-blend-mode: multiply; opacity: .16; pointer-events: none; }
+  #vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 60% at 50% 45%, transparent 55%, rgba(58,46,42,.22) 100%); }
+  #frame { position: absolute; inset: 34px; border: 4px solid rgba(58,46,42,.55); border-radius: 30px; pointer-events: none; }
+  #frame::after { content: ''; position: absolute; inset: 10px; border: 2px solid rgba(58,46,42,.3); border-radius: 22px; }
+
+  /* 자막 */
+  #cap { position: absolute; left: 80px; right: 80px; bottom: 250px; display: flex; justify-content: center; pointer-events: none; }
+  #cap .plate {
+    max-width: 920px; padding: 30px 44px 34px; border-radius: 34px;
+    background: rgba(255,249,236,.94); border: 3px solid rgba(58,46,42,.85);
+    box-shadow: 0 10px 0 rgba(58,46,42,.16), 0 24px 50px -20px rgba(0,0,0,.35);
+    text-align: center;
+  }
+  #cap .line { display: block; font-size: 58px; font-weight: 700; line-height: 1.42; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="scenes"></div>
+  <svg width="0" height="0" style="position:absolute"><defs><radialGradient id="glowM"><stop offset="0" stop-color="#E3AA4A" stop-opacity=".42"/><stop offset=".55" stop-color="#E3AA4A" stop-opacity=".16"/><stop offset="1" stop-color="#E3AA4A" stop-opacity="0"/></radialGradient><linearGradient id="nightFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A4368" stop-opacity="0"/><stop offset=".6" stop-color="#3A4368" stop-opacity=".7"/></linearGradient><radialGradient id="glowC"><stop offset="0" stop-color="#FFF8EA" stop-opacity=".35"/><stop offset="1" stop-color="#FFF8EA" stop-opacity="0"/></radialGradient></defs></svg>
+  <svg id="grain" width="1080" height="1920"><filter id="gf"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="1080" height="1920" filter="url(#gf)"/></svg>
+  <div id="vig"></div>
+  <div id="frame"></div>
+  <div id="cap"><div class="plate"></div></div>
+</div>
+
+<script>
+// ================= 스타일 가이드 (공통 상수) =================
+const C = {
+  paper: '#F4EBD9', ink: '#3A2E2A', terra: '#D0735A', mustard: '#E3AA4A', sage: '#8EA88A', teal: '#5E8C94', night: '#2F3654',
+  fur: '#F0CFA6', fur2: '#DDB083', cream: '#FFF8EA', skin: '#EDC09C', soil: '#8C6246',
+};
+const SW = 6;
+
+// ---------- 그리기 헬퍼 ----------
+const circ = (arr) => arr.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+// 겹친 도형들의 "합집합 외곽선" — 먼저 굵은 ink, 위에 fill (내부 선이 안 보임)
+function blob(shapes, fill, sw = SW, attrs = '') {
+  return `<g ${attrs}><g fill="${C.ink}" stroke="${C.ink}" stroke-width="${sw * 2}" stroke-linejoin="round">${shapes}</g><g fill="${fill}">${shapes}</g></g>`;
+}
+// Catmull-Rom → cubic bezier
+function spline(pts, closed = true) {
+  const n = pts.length;
+  let d = `M${pts[0]}`;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${c1.map((v) => v.toFixed(1))} ${c2.map((v) => v.toFixed(1))} ${p2}`;
+  }
+  return d + (closed ? 'Z' : '');
+}
+const curls = (arr, op = 0.35) => arr.map(([x, y, r = 9, rot = 0]) =>
+  `<path d="M${x - r} ${y} a${r} ${r} 0 1 1 ${r * 1.4} ${r * 0.8}" transform="rotate(${rot} ${x} ${y})" fill="none" stroke="${C.ink}" stroke-width="3.5" stroke-linecap="round" opacity="${op}"/>`).join('');
+// 반짝이 (4갈래 별)
+const sparkle = (x, y, s, fill, p = 0, sp = 0.6) =>
+  `<g data-anim="twinkle" data-cx="${x}" data-cy="${y}" data-p="${p}" data-s="${sp}"><path d="M${x} ${y - s} Q${x + s * .18} ${y - s * .18} ${x + s} ${y} Q${x + s * .18} ${y + s * .18} ${x} ${y + s} Q${x - s * .18} ${y + s * .18} ${x - s} ${y} Q${x - s * .18} ${y - s * .18} ${x} ${y - s}Z" fill="${fill}"/></g>`;
+const heart = (s = 1, fill = C.terra) =>
+  `<path transform="scale(${s})" d="M0 12 C-26 -6 -22 -30 -6 -30 C0 -30 0 -24 0 -22 C0 -24 0 -30 6 -30 C22 -30 26 -6 0 12Z" fill="${fill}" stroke="${C.ink}" stroke-width="${4 / s}" stroke-linejoin="round"/>`;
+const paw = (x, y, s = 1, rot = 0, fill = C.ink, extra = '') =>
+  `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" ${extra}><ellipse cx="0" cy="8" rx="15" ry="12" fill="${fill}"/>${circ([[-15, -10, 6.5], [-5, -18, 6.5], [6, -18, 6.5], [16, -10, 6.5]]).replaceAll('<circle', `<circle fill="${fill}"`)}</g>`;
+const pine = (x, y, h, fill, stroke = 'none') => {
+  const w = h * 0.42;
+  return `<path d="M${x} ${y - h} L${x + w * .55} ${y - h * .55} L${x + w * .3} ${y - h * .55} L${x + w * .8} ${y - h * .18} L${x + w * .45} ${y - h * .18} L${x + w} ${y} L${x - w} ${y} L${x - w * .45} ${y - h * .18} L${x - w * .8} ${y - h * .18} L${x - w * .3} ${y - h * .55} L${x - w * .55} ${y - h * .55}Z" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>`;
+};
+const tufts = (y, fill, n, x0 = 60, x1 = 1020) => { let r = ''; for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * (i + rnd() * .6) / n, yy = y + rnd() * 380, h = 34 + rnd() * 30; const d = `M${x - 6} ${yy} Q${x - 10} ${yy - h * .5} ${x - 26} ${yy - h} M${x} ${yy} Q${x} ${yy - h * .6} ${x + 2} ${yy - h * 1.25} M${x + 6} ${yy} Q${x + 12} ${yy - h * .5} ${x + 26} ${yy - h * .9}`; r += `<path d="${d}" fill="none" stroke="${C.ink}" stroke-width="12" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="5" stroke-linecap="round"/>`; } return r; };
+// 결정론적 난수
+let SEED = 7;
+const rnd = () => ((SEED = (SEED * 16807) % 2147483647) / 2147483647);
+
+// ================= 주인공: 푸들 =================
+// 원점 = 발 아래 중앙, 오른쪽을 본다. 대략 x -205..255, y -375..0
+function poodleHead(o) {
+  const F = o.fur ?? C.fur, F2 = o.fur2 ?? C.fur2;
+  let s = blob(circ([[150, -285, 50], [128, -335, 32], [158, -342, 32], [143, -368, 28], [112, -312, 28], [180, -320, 24]]) +
+    `<rect x="168" y="-303" width="84" height="42" rx="21"/>`, F);
+  s += curls([[132, -345, 9, 10], [158, -355, 8, 40], [118, -318, 8, -20], [150, -330, 7, 70]]);
+  s += blob(circ([[122, -282, 24], [116, -252, 28], [114, -220, 27], [120, -194, 22]]), F2);
+  s += curls([[114, -250, 8, 0], [116, -218, 8, 30]], 0.3);
+  s += `<ellipse cx="202" cy="-270" rx="12" ry="7" fill="${C.terra}" opacity=".45"/>`;
+  s += `<ellipse cx="182" cy="-298" rx="7" ry="9" fill="${C.ink}"/><circle cx="184.5" cy="-301.5" r="2.5" fill="#fff"/>`;
+  s += `<ellipse cx="249" cy="-291" rx="12" ry="10.5" fill="${C.ink}"/>`;
+  s += `<path d="M215 -268 q10 8 22 0" fill="none" stroke="${C.ink}" stroke-width="4" stroke-linecap="round"/>`;
+  if (o.ribbon) s += `<g transform="translate(140 -378) rotate(-14)" fill="${C.terra}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"><path d="M0 0 L-36 -20 L-34 20Z"/><path d="M0 0 L36 -20 L34 20Z"/><circle r="10"/></g>`;
+  return s;
+}
+function poodle(v = 'natural', o = {}) {
+  const F = o.fur ?? C.fur, F2 = o.fur2 ?? C.fur2;
+  let s = '';
+  const wag = (inner, px, py) => `<g data-anim="wag" data-cx="${px}" data-cy="${py}" data-a="${o.wag ?? 12}" data-s="${o.wagSpd ?? 1.6}">${inner}</g>`;
+  if (v === 'natural') {
+    s += blob(circ([[-70, -112, 26], [-70, -78, 26], [-70, -45, 26], [-66, -22, 24]]), F2);
+    s += blob(circ([[100, -112, 26], [100, -78, 26], [100, -45, 26], [104, -22, 24]]), F2);
+    s += wag(blob(circ([[-150, -200, 20], [-163, -228, 24], [-173, -258, 26], [-176, -286, 22]]), F), -140, -185);
+    s += blob(circ([[-110, -170, 52], [-60, -186, 58], [0, -189, 60], [55, -183, 58], [95, -190, 52], [-115, -140, 42], [95, -146, 44], [-40, -140, 50], [30, -140, 50], [125, -212, 46],
+      [-105, -112, 27], [-105, -78, 27], [-105, -45, 27], [-100, -22, 25], [70, -112, 27], [70, -78, 27], [70, -45, 27], [75, -22, 25]]), F);
+    s += curls([[-100, -175], [-40, -200, 10, 30], [20, -175, 9, -20], [70, -200, 10, 50], [-60, -150, 8, 80], [40, -145, 8, 10], [-104, -70, 8], [70, -70, 8, 40]]);
+  } else {
+    const leg = (x, fill) => blob(`<rect x="${x - 12}" y="-165" width="24" height="160" rx="12"/>` + `<ellipse cx="${x + 5}" cy="-8" rx="21" ry="10"/>`, fill) +
+      blob(circ([[x, -48, 28], [x - 12, -64, 17], [x + 12, -64, 17]]), fill) + curls([[x - 4, -48, 8, 20]], .3);
+    s += leg(-70, F2) + leg(100, F2);
+    s += wag(`<path d="M-142 -188 L-166 -250" stroke="${C.ink}" stroke-width="24" stroke-linecap="round"/><path d="M-142 -188 L-166 -250" stroke="${F}" stroke-width="12" stroke-linecap="round"/>` +
+      blob(circ([[-170, -266, 30], [-158, -286, 18], [-184, -284, 18]]), F) + curls([[-170, -266, 10, 30]]), -145, -190);
+    s += blob(`<ellipse cx="-45" cy="-178" rx="108" ry="42"/><rect x="-117" y="-190" width="24" height="185" rx="12"/><ellipse cx="-100" cy="-8" rx="21" ry="10"/>`, F);
+    s += blob(circ([[-105, -48, 28], [-117, -64, 17], [-93, -64, 17]]), F) + curls([[-108, -48, 8, 20]], .3);
+    s += blob(circ([[-100, -184, 31], [-86, -200, 18], [-114, -200, 18]]), F) + curls([[-100, -184, 10, 0]]);
+    s += leg(70, F);
+    s += blob(circ([[35, -178, 48], [80, -195, 60], [115, -170, 48], [70, -142, 46], [120, -220, 48], [90, -238, 48], [30, -208, 40], [140, -192, 40]]), F);
+    s += curls([[60, -200, 10, 20], [100, -170, 9, -30], [40, -165, 9, 60], [110, -230, 9, 0], [80, -150, 8, 40]]);
+  }
+  const head = `<g data-anim="wag" data-cx="125" data-cy="-230" data-a="${o.nod ?? 2.5}" data-s="${o.nodSpd ?? 0.45}" data-p="1">${poodleHead(o)}</g>`;
+  s += o.headRot ? `<g transform="rotate(${o.headRot} 125 -230)">${head}</g>` : head;
+  return s;
+}
+const place = (x, y, sc, inner, flip = false) => `<g transform="translate(${x} ${y}) scale(${flip ? -sc : sc} ${sc})">${inner}</g>`;
+
+// ================= 늑대 =================
+function wolf(fill = '#6F7690') {
+  const body = spline([[-208, -92], [-178, -140], [-135, -170], [-60, -180], [20, -184], [80, -198], [112, -226], [126, -262], [132, -300], [148, -326], [148, -326], [162, -286], [180, -274],
+    [216, -262], [250, -250], [244, -233], [206, -228], [170, -212], [150, -180], [132, -120], [126, -60], [132, -4], [132, -4], [104, -4], [104, -4], [98, -70], [86, -118],
+    [20, -122], [-60, -120], [-84, -100], [-78, -50], [-72, -4], [-72, -4], [-100, -4], [-100, -4], [-110, -60], [-128, -108], [-150, -132], [-186, -110]]);
+  return `<rect x="-55" y="-118" width="24" height="114" rx="12" fill="#555B72" stroke="${C.ink}" stroke-width="${SW}"/>` +
+    `<rect x="62" y="-125" width="24" height="121" rx="12" fill="#555B72" stroke="${C.ink}" stroke-width="${SW}"/>` +
+    `<path d="${body}" fill="${fill}" stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round"/>` +
+    `<path d="M-120 -150 Q-60 -160 20 -160" fill="none" stroke="#8C93AA" stroke-width="5" stroke-linecap="round" opacity=".7"/>` +
+    `<circle cx="198" cy="-258" r="6" fill="${C.cream}"/><circle cx="249" cy="-246" r="8" fill="${C.ink}"/>` +
+    `<path d="M146 -312 L155 -288" stroke="${C.ink}" stroke-width="4" stroke-linecap="round" opacity=".6"/>`;
+}
+
+// ================= 장면 =================
+const SC = [];
+function scene({ id, t0, t1, trans = 'fade', iris, zoom = [1, 1.07], focus = [540, 900], pan = [[-30, 0], [30, 0]], panFn, chap, svg, html = '' }) {
+  SC.push({ id, t0, t1, trans, iris, zoom, focus, pan, panFn, chap, svg, html });
+}
+// 레이어: depth 0 = 고정 원경, 1 = 카메라와 같이, >1 = 전경 (빠르게)
+const L = (depth, inner) => `<g class="layer" data-depth="${depth}">${inner}</g>`;
+
+// ---------- S1 인트로 ----------
+SEED = 11;
+scene({
+  id: 's1', t0: 0, t1: 6.5, zoom: [1.0, 1.06], focus: [540, 960], pan: [[0, 10], [0, -10]],
+  svg: () => {
+    let stars = '';
+    for (let i = 0; i < 22; i++) stars += sparkle(100 + rnd() * 880, 560 + rnd() * 900, 8 + rnd() * 12, i % 3 ? C.mustard : C.terra, rnd() * 6, 0.4 + rnd() * .5);
+    let leaves = '';
+    for (let i = 0; i < 18; i++) {
+      const side = i < 9 ? -1 : 1, k = (i % 9) / 8;
+      const ang = (side < 0 ? 200 - k * 150 : -20 + k * 150) * Math.PI / 180;
+      const x = 540 + Math.cos(ang) * 318, y = 960 + Math.sin(ang) * 318;
+      const rot = ang * 180 / Math.PI + (side < 0 ? -60 : 60);
+      leaves += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="26" ry="11" transform="rotate(${rot.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="${C.sage}" stroke="${C.ink}" stroke-width="4"/>`;
+    }
+    let motes = '';
+    for (let i = 0; i < 16; i++) motes += `<g data-anim="rise" data-r="700" data-s="${0.08 + rnd() * .08}" data-p="${rnd()}"><circle cx="${120 + rnd() * 840}" cy="${1500 + rnd() * 200}" r="${4 + rnd() * 5}" fill="${C.mustard}" opacity=".7"/></g>`;
+    return L(0, `<rect x="-200" y="-200" width="1480" height="2320" fill="${C.paper}"/><circle cx="540" cy="960" r="640" fill="url(#glowM)" opacity=".7"/>`) +
+      L(0.3, stars + motes) +
+      L(0.6, `<circle cx="540" cy="960" r="304" fill="none" stroke="${C.mustard}" stroke-width="8" stroke-dasharray="2 22" stroke-linecap="round"/>` + leaves +
+        `<circle cx="540" cy="960" r="280" fill="${C.cream}" stroke="${C.ink}" stroke-width="7"/>` +
+        `<ellipse cx="540" cy="1140" rx="190" ry="22" fill="${C.ink}" opacity=".12"/>` +
+        place(517, 1134, 0.95, poodle('clip', { ribbon: true, wag: 14 })) +
+        sparkle(760, 780, 22, C.mustard, 0, .5) + sparkle(330, 820, 16, C.terra, 2, .6));
+  },
+  html: `<div class="title"><small>옛날 옛적 이야기</small><h1>푸들의<br>탄생 신화</h1><div class="rule"><i></i><em></em><i></i></div></div>`,
+});
+
+// ---------- S2 늑대 ----------
+SEED = 21;
+scene({
+  id: 's2', t0: 6.5, t1: 14, trans: 'iris', iris: [540, 960], zoom: [1.04, 1.12], focus: [520, 1150], pan: [[-40, 0], [40, 0]],
+  chap: ['첫 번째 이야기', '늑대의 시대'],
+  svg: () => {
+    let stars = '';
+    for (let i = 0; i < 40; i++) stars += sparkle(-150 + rnd() * 1380, 380 + rnd() * 560, 4 + rnd() * 9, i % 5 ? C.cream : C.mustard, rnd() * 6, .3 + rnd() * .6);
+    let far = '', near = '';
+    for (let x = -260; x < 1360; x += 52 + rnd() * 30) far += pine(x, 1080 + rnd() * 30, 180 + rnd() * 120, '#2A3050');
+    for (let x = -260; x < 1360; x += 70 + rnd() * 40) near += pine(x, 1170 + rnd() * 20, 240 + rnd() * 140, '#20253F');
+    let sparks = '';
+    for (let i = 0; i < 12; i++) sparks += `<g data-anim="rise" data-r="320" data-s="${0.35 + rnd() * .35}" data-p="${rnd()}" data-a="18"><circle cx="${610 + rnd() * 60}" cy="${1200}" r="${3 + rnd() * 3}" fill="${C.mustard}"/></g>`;
+    const flame = (sc, fill, p) => `<g data-anim="flicker" data-cx="640" data-cy="1236" data-a="${0.08}" data-p="${p}"><path transform="translate(640 1236) scale(${sc})" d="M-52 0 C-70 -50 -28 -80 -18 -130 C-4 -100 8 -110 6 -160 C40 -110 70 -70 52 0Z" fill="${fill}" stroke="${C.ink}" stroke-width="${5 / sc}" stroke-linejoin="round"/></g>`;
+    const human = (x, y, sc, cloak, hood) => `<g transform="translate(${x} ${y}) scale(${sc})">
+        <path d="M-70 0 C-80 -80 -50 -140 0 -145 C50 -140 72 -80 66 0Z" fill="${cloak}" stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round"/>
+        <path d="M-40 -70 C-70 -60 -95 -50 -112 -52" fill="none" stroke="${C.ink}" stroke-width="20" stroke-linecap="round"/><path d="M-40 -70 C-70 -60 -95 -50 -112 -52" fill="none" stroke="${cloak}" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="-116" cy="-52" r="12" fill="${C.skin}" stroke="${C.ink}" stroke-width="5"/>
+        <circle cx="-6" cy="-180" r="40" fill="${C.skin}" stroke="${C.ink}" stroke-width="${SW}"/>
+        <path d="M-40 -196 C-30 -236 30 -236 36 -186 C38 -150 20 -140 18 -150 C22 -170 10 -196 -40 -196Z" fill="${hood}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+        <circle cx="-26" cy="-180" r="4.5" fill="${C.ink}"/></g>`;
+    return L(0, `<rect x="-400" y="-200" width="1880" height="2320" fill="${C.night}"/><rect x="-400" y="500" width="1880" height="800" fill="url(#nightFade)"/>`) +
+      L(0.15, `<circle cx="790" cy="560" r="230" fill="url(#glowC)"/><circle cx="790" cy="560" r="84" fill="#FFF1D2" stroke="${C.ink}" stroke-width="5"/><circle cx="765" cy="545" r="16" fill="#EFDDB8"/><circle cx="812" cy="585" r="10" fill="#EFDDB8"/>` + stars) +
+      L(0.3, `<path d="M-400 1000 L-150 820 L60 930 L300 780 L520 900 L760 760 L980 890 L1200 800 L1480 950 L1480 1300 L-400 1300Z" fill="#39416A" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>`) +
+      L(0.5, far) +
+      L(0.3, place(330, 790, 0.24, wolf('#252A42'))) +
+      L(0.7, near + `<rect x="-400" y="1160" width="1880" height="900" fill="#1D2136"/>`) +
+      L(1, `<circle data-anim="flicker" data-cx="640" data-cy="1200" data-a=".03" cx="640" cy="1200" r="460" fill="url(#glowM)"/>
+        <path d="M-400 1245 Q540 1215 1480 1250 L1480 2200 L-400 2200Z" fill="#262A40" stroke="${C.ink}" stroke-width="5"/>
+        <g data-anim="slide" data-s="10">${place(225, 1300, 0.95, `<g data-anim="bob" data-a="3" data-s="1.1">${wolf()}</g>`)}</g>
+        ${human(850, 1262, 1.0, C.terra, '#B25E48')}${human(960, 1275, 0.72, C.sage, '#6E8A6B')}
+        <g stroke="${C.ink}" stroke-width="5" fill="#6B4A3A"><rect x="572" y="1228" width="140" height="24" rx="12" transform="rotate(12 642 1240)"/><rect x="572" y="1228" width="140" height="24" rx="12" transform="rotate(-12 642 1240)"/></g>
+        ${flame(1.15, C.terra, 0)}${flame(0.85, C.mustard, 2)}${flame(0.45, C.cream, 4)}${sparks}`) +
+      L(1.35, pine(-40, 1900, 520, '#15182A') + pine(1140, 1900, 560, '#15182A'));
+  },
+});
+
+// ---------- S3 물의 사냥개 ----------
+SEED = 31;
+scene({
+  id: 's3', t0: 14, t1: 21.5, zoom: [1.02, 1.1], focus: [520, 1080], pan: [[-40, 0], [40, 0]],
+  chap: ['두 번째 이야기', '물의 사냥개'],
+  svg: () => {
+    const house = (x, y, w, h, roof) => `<g transform="translate(${x} ${y})" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round">
+      <rect x="0" y="${-h}" width="${w}" height="${h}" fill="${C.cream}"/>
+      <path d="M${-10} ${-h} L${w / 2} ${-h - w * .7} L${w + 10} ${-h}Z" fill="${roof}"/>
+      <path d="M0 ${-h * .5} H${w} M${w * .33} ${-h} V0 M${w * .66} ${-h} V0 M0 ${-h} L${w * .33} ${-h * .5} M${w} ${-h} L${w * .66} ${-h * .5}" fill="none" stroke-width="4"/>
+      <rect x="${w * .4}" y="${-h * .38}" width="${w * .2}" height="${h * .38}" fill="${C.soil}"/></g>`;
+    let village = house(150, 960, 90, 90, C.terra) + house(250, 955, 70, 75, '#B86049') + house(640, 950, 80, 85, C.terra) + house(735, 955, 60, 65, '#B86049') + house(860, 962, 90, 80, C.terra);
+    village += `<g stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"><rect x="430" y="820" width="80" height="140" fill="${C.cream}"/><path d="M420 820 L470 690 L520 820Z" fill="${C.teal}"/><circle cx="470" cy="870" r="16" fill="${C.mustard}"/></g>`;
+    let waves = '';
+    for (let i = 0; i < 9; i++) waves += `<path d="M${-100 + (i % 3) * 420 + rnd() * 80} ${1030 + i * 14} q30 -12 60 0 t60 0" fill="none" stroke="${C.cream}" stroke-width="4" stroke-linecap="round" opacity=".6"/>`;
+    const ripple = (cx, cy, p) => `<g data-anim="ripple" data-cx="${cx}" data-cy="${cy}" data-s=".55" data-p="${p}"><ellipse cx="${cx}" cy="${cy}" rx="160" ry="26" fill="none" stroke="${C.cream}" stroke-width="5"/></g>`;
+    let drops = '';
+    for (let i = 0; i < 10; i++) drops += `<g data-anim="splash" data-s="1.4" data-p="${i / 10}" data-a="${60 + rnd() * 70}" data-dx="${-30 + rnd() * 120}"><circle cx="${190 + rnd() * 50}" cy="-150" r="${7 + rnd() * 6}" fill="${C.cream}" stroke="${C.ink}" stroke-width="3.5"/></g>`;
+    const duck = `<g data-anim="bob" data-a="6" data-s=".8" data-p="1.4"><g transform="translate(790 1118)">
+      <path d="M-70 -10 C-80 -60 -10 -62 20 -40 C40 -60 70 -40 72 -20 C60 10 -50 12 -70 -10Z" fill="${C.mustard}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-40 -30 C-20 -40 10 -36 20 -24" fill="none" stroke="${C.ink}" stroke-width="4" stroke-linecap="round" opacity=".5"/>
+      <circle cx="-55" cy="-70" r="26" fill="${C.sage}" stroke="${C.ink}" stroke-width="5"/>
+      <path d="M-78 -72 L-104 -64 L-78 -58Z" fill="${C.terra}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="-62" cy="-76" r="4.5" fill="${C.ink}"/></g></g>`;
+    const reeds = (x, flip) => { let r = ''; for (let i = 0; i < 6; i++) { const xx = x + i * 26 * flip, h = 260 + rnd() * 160; r += `<path d="M${xx} 1920 Q${xx - 20 * flip} ${1920 - h * .6} ${xx + 10 * flip} ${1920 - h}" stroke="${C.ink}" stroke-width="16" fill="none" stroke-linecap="round"/><path d="M${xx} 1920 Q${xx - 20 * flip} ${1920 - h * .6} ${xx + 10 * flip} ${1920 - h}" stroke="${C.sage}" stroke-width="8" fill="none" stroke-linecap="round"/>`; if (i % 2 === 0) r += `<rect x="${xx + 10 * flip - 12}" y="${1920 - h - 10}" width="24" height="70" rx="12" fill="${C.soil}" stroke="${C.ink}" stroke-width="4"/>`; } return `<g data-anim="wag" data-cx="${x}" data-cy="1920" data-a="1.5" data-s=".35">${r}</g>`; };
+    return L(0, `<rect x="-400" y="-200" width="1880" height="2320" fill="#F7E6C6"/><circle cx="820" cy="560" r="200" fill="url(#glowM)"/><circle cx="820" cy="560" r="86" fill="${C.mustard}" stroke="${C.ink}" stroke-width="5"/>`) +
+      L(0.2, `<g data-anim="slide" data-s="10">${blob(circ([[120, 520, 40], [170, 505, 52], [225, 525, 38]]), C.cream, 4)}${blob(circ([[560, 640, 34], [605, 625, 44], [650, 642, 32]]), C.cream, 4)}</g>`) +
+      L(0.35, `<path d="M-400 930 Q-100 820 200 900 T800 880 T1480 900 L1480 1200 L-400 1200Z" fill="#B7C6A5" stroke="${C.ink}" stroke-width="5"/>`) +
+      L(0.5, `<path d="M-400 980 Q100 930 540 960 T1480 970 L1480 1200 L-400 1200Z" fill="${C.sage}" stroke="${C.ink}" stroke-width="5"/>` + village) +
+      L(0.7, `<rect x="-400" y="1010" width="1880" height="1000" fill="#8FB5B5" stroke="${C.ink}" stroke-width="5"/>` + `<g data-anim="slide" data-s="-12">${waves}</g>`) +
+      L(0.9, ripple(420, 1128, 0) + ripple(420, 1128, .5) + ripple(790, 1120, .25) + duck +
+        `<g id="swim"><g data-anim="bob" data-a="7" data-s=".9">${place(0, 1242, 0.85, poodle('natural', { wag: 0, nod: 4, nodSpd: .9 }) + drops)}</g></g>` +
+        `<path d="M-400 1128 q40 -18 80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 V2100 H-400Z" fill="${C.teal}" stroke="${C.ink}" stroke-width="5" data-anim="slide" data-s="-20" data-mod="160"/>` +
+        `<g data-anim="slide" data-s="14" data-mod="420">${[0, 1, 2, 3, 4].map((i) => `<path d="M${-400 + i * 420} ${1200 + (i % 2) * 60} q30 -12 60 0 t60 0" fill="none" stroke="${C.cream}" stroke-width="5" stroke-linecap="round" opacity=".55"/>`).join('')}</g>` +
+        `<g id="pudelword" opacity="0"><text x="560" y="820" font-size="78" font-weight="800" fill="${C.cream}" stroke="${C.ink}" stroke-width="14" paint-order="stroke" stroke-linejoin="round" transform="rotate(-8 560 820)" text-anchor="middle">첨벙 첨벙!</text></g>`) +
+      L(1.3, reeds(-30, 1) + reeds(1110, -1));
+  },
+});
+
+// ---------- S4 푸들 컷의 비밀 ----------
+scene({
+  id: 's4', t0: 21.5, t1: 29, zoom: [1.0, 1.05], focus: [540, 1000], pan: [[0, 0], [0, -10]],
+  chap: ['세 번째 이야기', '푸들 컷의 비밀'],
+  svg: () => {
+    let grid = '';
+    for (let x = 0; x <= 1080; x += 60) grid += `<path d="M${x} -100 V2100" stroke="${C.ink}" stroke-width="2" opacity=".06"/>`;
+    for (let y = 0; y <= 1920; y += 60) grid += `<path d="M-100 ${y} H1180" stroke="${C.ink}" stroke-width="2" opacity=".06"/>`;
+    const P = (v) => place(505, 1190, 1.3, poodle(v, { wag: 6, nod: 1.5 }));
+    const label = (id, x, y, w, l1, l2, tx, ty) => `<g id="${id}" opacity="0">
+      <path d="M${x + w / 2} ${y + 60} L${tx} ${ty}" stroke="${C.ink}" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round"/>
+      <circle cx="${tx}" cy="${ty}" r="11" fill="${C.terra}" stroke="${C.ink}" stroke-width="4"/>
+      <rect x="${x}" y="${y}" width="${w}" height="120" rx="24" fill="${C.cream}" stroke="${C.ink}" stroke-width="4"/>
+      <text x="${x + w / 2}" y="${y + 50}" text-anchor="middle" font-size="36" font-weight="800" fill="${C.ink}">${l1}</text>
+      <text x="${x + w / 2}" y="${y + 94}" text-anchor="middle" font-size="31" font-weight="700" fill="${C.terra}">${l2}</text></g>`;
+    const scissors = `<g id="scissors"><g transform="rotate(90) scale(1.7)">
+      <g data-anim="wag" data-cx="0" data-cy="0" data-a="14" data-s="3"><path d="M0 0 L70 -8 L66 6Z" fill="${C.cream}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/><circle cx="-30" cy="18" r="16" fill="none" stroke="${C.terra}" stroke-width="9"/></g>
+      <g data-anim="wag" data-cx="0" data-cy="0" data-a="-14" data-s="3"><path d="M0 0 L70 8 L66 -6Z" fill="${C.cream}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/><circle cx="-30" cy="-18" r="16" fill="none" stroke="${C.terra}" stroke-width="9"/></g>
+      <circle r="6" fill="${C.ink}"/></g></g>`;
+    let fluff = '';
+    for (let i = 0; i < 14; i++) fluff += `<g class="fluff" data-i="${i}" opacity="0">${blob(circ([[0, 0, 9], [8, -6, 7], [-7, -5, 7]]), C.fur, 3)}</g>`;
+    return L(0, `<rect x="-200" y="-200" width="1480" height="2320" fill="${C.paper}"/>` + grid) +
+      L(0.6, `<ellipse cx="540" cy="1196" rx="340" ry="30" fill="${C.ink}" opacity=".12"/>` +
+        `<clipPath id="cutL" clipPathUnits="userSpaceOnUse"><rect id="cutLr" x="-200" y="0" width="0" height="2000"/></clipPath>` +
+        `<clipPath id="cutR" clipPathUnits="userSpaceOnUse"><rect id="cutRr" x="-200" y="0" width="1600" height="2000"/></clipPath>` +
+        `<g clip-path="url(#cutR)">${P('natural')}</g><g clip-path="url(#cutL)">${P('clip')}</g>` +
+        `<path id="cutline" d="M0 640 V1260" stroke="${C.terra}" stroke-width="5" stroke-dasharray="14 12" opacity="0"/>` + scissors + fluff +
+        label('lb1', 90, 560, 330, '허리 방울', '콩팥·허리 보온', 405, 950) +
+        label('lb2', 740, 900, 280, '가슴 털', '심장·폐 보온', 690, 1000) +
+        label('lb3', 90, 1250, 330, '발목 방울', '관절 보온', 364, 1135) +
+        label('lb4', 690, 1250, 330, '짧은 다리 털', '헤엄이 쉬워요', 596, 1028));
+  },
+});
+
+// ---------- S5 프랑스 ----------
+SEED = 51;
+scene({
+  id: 's5', t0: 29, t1: 36.5, zoom: [1.03, 1.1], focus: [540, 1050], pan: [[30, 0], [-30, 0]],
+  chap: ['네 번째 이야기', '프랑스의 사랑'],
+  svg: () => {
+    let windows = '';
+    for (let i = 0; i < 12; i++) { const x = 170 + i * 64 + (i >= 6 ? 90 : 0); if (x > 900) continue; windows += `<path d="M${x} 960 V905 a16 16 0 0 1 32 0 V960Z" fill="${C.teal}" stroke="${C.ink}" stroke-width="4"/>`; }
+    const palace = `<g stroke="${C.ink}" stroke-width="5" stroke-linejoin="round">
+      <path d="M130 860 L180 810 H900 L950 860Z" fill="${C.terra}"/>
+      <rect x="130" y="860" width="820" height="130" fill="#FBF0DA"/>
+      <rect x="430" y="780" width="220" height="210" fill="#FBF0DA"/>
+      <path d="M430 780 C430 650 650 650 650 780Z" fill="${C.sage}"/>
+      <path d="M540 680 V630" stroke-width="5"/><path d="M540 632 L580 646 L540 660Z" fill="${C.terra}"/>
+      <path d="M500 990 V915 a40 40 0 0 1 80 0 V990Z" fill="${C.mustard}"/>
+      <rect x="456" y="820" width="30" height="50" rx="15" fill="${C.teal}"/><rect x="594" y="820" width="30" height="50" rx="15" fill="${C.teal}"/></g>` + windows;
+    const topiary = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-8" y="-120" width="16" height="120" fill="${C.soil}" stroke="${C.ink}" stroke-width="4"/>${blob(circ([[0, -140, 34]]), C.sage, 4)}${blob(circ([[0, -210, 26]]), C.sage, 4)}${blob(circ([[0, -262, 18]]), C.sage, 4)}<rect x="-30" y="-20" width="60" height="30" rx="6" fill="${C.terra}" stroke="${C.ink}" stroke-width="4"/></g>`;
+    let petals = '';
+    for (let i = 0; i < 22; i++) petals += `<g data-anim="fall" data-r="1500" data-s="${0.06 + rnd() * .06}" data-p="${rnd()}" data-a="${20 + rnd() * 30}"><ellipse cx="${60 + rnd() * 960}" cy="${260}" rx="11" ry="6" fill="${i % 3 ? C.terra : C.mustard}" stroke="${C.ink}" stroke-width="2.5"/></g>`;
+    const cushion = `<g stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round"><path d="M300 1250 C300 1215 780 1215 780 1250 L800 1300 C800 1340 280 1340 280 1300Z" fill="${C.terra}"/>
+      <path d="M320 1262 C420 1280 660 1280 760 1262" fill="none" stroke="${C.mustard}" stroke-width="6"/>
+      ${[[288, 1300], [792, 1300]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="12" fill="${C.mustard}"/><path d="M${x - 10} ${y + 10} L${x - 14} ${y + 46} H${x + 14} L${x + 10} ${y + 10}Z" fill="${C.mustard}"/>`).join('')}</g>`;
+    return L(0, `<rect x="-300" y="-200" width="1680" height="2320" fill="#F6E1C8"/><circle cx="820" cy="600" r="320" fill="url(#glowM)"/>`) +
+      L(0.25, `<g id="banner" opacity="0"><g stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"><path d="M150 420 L90 470 L150 520Z" fill="#B86049"/><path d="M930 420 L990 470 L930 520Z" fill="#B86049"/>
+        <path d="M150 380 Q540 350 930 380 V520 Q540 490 150 520Z" fill="${C.mustard}"/></g>
+        <text x="540" y="478" text-anchor="middle" font-size="80" font-weight="800" fill="${C.ink}" letter-spacing="6">Caniche</text>
+        <text x="540" y="590" text-anchor="middle" font-size="38" font-weight="700" fill="${C.terra}">chien canard · 오리 개</text></g>`) +
+      L(0.4, palace) +
+      L(0.65, `<path d="M-300 985 H1380 V1400 H-300Z" fill="#B9C9A3" stroke="${C.ink}" stroke-width="5"/>` +
+        blob(circ([[-100, 1010, 40], [0, 1000, 44], [100, 1010, 40], [200, 1000, 44], [880, 1000, 44], [980, 1010, 40], [1080, 1000, 44], [1180, 1010, 40]]), C.sage, 4) +
+        topiary(120, 1100, 1) + topiary(960, 1100, 1)) +
+      L(1, cushion + place(515, 1262, 1.0, poodle('clip', { ribbon: true, wag: 10 })) + sparkle(810, 820, 24, C.mustard, 1, .7) + sparkle(250, 880, 18, C.mustard, 3, .5)) +
+      L(1.2, petals);
+  },
+});
+
+// ---------- S6 재주꾼 (서커스 → 숲, 가로 팬) ----------
+SEED = 61;
+scene({
+  id: 's6', t0: 36.5, t1: 44, trans: 'wipe', zoom: [1.02, 1.06], focus: [540, 1000],
+  panFn: (tl) => [-1080 * smoothstep((tl - 3.1) / 1.6) - 20 + tl * 4, 0],
+  chap: ['다섯 번째 이야기', '재주꾼 푸들'],
+  svg: () => {
+    let stripes = '';
+    for (let i = -6; i < 7; i++) stripes += `<path d="M540 -60 L${540 + i * 200} 1500 L${540 + (i + 0.5) * 200} 1500Z" fill="${C.terra}"/>`;
+    let bunting = '';
+    for (let i = 0; i < 12; i++) { const x = -40 + i * 100, y = 330 + Math.sin(i / 11 * Math.PI) * 80; bunting += `<path d="M${x} ${y} L${x + 70} ${y + 4} L${x + 36} ${y + 70}Z" fill="${[C.mustard, C.teal, C.cream][i % 3]}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/>`; }
+    let confetti = '';
+    for (let i = 0; i < 26; i++) confetti += `<g data-anim="fall" data-r="1400" data-s="${0.08 + rnd() * .08}" data-p="${rnd()}" data-a="${15 + rnd() * 25}"><rect x="${40 + rnd() * 1000}" y="300" width="14" height="22" rx="3" fill="${[C.mustard, C.teal, C.cream, C.sage][i % 4]}" stroke="${C.ink}" stroke-width="2.5"/></g>`;
+    const ball = `<circle cx="540" cy="1170" r="140" fill="${C.mustard}" stroke="${C.ink}" stroke-width="${SW}"/>
+      <g data-anim="spin" data-cx="540" data-cy="1170" data-s=".25"><path d="M400 1170 A140 140 0 0 0 680 1170 A140 60 0 0 1 400 1170Z" fill="${C.terra}" stroke="${C.ink}" stroke-width="4"/>
+      <path d="M540 1085 L556 1122 L596 1124 L565 1148 L576 1186 L540 1165 L504 1186 L515 1148 L484 1124 L524 1122Z" fill="${C.cream}" stroke="${C.ink}" stroke-width="4" stroke-linejoin="round"/></g>`;
+    const circus = `<rect x="-300" y="-200" width="1380" height="2320" fill="#F8E7CB"/>` + stripes +
+      `<path d="M-300 1260 H1080 V2200 H-300Z" fill="#E9C98F" stroke="${C.ink}" stroke-width="5"/><ellipse cx="540" cy="1310" rx="470" ry="90" fill="${C.cream}" stroke="${C.ink}" stroke-width="6"/><ellipse cx="540" cy="1310" rx="420" ry="68" fill="none" stroke="${C.terra}" stroke-width="6" stroke-dasharray="20 16"/>` +
+      `<path d="M470 -60 L610 -60 L830 1320 L250 1320Z" fill="${C.cream}" opacity=".35"/>` + bunting;
+    const actor = `<g data-anim="wag" data-cx="540" data-cy="1310" data-a="3" data-s=".5">${ball}${place(517, 1048, 0.8, poodle('clip', { ribbon: true, wag: 16, wagSpd: 2.4 }))}</g>`;
+    // 숲 (x 1080~2160)
+    const oak = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-30 0 L-22 -220 L22 -220 L30 0Z" fill="${C.soil}" stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round"/>${blob(circ([[0, -300, 110], [-100, -250, 80], [100, -250, 80], [-60, -380, 80], [70, -380, 80]]), C.sage)}${curls([[-40, -300, 14], [50, -340, 14, 40], [0, -250, 12, 80]], .3)}</g>`;
+    let dirt = '';
+    for (let i = 0; i < 8; i++) dirt += `<g data-anim="splash" data-s="1.8" data-p="${i / 8}" data-a="${40 + rnd() * 40}" data-dx="${-50 - rnd() * 40}"><circle cx="1720" cy="1235" r="${5 + rnd() * 4}" fill="${C.soil}" stroke="${C.ink}" stroke-width="2.5"/></g>`;
+    const forest = `<rect x="1080" y="-200" width="1400" height="2320" fill="#EFE3C4"/>
+      <path d="M1080 980 Q1400 900 1700 960 T2400 950 V1300 H1080Z" fill="#B7C6A5" stroke="${C.ink}" stroke-width="5"/>
+      ${oak(1250, 1120, 0.9)}${oak(1980, 1100, 1.0)}
+      <path d="M1080 1150 Q1500 1110 2400 1160 V2200 H1080Z" fill="${C.sage}" stroke="${C.ink}" stroke-width="5"/>
+      <ellipse cx="1745" cy="1262" rx="90" ry="28" fill="${C.soil}" stroke="${C.ink}" stroke-width="5"/>
+      ${blob(circ([[1742, 1236, 24], [1766, 1232, 20], [1752, 1218, 18]]), '#4A3428', 4)}
+      ${sparkle(1790, 1170, 22, C.mustard, 0, 1.2)}${sparkle(1700, 1190, 14, C.mustard, 2, 1.2)}
+      <g data-anim="bob" data-a="4" data-s="2" data-p="0">${[0, 1, 2].map((i) => `<path d="M${1712 - i * 16} ${1150 - i * 26} q10 -8 20 0 t20 0" fill="none" stroke="${C.ink}" stroke-width="4" stroke-linecap="round" opacity=".45"/>`).join('')}</g>
+      ${tufts(1330, '#7C9A78', 9, 1140, 2140)}${[0,1,2,3,4,5].map((i) => { const x = 1180 + i * 170 + (i % 2) * 40, y = 1420 + (i % 3) * 120; return `<path d="M${x} ${y} V${y - 40}" stroke="${C.ink}" stroke-width="4"/><circle cx="${x}" cy="${y - 46}" r="13" fill="${i % 2 ? C.mustard : C.cream}" stroke="${C.ink}" stroke-width="4"/>`; }).join('')}
+      ${dirt}${place(1480, 1290, 0.7, poodle('natural', { headRot: 28, wag: 20, wagSpd: 2.8, nod: 5, nodSpd: 2 }))}`;
+    const curtain = `<g stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round"><path d="M1000 -100 Q1040 700 1030 1500 L1080 2200 H1140 L1140 -100Z" fill="#B86049"/><path d="M1160 -100 L1160 2200 H1100 Q1120 900 1180 -100Z" fill="${C.terra}"/></g>`;
+    return L(1, circus + forest) + L(1, actor) + L(1.12, curtain + confetti);
+  },
+});
+
+// ---------- S7 오늘날 ----------
+SEED = 71;
+scene({
+  id: 's7', t0: 44, t1: 52, zoom: [1.0, 1.08], focus: [520, 980], pan: [[-30, 0], [20, 0]],
+  chap: ['여섯 번째 이야기', '오늘의 푸들'],
+  svg: () => {
+    let dots = '';
+    for (let y = 300; y < 1300; y += 70) for (let x = 20 + (y / 70 % 2) * 35; x < 1100; x += 70) dots += `<circle cx="${x}" cy="${y}" r="5" fill="${C.mustard}" opacity=".25"/>`;
+    let apts = '';
+    [[150, 170, 330], [310, 150, 280], [420, 120, 360]].forEach(([x, w, h], k) => {
+      apts += `<rect x="${x}" y="${760 - h}" width="${w}" height="${h}" fill="#A9C1BD" stroke="${C.ink}" stroke-width="4"/>`;
+      for (let yy = 760 - h + 30; yy < 740; yy += 40) for (let xx = x + 18; xx < x + w - 20; xx += 34) apts += `<rect x="${xx}" y="${yy}" width="16" height="16" fill="${(xx + yy + k) % 3 ? C.cream : C.mustard}" opacity=".9"/>`;
+    });
+    const win = `<g><clipPath id="winClip"><rect x="110" y="330" width="380" height="430" rx="10"/></clipPath>
+      <rect x="110" y="330" width="380" height="430" rx="10" fill="#CFE0DA"/>
+      <g clip-path="url(#winClip)"><circle cx="400" cy="420" r="46" fill="${C.mustard}" stroke="${C.ink}" stroke-width="4"/>
+      <g data-anim="slide" data-s="10">${blob(circ([[160, 430, 26], [195, 420, 34], [230, 432, 24]]), C.cream, 3)}</g>${apts}
+      <text x="235" y="${760 - 250}" font-size="24" font-weight="800" fill="${C.ink}" text-anchor="middle">101동</text></g>
+      <rect x="110" y="330" width="380" height="430" rx="10" fill="none" stroke="${C.ink}" stroke-width="12"/><rect x="110" y="330" width="380" height="430" rx="10" fill="none" stroke="${C.cream}" stroke-width="5"/>
+      <path d="M300 330 V760 M110 545 H490" stroke="${C.cream}" stroke-width="10"/><path d="M300 330 V760 M110 545 H490" stroke="${C.ink}" stroke-width="3" opacity=".6"/>
+      <path d="M80 320 H520" stroke="${C.ink}" stroke-width="10" stroke-linecap="round"/>
+      <path d="M90 322 C100 500 70 600 120 780 H160 C130 600 160 450 150 322Z" fill="${C.terra}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M510 322 C500 500 530 600 480 780 H440 C470 600 440 450 450 322Z" fill="${C.terra}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/></g>`;
+    const frame = `<g><rect x="640" y="410" width="220" height="190" rx="8" fill="${C.cream}" stroke="${C.ink}" stroke-width="10"/><rect x="662" y="432" width="176" height="146" fill="#CFE0DA"/>${place(740, 565, 0.3, poodle('clip', { ribbon: true, wag: 0, nod: 0 }))}</g>`;
+    const lamp = `<g stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"><circle cx="960" cy="720" r="300" fill="url(#glowM)" stroke="none"/><path d="M960 760 V1340" stroke-width="10"/><path d="M890 1340 H1030" stroke-width="12" stroke-linecap="round"/><path d="M890 760 L920 640 H1000 L1030 760Z" fill="${C.mustard}"/></g>`;
+    const sofa = `<g stroke="${C.ink}" stroke-width="${SW}" stroke-linejoin="round">
+      <rect x="70" y="880" width="940" height="330" rx="70" fill="#B86049"/>
+      <rect x="120" y="920" width="410" height="220" rx="46" fill="${C.terra}"/><rect x="550" y="920" width="410" height="220" rx="46" fill="${C.terra}"/>
+      <rect x="40" y="1060" width="150" height="250" rx="60" fill="#B86049"/><rect x="890" y="1060" width="150" height="250" rx="60" fill="#B86049"/>
+      <rect x="150" y="1120" width="780" height="150" rx="40" fill="${C.terra}"/>
+      <path d="M130 1300 V1360 M950 1300 V1360" stroke-width="16" stroke-linecap="round"/></g>`;
+    const cushion = `<g transform="rotate(-10 820 1060)">${blob(`<rect x="730" y="990" width="170" height="140" rx="40"/>`, C.mustard)}${[0, 1, 2].map((i) => `<path d="M${760 + i * 40} 1010 V1110" stroke="${C.cream}" stroke-width="8" opacity=".7"/>`).join('')}</g>`;
+    let hearts = '';
+    for (let i = 0; i < 6; i++) hearts += `<g data-anim="rise" data-r="360" data-s="${.28 + rnd() * .12}" data-p="${i / 6}" data-a="16"><g transform="translate(${400 + rnd() * 260} ${900})">${heart(.9 + rnd() * .4)}</g></g>`;
+    const arm = `<g id="arm"><path d="M1200 700 C1000 740 800 790 640 800" stroke="${C.ink}" stroke-width="112" fill="none" stroke-linecap="round"/><path d="M1200 700 C1000 740 800 790 640 800" stroke="${C.sage}" stroke-width="100" fill="none" stroke-linecap="round"/>
+      <path d="M740 770 L740 830" stroke="${C.ink}" stroke-width="4" opacity=".35"/>
+      <g stroke="${C.ink}" stroke-width="5" fill="${C.skin}" stroke-linejoin="round"><ellipse cx="560" cy="815" rx="70" ry="44"/>
+      <rect x="470" y="818" width="84" height="30" rx="15" transform="rotate(22 512 833)"/><rect x="480" y="790" width="90" height="30" rx="15" transform="rotate(30 525 805)"/><rect x="515" y="770" width="80" height="28" rx="14" transform="rotate(38 555 784)"/></g></g>`;
+    return L(0, `<rect x="-300" y="-200" width="1680" height="2320" fill="#F3DDB5"/>` + dots + `<path d="M-300 1300 H1380 V2200 H-300Z" fill="#D9B58A" stroke="${C.ink}" stroke-width="5"/>`) +
+      L(0.3, win + frame) +
+      L(0.55, lamp + `<g transform="translate(-10 0)"><path d="M40 1330 L60 1220 H180 L200 1330Z" fill="${C.terra}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>${blob(circ([[120, 1150, 60], [70, 1100, 44], [170, 1095, 44], [120, 1050, 40]]), C.sage, 5)}</g>`) +
+      L(0.8, `<ellipse cx="540" cy="1470" rx="560" ry="90" fill="${C.terra}" opacity=".5" stroke="${C.ink}" stroke-width="5"/>` + sofa + cushion) +
+      L(0.95, place(390, 1170, 0.78, poodle('natural', { wag: 24, wagSpd: 3.2, nod: 3, nodSpd: .8 })) + hearts) +
+      L(1.1, arm);
+  },
+});
+
+// ---------- S8 엔딩 ----------
+SEED = 81;
+scene({
+  id: 's8', t0: 52, t1: 60, trans: 'iris', iris: [520, 930], zoom: [1.0, 1.04], focus: [540, 900], pan: [[0, 0], [0, 0]],
+  svg: () => {
+    let stars = '';
+    for (let i = 0; i < 20; i++) stars += sparkle(90 + rnd() * 900, [320 + rnd() * 120, 1260 + rnd() * 400][i % 2], 7 + rnd() * 10, i % 2 ? C.mustard : C.terra, rnd() * 6, .5);
+    const medal = (id, cx, bg, inner, label) => `<g id="${id}" opacity="0"><clipPath id="${id}c"><circle cx="${cx}" cy="560" r="130"/></clipPath>
+      <circle cx="${cx}" cy="560" r="130" fill="${bg}"/><g clip-path="url(#${id}c)">${inner}</g>
+      <circle cx="${cx}" cy="560" r="130" fill="none" stroke="${C.ink}" stroke-width="7"/>
+      <text x="${cx}" y="760" text-anchor="middle" font-size="42" font-weight="800" fill="${C.ink}">${label}</text></g>`;
+    const m1 = `<circle cx="200" cy="500" r="30" fill="${C.cream}" opacity=".9"/>` + sparkle(160, 470, 8, C.cream, 0) + sparkle(250, 520, 6, C.cream, 2) + place(170, 670, 0.5, wolf()) + `<rect x="30" y="660" width="300" height="60" fill="#1D2136"/>`;
+    const m2 = place(510, 640, 0.52, poodle('natural', { wag: 0, nod: 3, nodSpd: .9 })) + `<path d="M380 600 q20 -10 40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 V720 H380Z" fill="${C.teal}" stroke="${C.ink}" stroke-width="5"/>`;
+    const m3 = `<rect x="720" y="600" width="300" height="120" fill="${C.terra}" stroke="${C.ink}" stroke-width="5"/>` + place(845, 640, 0.5, poodle('natural', { wag: 22, wagSpd: 3 })) + `<g transform="translate(900 470)">${heart(.9)}</g>`;
+    let paws = '';
+    [[352, 580, 90], [388, 540, 90], [692, 580, 90], [728, 540, 90]].forEach(([x, y, r], i) => { paws += paw(x, y, 1.0, r, C.terra, `class="pw" data-i="${i}" opacity="0"`); });
+    return L(0, `<rect x="-200" y="-200" width="1480" height="2320" fill="${C.paper}"/><circle cx="540" cy="1000" r="700" fill="url(#glowM)" opacity=".6"/>`) +
+      L(0.4, stars) +
+      L(0.8, medal('md1', 200, C.night, m1, '늑대') + medal('md2', 540, '#CFE0DA', m2, '사냥개') + medal('md3', 880, '#F6E1C8', m3, '가족') + paws +
+        `<g id="endpaws" opacity="0">${paw(470, 1330, .8, -10, C.ink)}${paw(610, 1330, .8, 10, C.ink)}</g>`);
+  },
+  html: `<div class="endtext"><h2><span class="l">늑대에서 사냥개로,</span><span class="l">그리고 가족으로.</span></h2><p>— 끝 —</p></div>`,
+});
+
+// ================= 자막 =================
+const CAPS = [
+  [0.6, 3.3, '옛날 옛적,<br>아주 먼 옛날…'],
+  [3.6, 6.3, '곱슬곱슬 푸들은<br>어디서 왔을까요?'],
+  [7.3, 10.4, '모든 개의 먼 조상은<br>회색늑대 계열이에요'],
+  [10.7, 13.8, '수만 년 전, 모닥불 곁으로<br>다가온 늑대들이 있었죠'],
+  [14.8, 17.9, '중세 독일, 물에 빠진 오리를<br>물어 오던 사냥개가 있었어요'],
+  [18.2, 21.3, '그 이름은 푸델(Pudel)!<br>독일어로 ‘첨벙거리다’라는 뜻'],
+  [22.3, 25.4, '헤엄치기 좋게<br>다리·엉덩이 털은 짧게,'],
+  [25.7, 28.8, '가슴과 관절 털은 남겨<br>차가운 물에서 체온을 지켰대요'],
+  [29.8, 32.9, '프랑스에선 ‘카니슈(Caniche)’,<br>오리 개라고 불렸어요'],
+  [33.2, 36.3, '귀족들의 사랑을 듬뿍 받고<br>프랑스를 대표하는 개가 됐죠'],
+  [37.3, 40.2, '영리한 푸들은<br>서커스의 인기 스타!'],
+  [40.8, 43.8, '작은 푸들은 코가 좋아<br>송로버섯(트러플)도 찾았대요'],
+  [44.8, 47.9, '털이 잘 안 빠지고 영리해서<br>곁에 두기 좋은 반려견으로'],
+  [48.2, 51.8, '지금은 한국에서도<br>가장 사랑받는 친구 중 하나!'],
+  [55.6, 59.7, '지금 곁의 그 친구도<br>오래된 신화의 주인공이에요'],
+];
+
+// ================= 빌드 =================
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (x) => Math.max(0, Math.min(1, x));
+function smoothstep(x) { x = clamp(x); return x * x * (3 - 2 * x); }
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const lerp = (a, b, t) => a + (b - a) * t;
+const frac = (x) => x - Math.floor(x);
+
+const host = $('#scenes');
+SC.forEach((s) => {
+  const div = document.createElement('div');
+  div.className = 'scene';
+  div.id = s.id;
+  div.innerHTML = `<svg viewBox="0 0 1080 1920" width="1080" height="1920"><g class="cam">${s.svg()}</g></svg>` +
+    (s.chap ? `<div class="chap"><div class="in"><small>${s.chap[0]}</small><b>${s.chap[1]}</b></div></div>` : '') + s.html;
+  host.appendChild(div);
+  s.el = div;
+  s.cam = $('.cam', div);
+  s.layers = $$('.layer', div).map((el) => ({ el, d: +el.dataset.depth }));
+  s.anims = $$('[data-anim]', div).map((el) => {
+    const d = el.dataset;
+    return { el, type: d.anim, a: +(d.a ?? 10), s: +(d.s ?? 1), p: +(d.p ?? 0), cx: +(d.cx ?? 0), cy: +(d.cy ?? 0), r: +(d.r ?? 300), dx: +(d.dx ?? 0), mod: d.mod ? +d.mod : 0 };
+  });
+  s.chapEl = $('.chap .in', div);
+});
+
+function runAnim(an, t) {
+  const { el, type, a, s, p, cx, cy } = an;
+  const w = Math.sin(2 * Math.PI * s * t + p);
+  switch (type) {
+    case 'wag': el.setAttribute('transform', `rotate(${(a * w).toFixed(2)} ${cx} ${cy})`); break;
+    case 'bob': el.setAttribute('transform', `translate(0 ${(a * w).toFixed(2)})`); break;
+    case 'twinkle': {
+      const k = 0.5 + 0.5 * w;
+      el.setAttribute('opacity', (0.3 + 0.7 * k).toFixed(3));
+      const sc = 0.7 + 0.3 * k;
+      el.setAttribute('transform', `translate(${cx} ${cy}) scale(${sc.toFixed(3)}) translate(${-cx} ${-cy})`);
+      break;
+    }
+    case 'flicker': {
+      const n = Math.sin(t * 11 + p) * 0.6 + Math.sin(t * 7.3 + p * 2) * 0.4;
+      const m = Math.sin(t * 9.1 + p * 3);
+      el.setAttribute('transform', `translate(${cx} ${cy}) scale(${(1 + a * m * .5).toFixed(3)} ${(1 + a * n).toFixed(3)}) translate(${-cx} ${-cy})`);
+      break;
+    }
+    case 'ripple': {
+      const k = frac(t * s + p);
+      el.setAttribute('transform', `translate(${cx} ${cy}) scale(${(0.3 + k).toFixed(3)}) translate(${-cx} ${-cy})`);
+      el.setAttribute('opacity', ((1 - k) * 0.8).toFixed(3));
+      break;
+    }
+    case 'fall': {
+      const k = frac(t * s + p);
+      el.setAttribute('transform', `translate(${(a * Math.sin(t * 1.3 + p * 9)).toFixed(1)} ${(k * an.r).toFixed(1)}) rotate(${(Math.sin(t * 2 + p * 5) * 40).toFixed(1)})`);
+      el.setAttribute('opacity', Math.min(1, Math.sin(Math.PI * k) * 3).toFixed(3));
+      break;
+    }
+    case 'rise': {
+      const k = frac(t * s + p);
+      el.setAttribute('transform', `translate(${(a * Math.sin(t * 1.7 + p * 7)).toFixed(1)} ${(-k * an.r).toFixed(1)})`);
+      el.setAttribute('opacity', Math.sin(Math.PI * k).toFixed(3));
+      break;
+    }
+    case 'spin': el.setAttribute('transform', `rotate(${(360 * s * t).toFixed(2)} ${cx} ${cy})`); break;
+    case 'slide': {
+      let x = s * t;
+      if (an.mod) x = ((x % an.mod) + an.mod) % an.mod - (s < 0 ? 0 : an.mod);
+      el.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+      break;
+    }
+    case 'splash': {
+      const k = frac(t * s + p);
+      el.setAttribute('transform', `translate(${(an.dx * k).toFixed(1)} ${(-a * 4 * k * (1 - k) + 20 * k).toFixed(1)})`);
+      el.setAttribute('opacity', (k < .85 ? 1 : (1 - k) / .15).toFixed(3));
+      break;
+    }
+  }
+}
+
+// 등장 헬퍼: k(0..1) 로 opacity + 위로 살짝
+function appear(el, k, dy = 30, scale = 1) {
+  if (!el) return;
+  const e = easeOut(k);
+  el.style.opacity = e;
+  el.style.transform = `translateY(${(1 - e) * dy}px) scale(${lerp(scale, 1, e)})`;
+}
+function appearSvg(el, k, cx, cy, from = 0.6) {
+  const e = smoothstep(k);
+  el.setAttribute('opacity', e.toFixed(3));
+  const sc = lerp(from, 1, easeOut(k));
+  el.setAttribute('transform', `translate(${cx} ${cy}) scale(${sc.toFixed(3)}) translate(${-cx} ${-cy})`);
+}
+
+const TR = 0.9; // 전환 길이
+function sceneFrame(s, i, t) {
+  const next = SC[i + 1];
+  const visible = t >= s.t0 - 0.001 && t < (next ? next.t0 + TR : 1e9);
+  s.el.style.display = visible ? 'block' : 'none';
+  if (!visible) return;
+  const tl = t - s.t0;
+  const kin = clamp(tl / TR);
+  s.el.style.opacity = 1;
+  s.el.style.clipPath = 'none';
+  if (i === 0) s.el.style.opacity = 1;
+  else if (s.trans === 'fade') s.el.style.opacity = smoothstep(kin);
+  else if (s.trans === 'iris' && kin < 1) s.el.style.clipPath = `circle(${(easeOut(kin) * 1350 + 1).toFixed(1)}px at ${s.iris[0]}px ${s.iris[1]}px)`;
+  else if (s.trans === 'wipe' && kin < 1) s.el.style.clipPath = `inset(0 0 0 ${((1 - smoothstep(kin)) * 1080).toFixed(1)}px)`;
+  // 카메라: Ken Burns (전환 구간 포함해 계속 움직이게)
+  const dur = s.t1 - s.t0 + TR;
+  const p = clamp(tl / dur);
+  const z = lerp(s.zoom[0], s.zoom[1], smoothstep(p * 0.9 + 0.05));
+  const [fx, fy] = s.focus;
+  s.cam.setAttribute('transform', `translate(${fx} ${fy}) scale(${z.toFixed(4)}) translate(${-fx} ${-fy})`);
+  const [px, py] = s.panFn ? s.panFn(tl) : [lerp(s.pan[0][0], s.pan[1][0], p), lerp(s.pan[0][1], s.pan[1][1], p)];
+  s.layers.forEach(({ el, d }) => el.setAttribute('transform', `translate(${(px * d).toFixed(2)} ${(py * d).toFixed(2)})`));
+  s.anims.forEach((an) => runAnim(an, tl));
+  if (s.chapEl) {
+    const kc = clamp((tl - 0.25) / 0.6);
+    const ko = clamp((s.t1 - 0.3 - t) / 0.4);
+    appear(s.chapEl, Math.min(kc, ko), -24);
+  }
+  SCENE_FX[s.id]?.(tl, t, s);
+}
+
+// ---------- 장면별 연출 ----------
+const SCENE_FX = {
+  s1(tl) {
+    appear($('.title small'), (tl - 0.2) / 0.6, 20);
+    appear($('.title h1'), (tl - 0.4) / 0.8, 40, 0.9);
+    appear($('.title .rule'), (tl - 1.0) / 0.6, 10);
+  },
+  s3(tl) {
+    const x = lerp(250, 470, smoothstep(tl / 7.5));
+    $('#swim').setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    const k = clamp((tl - 4.3) / 0.45);
+    appearSvg($('#pudelword'), k, 560, 820, 0.4);
+  },
+  s4(tl) {
+    // 가위가 지나가며 털을 다듬는다 (1.0 ~ 3.4)
+    const k = smoothstep((tl - 1.0) / 2.4);
+    const x = lerp(220, 870, k);
+    $('#cutLr').setAttribute('width', (x + 200).toFixed(1));
+    $('#cutRr').setAttribute('x', x.toFixed(1));
+    const on = tl > 0.8 && tl < 3.8 ? smoothstep(Math.min((tl - 0.8) / 0.3, (3.8 - tl) / 0.3)) : 0;
+    const sy = 900 + Math.sin(tl * 5) * 160;
+    $('#scissors').setAttribute('transform', `translate(${x.toFixed(1)} ${sy.toFixed(1)})`);
+    $('#scissors').setAttribute('opacity', on.toFixed(3));
+    $('#cutline').setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    $('#cutline').setAttribute('opacity', (on * 0.8).toFixed(3));
+    $$('.fluff').forEach((f, i) => {
+      const tb = 1.1 + i * 0.17, kk = clamp((tl - tb) / 1.2);
+      const fx = lerp(220, 870, smoothstep((tb - 1.0) / 2.4));
+      const fy = 950 + (i % 5) * 50 + kk * 260;
+      f.setAttribute('transform', `translate(${(fx + Math.sin(kk * 6 + i) * 30).toFixed(1)} ${fy.toFixed(1)}) rotate(${(kk * 200).toFixed(0)})`);
+      f.setAttribute('opacity', (kk > 0 ? Math.sin(Math.PI * kk) : 0).toFixed(3));
+    });
+    [['#lb1', 4.0, 255, 620], ['#lb2', 4.45, 880, 960], ['#lb3', 4.9, 255, 1310], ['#lb4', 5.35, 855, 1310]].forEach(([sel, t0, cx, cy]) =>
+      appearSvg($(sel), (tl - t0) / 0.45, cx, cy, 0.7));
+  },
+  s5(tl) { appearSvg($('#banner'), (tl - 0.6) / 0.7, 540, 470, 0.5); },
+  s7(tl) {
+    const k = Math.sin(tl * 2 * Math.PI * 0.7);
+    $('#arm').setAttribute('transform', `translate(${(k * 22).toFixed(1)} ${(k * -4 - 6).toFixed(1)}) `);
+    const kin = easeOut((tl - 0.6) / 1.0);
+    $('#arm').style.opacity = kin;
+    $('#arm').setAttribute('transform', `translate(${(k * 22 + (1 - kin) * 400).toFixed(1)} ${(k * -4 + 72 - (1 - kin) * 60).toFixed(1)})`);
+  },
+  s8(tl) {
+    [['#md1', 0.2, 200], ['#md2', 0.6, 540], ['#md3', 1.0, 880]].forEach(([sel, t0, cx]) => appearSvg($(sel), (tl - t0) / 0.5, cx, 560, 0.5));
+    $$('.pw').forEach((p, i) => p.setAttribute('opacity', smoothstep((tl - 0.5 - (i >> 1) * 0.4 - (i % 2) * 0.15) / 0.2).toFixed(3)));
+    const ls = $$('.endtext .l');
+    appear(ls[0], (tl - 1.5) / 0.7, 40);
+    appear(ls[1], (tl - 2.1) / 0.7, 40);
+    appear($('.endtext p'), (tl - 2.8) / 0.6, 20);
+    $('#endpaws').setAttribute('opacity', smoothstep((tl - 2.8) / 0.6).toFixed(3));
+  },
+};
+
+// ---------- 자막 ----------
+const plate = $('#cap .plate');
+let capShown = null;
+function captionFrame(t) {
+  const c = CAPS.find(([a, b]) => t >= a - 0.001 && t < b + 0.35);
+  if (!c) { $('#cap').style.opacity = 0; return; }
+  if (capShown !== c) { plate.innerHTML = c[2].split('<br>').map((l) => `<span class="line">${l}</span>`).join(''); capShown = c; }
+  const [a, b] = c;
+  const kin = easeOut((t - a) / 0.45);
+  const kout = clamp((b + 0.35 - t) / 0.35);
+  const cap = $('#cap');
+  cap.style.opacity = Math.min(smoothstep((t - a) / 0.3), kout);
+  cap.style.transform = `translateY(${((1 - kin) * 26).toFixed(1)}px)`;
+  $$('.line', plate).forEach((l, i) => {
+    const k = easeOut((t - a - 0.12 - i * 0.2) / 0.45);
+    l.style.opacity = k;
+    l.style.transform = `translateY(${((1 - k) * 18).toFixed(1)}px)`;
+  });
+}
+
+window.DURATION = 60;
+window.seek = (t) => {
+  SC.forEach((s, i) => sceneFrame(s, i, t));
+  captionFrame(t);
+};
+window.seek(0);
+
+if (!navigator.webdriver) {
+  const t0 = performance.now();
+  const loop = () => { window.seek(((performance.now() - t0) / 1000) % window.DURATION); requestAnimationFrame(loop); };
+  document.fonts.ready.then(loop);
+}
+</script>
+</body>
+</html>
