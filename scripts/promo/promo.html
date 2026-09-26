@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>모일까 홍보 영상</title>
+<!--
+  모일까 광고 영상 (1080×1920, 9:16, 25초).
+  모든 애니메이션은 Web Animations API 로 만들고 전부 pause 해 둔다.
+  render.mjs 가 window.seek(t) 로 프레임마다 시간을 찍어 캡처한다.
+  브라우저로 그냥 열면 ?play 없이도 자동 재생된다.
+-->
+<style>
+  @font-face { font-family: Pretendard; font-weight: 500; src: url(fonts/Pretendard-Medium.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 600; src: url(fonts/Pretendard-SemiBold.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2) format('woff2'); }
+
+  :root {
+    --zinc-50:#fafafa; --zinc-100:#f4f4f5; --zinc-200:#e4e4e7; --zinc-300:#d4d4d8;
+    --zinc-400:#a1a1aa; --zinc-500:#71717a; --zinc-600:#52525b; --zinc-700:#3f3f46;
+    --zinc-800:#27272a; --zinc-900:#18181b; --zinc-950:#09090b;
+    --amber-50:#fffbeb; --amber-200:#fde68a; --amber-300:#fcd34d; --amber-500:#f59e0b; --amber-700:#b45309;
+    --emerald-600:#059669; --rose-600:#e11d48;
+    --stone-50:#fafaf9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--stone-50); }
+  body {
+    font-family: Pretendard, 'Noto Color Emoji', sans-serif;
+    color: var(--zinc-900);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.02em;
+  }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+  /* 배경 — 옅은 점 격자 (캘린더 느낌) */
+  .bg-dots {
+    position: absolute; inset: -40px;
+    background-image: radial-gradient(var(--zinc-200) 2px, transparent 2px);
+    background-size: 44px 44px;
+    opacity: .7;
+  }
+
+  /* ---------- Scene 1: 단톡방 혼란 ---------- */
+  .s1-title { position: absolute; top: 180px; left: 0; right: 0; text-align: center; }
+  .s1-title h2 { font-size: 76px; font-weight: 800; line-height: 1.25; }
+  .s1-title p { margin-top: 20px; font-size: 38px; color: var(--zinc-500); font-weight: 500; }
+  .chat { position: absolute; top: 600px; left: 90px; right: 90px; display: flex; flex-direction: column; gap: 34px; }
+  .msg { display: flex; align-items: flex-end; gap: 18px; }
+  .msg.me { flex-direction: row-reverse; }
+  .avatar {
+    width: 84px; height: 84px; border-radius: 999px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 700; color: var(--zinc-700); background: var(--zinc-200);
+  }
+  .msg .body { display: flex; flex-direction: column; gap: 8px; }
+  .msg .who { font-size: 26px; color: var(--zinc-500); font-weight: 600; padding-left: 6px; }
+  .bubble {
+    font-size: 40px; font-weight: 600; line-height: 1.35;
+    padding: 22px 32px; border-radius: 36px; border-bottom-left-radius: 10px;
+    background: #fff; border: 2px solid var(--zinc-200);
+    box-shadow: 0 10px 30px -12px rgba(24,24,27,.15);
+  }
+  .msg.me .bubble { background: var(--zinc-900); color: #fff; border-color: var(--zinc-900); border-bottom-left-radius: 36px; border-bottom-right-radius: 10px; }
+  .unread {
+    position: absolute; top: 470px; right: 90px;
+    height: 64px; padding: 0 28px; border-radius: 999px;
+    background: var(--rose-600); color: #fff; font-size: 30px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 12px 30px -10px rgba(225,29,72,.5);
+  }
+  .s1-bottom { position: absolute; bottom: 180px; left: 0; right: 0; text-align: center; font-size: 54px; font-weight: 800; }
+
+  /* ---------- Scene 2: 브랜드 ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 12px;
+    height: 72px; padding: 0 34px; border-radius: 999px;
+    background: var(--zinc-100); color: var(--zinc-700); font-size: 32px; font-weight: 600;
+  }
+  .s2 h1 { margin-top: 44px; font-size: 150px; font-weight: 800; letter-spacing: -0.04em; }
+  .s2 .sub { margin-top: 36px; font-size: 48px; color: var(--zinc-500); font-weight: 500; line-height: 1.5; }
+  .s2 .sub b { color: var(--zinc-900); font-weight: 700; }
+
+  .logo { display: inline-flex; align-items: center; gap: 26px; }
+  .logo .mark {
+    width: 120px; height: 120px; border-radius: 34px; background: var(--zinc-900); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 72px; font-weight: 800;
+    box-shadow: 0 20px 40px -16px rgba(24,24,27,.5);
+  }
+  .logo .word { font-size: 84px; font-weight: 800; letter-spacing: -0.04em; }
+
+  /* ---------- 폰 목업 (Scene 3~5 공유) ---------- */
+  .caption { position: absolute; top: 120px; left: 0; right: 0; height: 300px; }
+  .cap { position: absolute; inset: 0; opacity: 0; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
+  .step {
+    height: 60px; padding: 0 26px; border-radius: 999px; background: var(--zinc-900); color: #fff;
+    display: inline-flex; align-items: center; font-size: 28px; font-weight: 700; letter-spacing: .04em;
+  }
+  .cap h3 { font-size: 72px; font-weight: 800; line-height: 1.2; }
+  .cap p { font-size: 36px; color: var(--zinc-500); font-weight: 500; }
+
+  .phone {
+    position: absolute; left: 150px; top: 440px; width: 780px; height: 1560px;
+    border-radius: 96px; background: var(--zinc-900); padding: 22px;
+    box-shadow: 0 60px 120px -40px rgba(24,24,27,.45), 0 0 0 2px var(--zinc-700) inset;
+    opacity: 0;
+  }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 76px; overflow: hidden; background: var(--stone-50); }
+  .notch { position: absolute; top: 22px; left: 50%; width: 200px; height: 56px; margin-left: -100px; border-radius: 999px; background: var(--zinc-900); z-index: 5; }
+  .statusbar { position: absolute; top: 0; left: 0; right: 0; height: 100px; display: flex; align-items: center; justify-content: space-between; padding: 12px 64px 0; font-size: 28px; font-weight: 700; z-index: 4; }
+  .app { position: absolute; inset: 100px 0 0 0; padding: 30px 44px; opacity: 0; }
+
+  .app h4 { font-size: 50px; font-weight: 800; }
+  .label { font-size: 28px; font-weight: 700; color: var(--zinc-700); margin: 36px 0 14px; }
+  .input {
+    height: 100px; border-radius: 26px; border: 3px solid var(--zinc-900);
+    box-shadow: 0 0 0 6px rgba(24,24,27,.12);
+    background: #fff; display: flex; align-items: center; padding: 0 30px; font-size: 36px; font-weight: 600;
+  }
+  .caret { display: inline-block; width: 3px; height: 42px; background: var(--zinc-900); margin-left: 4px; }
+  .seg { display: flex; gap: 12px; }
+  .seg span {
+    height: 68px; padding: 0 30px; border-radius: 999px; display: flex; align-items: center;
+    font-size: 28px; font-weight: 600; background: var(--zinc-100); color: var(--zinc-600);
+  }
+  .seg span.on { background: var(--zinc-900); color: #fff; }
+  .cal { margin-top: 28px; border-radius: 36px; border: 2px solid var(--zinc-200); background: #fff; padding: 28px 26px 22px; }
+  .cal .month { display: flex; align-items: center; justify-content: space-between; font-size: 32px; font-weight: 800; padding: 0 12px 18px; }
+  .cal .month span { color: var(--zinc-400); font-weight: 600; font-size: 30px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px 6px; }
+  .grid .dow { text-align: center; font-size: 24px; font-weight: 600; color: var(--zinc-400); padding-bottom: 6px; }
+  .cell {
+    position: relative; height: 80px; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 600; color: var(--zinc-700);
+  }
+  .cell .sel {
+    position: absolute; width: 76px; height: 76px; border-radius: 999px; background: var(--zinc-900);
+    box-shadow: 0 10px 22px -6px rgba(24,24,27,.45), 0 0 0 4px var(--zinc-300);
+    opacity: 0;
+  }
+  .cell .ripple { position: absolute; width: 76px; height: 76px; border-radius: 999px; background: rgba(24,24,27,.18); opacity: 0; }
+  .cell b { position: relative; font-weight: 600; }
+  .cta {
+    margin-top: 34px; height: 112px; border-radius: 999px; background: var(--zinc-900); color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 36px; font-weight: 700;
+    box-shadow: 0 16px 30px -12px rgba(24,24,27,.5);
+  }
+
+  /* 채팅 화면 */
+  .chathead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 26px; border-bottom: 2px solid var(--zinc-200); }
+  .chathead h4 { font-size: 40px; }
+  .chathead span { font-size: 28px; color: var(--zinc-400); font-weight: 600; }
+  .clist { display: flex; flex-direction: column; gap: 22px; padding-top: 30px; }
+  .clist .msg { gap: 14px; }
+  .clist .avatar { width: 68px; height: 68px; font-size: 26px; }
+  .clist .who { font-size: 22px; }
+  .clist .bubble { font-size: 30px; padding: 18px 26px; border-radius: 28px; border-bottom-left-radius: 8px; }
+  .clist .msg.me .bubble { border-bottom-left-radius: 28px; border-bottom-right-radius: 8px; max-width: 560px; line-height: 1.45; }
+  .preview {
+    width: 500px; border-radius: 28px; overflow: hidden; border: 2px solid var(--zinc-200); background: #fff;
+    box-shadow: 0 16px 30px -16px rgba(24,24,27,.3);
+  }
+  .preview .og { height: 230px; background: var(--zinc-900); color: #fff; padding: 30px 32px; display: flex; flex-direction: column; justify-content: space-between; }
+  .preview .og small { font-size: 22px; color: var(--zinc-400); font-weight: 600; }
+  .preview .og strong { font-size: 42px; font-weight: 800; }
+  .preview .og em { font-style: normal; font-size: 24px; color: var(--zinc-300); font-weight: 500; }
+  .preview .meta { padding: 18px 26px; font-size: 24px; color: var(--zinc-500); font-weight: 600; }
+  .joined {
+    align-self: center; height: 56px; padding: 0 24px; border-radius: 999px; background: var(--zinc-100);
+    color: var(--zinc-600); font-size: 24px; font-weight: 600; display: flex; align-items: center;
+  }
+
+  /* 순위 화면 */
+  .roomhead h4 { font-size: 48px; }
+  .roommeta { margin-top: 14px; display: flex; align-items: center; gap: 16px; font-size: 26px; color: var(--zinc-500); font-weight: 600; }
+  .live { display: inline-flex; align-items: center; gap: 10px; color: var(--emerald-600); }
+  .live i { width: 14px; height: 14px; border-radius: 999px; background: var(--emerald-600); }
+  .rank-title { margin: 44px 0 20px; display: flex; align-items: center; justify-content: space-between; font-size: 34px; font-weight: 800; }
+  .rank-title span { font-size: 24px; font-weight: 600; color: var(--zinc-400); }
+  .rows { display: flex; flex-direction: column; gap: 20px; }
+  .row { border-radius: 34px; border: 2px solid var(--zinc-200); background: #fff; padding: 26px 30px; }
+  .row .top { display: flex; align-items: center; gap: 18px; }
+  .badge {
+    position: relative; width: 60px; height: 60px; border-radius: 999px; background: var(--zinc-100); color: var(--zinc-600);
+    display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; flex: none;
+  }
+  .badge .gold { position: absolute; inset: 0; border-radius: 999px; background: var(--amber-500); color: #fff; display: flex; align-items: center; justify-content: center; opacity: 0; }
+  .badge svg { width: 34px; height: 34px; }
+  .row .date { font-size: 34px; font-weight: 700; }
+  .row .chip1 { height: 48px; padding: 0 18px; border-radius: 999px; font-size: 22px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; opacity: 0; }
+  .row .votes { margin-left: auto; font-size: 32px; font-weight: 800; }
+  .row .votes small { font-size: 24px; font-weight: 600; color: var(--zinc-500); margin-left: 2px; }
+  .track { margin-top: 20px; height: 16px; border-radius: 999px; background: var(--zinc-100); overflow: hidden; }
+  .bar { height: 100%; width: 0; border-radius: 999px; background: var(--zinc-300); }
+  .names { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 52px; }
+  .names span { height: 52px; padding: 0 20px; border-radius: 999px; background: var(--zinc-100); color: var(--zinc-600); font-size: 24px; font-weight: 600; display: flex; align-items: center; opacity: 0; }
+  .toast {
+    position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%);
+    height: 84px; padding: 0 36px; border-radius: 999px; background: var(--zinc-900); color: #fff; white-space: nowrap;
+    display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 700; opacity: 0;
+    box-shadow: 0 16px 30px -10px rgba(24,24,27,.5);
+  }
+
+  /* ---------- Scene 6: 엔딩 ---------- */
+  .s6 .tag { margin-top: 70px; font-size: 64px; font-weight: 800; line-height: 1.3; }
+  .s6 .feats { margin-top: 56px; display: flex; gap: 16px; }
+  .s6 .feats span { height: 76px; padding: 0 30px; border-radius: 999px; background: #fff; border: 2px solid var(--zinc-200); display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 700; color: var(--zinc-700); }
+  .s6 .feats span i { font-style: normal; color: var(--emerald-600); }
+  .s6 .go {
+    margin-top: 90px; height: 132px; padding: 0 70px; border-radius: 999px; background: var(--zinc-900); color: #fff;
+    display: inline-flex; align-items: center; gap: 18px; font-size: 46px; font-weight: 800;
+    box-shadow: 0 24px 48px -16px rgba(24,24,27,.55);
+  }
+  .s6 .url { margin-top: 44px; font-size: 44px; font-weight: 700; color: var(--zinc-500); letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="bg-dots"></div>
+
+  <!-- Scene 1 -->
+  <section class="scene s1">
+    <div class="s1-title">
+      <h2>이번 모임,<br />언제 모여?</h2>
+    </div>
+    <div class="unread">안 읽은 메시지 <span id="unread">0</span></div>
+    <div class="chat">
+      <div class="msg"><div class="avatar">민</div><div class="body"><div class="who">민철</div><div class="bubble">다음 주 다들 언제 돼?</div></div></div>
+      <div class="msg"><div class="avatar">지</div><div class="body"><div class="who">지은</div><div class="bubble">난 15일 빼고 다 돼!</div></div></div>
+      <div class="msg"><div class="avatar">현</div><div class="body"><div class="who">현우</div><div class="bubble">헐 난 15일만 되는데…</div></div></div>
+      <div class="msg"><div class="avatar">수</div><div class="body"><div class="who">수빈</div><div class="bubble">그럼 주말은? 🤔</div></div></div>
+      <div class="msg me"><div class="body"><div class="bubble">잠깐, 그래서 언제로 정해진 거야? 😵‍💫</div></div></div>
+    </div>
+    <div class="s1-bottom">날짜 잡다 지친 적, 있죠?</div>
+  </section>
+
+  <!-- Scene 2 -->
+  <section class="scene s2 center">
+    <span class="pill"><span>🗓️</span>가입 0번, 링크 한 줄</span>
+    <h1>언제 모일까?</h1>
+    <p class="sub">친구들이랑 모일 날짜,<br /><b>링크 하나로 1분 컷.</b></p>
+  </section>
+
+  <!-- Scene 3~5 캡션 -->
+  <div class="caption">
+    <div class="cap c1"><span class="step">STEP 1</span><h3>후보 날짜 쓱 고르고</h3><p>캘린더에서 되는 날만 톡톡</p></div>
+    <div class="cap c2"><span class="step">STEP 2</span><h3>단톡방에 링크 한 줄</h3><p>친구들은 닉네임만 쓰면 끝</p></div>
+    <div class="cap c3"><span class="step">STEP 3</span><h3>실시간 순위로 한눈에</h3><p>누가 언제 되는지 바로 보여요</p></div>
+  </div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>●●● ▮</span></div>
+
+      <!-- 방 만들기 -->
+      <div class="app a1">
+        <h4>방 만들기</h4>
+        <div class="label">모임 이름</div>
+        <div class="input"><span id="typed"></span><span class="caret"></span></div>
+        <div class="label">후보 날짜</div>
+        <div class="seg"><span class="on">개별</span><span>기간</span><span>달 전체</span></div>
+        <div class="cal">
+          <div class="month">2026년 6월 <span>‹ ›</span></div>
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="cta">방 만들기 <span>→</span></div>
+      </div>
+
+      <!-- 단톡방 공유 -->
+      <div class="app a2">
+        <div class="chathead"><h4>고등학교 친구들</h4><span>5명</span></div>
+        <div class="clist">
+          <div class="msg me m0"><div class="body" style="align-items:flex-end">
+            <div class="bubble">우리 언제 모일까? 🗓️<br />가입 X · 가능한 날만 체크하면 끝 (1분 컷)<br />👉 moilga.com/r/aB3x9</div>
+          </div></div>
+          <div class="msg me m1"><div class="body" style="align-items:flex-end">
+            <div class="preview">
+              <div class="og"><small>모일까</small><strong>주말 등산 모임 ⛰️</strong><em>가능한 날 체크하러 가기 →</em></div>
+              <div class="meta">moilga.com</div>
+            </div>
+          </div></div>
+          <div class="msg m2"><div class="avatar">지</div><div class="body"><div class="who">지은</div><div class="bubble">오 이거 완전 편하다 👍</div></div></div>
+          <div class="msg m3"><div class="avatar">현</div><div class="body"><div class="who">현우</div><div class="bubble">가입 없이 바로 되네?</div></div></div>
+          <div class="msg m4"><div class="avatar">수</div><div class="body"><div class="who">수빈</div><div class="bubble">체크 완료 ✅</div></div></div>
+        </div>
+      </div>
+
+      <!-- 실시간 순위 -->
+      <div class="app a3">
+        <div class="roomhead"><h4>주말 등산 모임 ⛰️</h4></div>
+        <div class="roommeta"><span class="live"><i></i>실시간</span><span>·</span><span>참여자 <b id="ppl">0</b>명</span><span>·</span><span style="color:#f43f5e">D-3</span></div>
+        <div class="rank-title">실시간 순위 <span>날짜별 ⇄ 사람별</span></div>
+        <div class="rows" id="rows"></div>
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 6 -->
+  <section class="scene s6 center">
+    <div class="logo"><div class="mark">모</div><div class="word">모일까</div></div>
+    <div class="tag">모일 날짜 정하기,<br />이제 링크 하나로.</div>
+    <div class="feats"><span><i>✓</i>가입 없음</span><span><i>✓</i>광고 없음</span><span><i>✓</i>무료</span></div>
+    <div class="go">지금 방 만들기 <span>→</span></div>
+    <div class="url">moilga.com</div>
+  </section>
+</div>
+
+<script>
+const CROWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5 3 6.8l4.7 3.4L12 4.5l4.3 5.7L21 6.8l-1 10.7z"/><path d="M4.4 20.2h15.2"/></svg>';
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+// ---------- 캘린더 (2026년 6월: 1일 = 월요일) ----------
+const PICKS = [[13, 8.25], [14, 8.55], [20, 8.85], [21, 9.15], [27, 9.45]]; // [날짜, 선택 시각]
+{
+  const g = $('#grid');
+  g.innerHTML = ['일','월','화','수','목','금','토'].map(d => `<div class="dow">${d}</div>`).join('');
+  g.innerHTML += '<div class="cell"></div>';
+  for (let d = 1; d <= 30; d++) {
+    const dow = (d) % 7; // 0=일
+    const color = dow === 0 ? 'color:#e11d48' : '';
+    g.innerHTML += `<div class="cell" data-d="${d}"><span class="ripple"></span><span class="sel"></span><b style="${color}">${d}</b></div>`;
+  }
+}
+
+// ---------- 순위 행 ----------
+const ROWS = [
+  { date: '6/20 (토)', who: ['민철','지은','현우','수빈','다은'] },
+  { date: '6/13 (토)', who: ['민철','지은','수빈'] },
+  { date: '6/21 (일)', who: ['민철','현우','다은'] },
+  { date: '6/14 (일)', who: ['다은'] },
+];
+const VOTERS = ['민철','지은','현우','수빈','다은'];
+const VOTE_T0 = 16.3, VOTE_GAP = 0.5;
+const voteTime = (name) => VOTE_T0 + VOTERS.indexOf(name) * VOTE_GAP;
+const CROWN_T = 19.0, CONFIRM_T = 19.7;
+$('#rows').innerHTML = ROWS.map((r, i) => `
+  <div class="row" data-i="${i}">
+    <div class="top">
+      <div class="badge">${i + 1}<span class="gold">${CROWN}</span></div>
+      <span class="date">${r.date}</span>
+      ${i === 0 ? '<span class="chip1" id="chipNow" style="background:var(--amber-50);color:var(--amber-700)">현재 1위</span><span class="chip1" id="chipDone" style="background:var(--amber-500);color:#fff;margin-left:-8px;">' + CROWN.replace('<svg', '<svg width="22" height="22"') + ' 확정</span>' : ''}
+      <span class="votes"><span class="n">0</span><small>표</small></span>
+    </div>
+    <div class="track"><div class="bar"></div></div>
+    <div class="names">${r.who.map(n => `<span data-t="${voteTime(n)}">${n}</span>`).join('')}</div>
+  </div>`).join('');
+
+// ---------- 타임라인 ----------
+const ANIMS = [];
+const UPDATERS = [];
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+const SPRING = 'cubic-bezier(.34,1.56,.64,1)';
+function A(target, keyframes, start, dur, easing = EASE, fill = 'both') {
+  const els = typeof target === 'string' ? $$(target) : [target];
+  els.forEach((el) => {
+    const a = el.animate(keyframes, { delay: start * 1000, duration: dur * 1000, easing, fill });
+    a.pause();
+    ANIMS.push(a);
+  });
+}
+// 들어오기(both) + 나가기(forwards) 쌍 — 나가기가 시작 전엔 적용되지 않도록 fill 을 나눈다.
+function show(target, tin, tout, from = 'translateY(40px)', dur = 0.5) {
+  A(target, [{ opacity: 0, transform: from }, { opacity: 1, transform: 'none' }], tin, dur);
+  if (tout != null) A(target, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-30px)' }], tout, 0.4, 'ease-in', 'forwards');
+}
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const mix = (c1, c2, t) => {
+  const p = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const a = p(c1), b = p(c2);
+  return `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], t))).join(',')})`;
+};
+
+// Scene 1 (0 ~ 4.3)
+show('.s1', 0, 4.1, 'none', 0.3);
+A('.s1-title', [{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], 0.1, 0.6, SPRING);
+$$('.chat .msg').forEach((el, i) => A(el, [{ opacity: 0, transform: 'translateY(40px) scale(.9)' }, { opacity: 1, transform: 'none' }], 0.6 + i * 0.38, 0.45, SPRING));
+A('.unread', [{ opacity: 0, transform: 'scale(.5)' }, { opacity: 1, transform: 'none' }], 1.0, 0.4, SPRING);
+UPDATERS.push((t) => { $('#unread').textContent = Math.round(lerp(0, 128, smooth((t - 1.0) / 2.4))) + (t > 3.3 ? '+' : ''); });
+A('.chat', [{ transform: 'none' }, { transform: 'translateX(-10px) rotate(-.4deg)' }, { transform: 'translateX(10px) rotate(.4deg)' }, { transform: 'translateX(-6px)' }, { transform: 'none' }], 2.9, 0.4, 'linear', 'forwards');
+A('.chat', [{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(3px)', opacity: .45 }], 3.1, 0.5, EASE, 'forwards');
+show('.s1-bottom', 3.05, null, 'translateY(30px)', 0.45);
+
+// Scene 2 (4.3 ~ 7.3)
+show('.s2', 4.3, 7.1, 'none', 0.2);
+A('.s2 .pill', [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], 4.4, 0.5);
+A('.s2 h1', [{ opacity: 0, transform: 'scale(.7)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], 4.6, 0.7, SPRING);
+A('.s2 .sub', [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], 5.4, 0.6);
+
+// 폰 (7.3 ~ 21)
+A('.phone', [{ opacity: 0, transform: 'translateY(420px)' }, { opacity: 1, transform: 'none' }], 7.2, 0.8);
+A('.phone', [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(200px) scale(.9)' }], 20.8, 0.5, 'ease-in', 'forwards');
+show('.c1', 7.4, 11.4);
+show('.c2', 11.8, 15.5);
+show('.c3', 15.9, 20.8);
+
+// 화면 전환 — 가로 슬라이드
+const slideIn = (el, t) => A(el, [{ opacity: 0, transform: 'translateX(100%)' }, { opacity: 1, transform: 'none' }], t, 0.55);
+const slideOut = (el, t) => A(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-35%)' }], t, 0.55, EASE, 'forwards');
+A('.a1', [{ opacity: 0 }, { opacity: 1 }], 7.4, 0.3);
+slideOut('.a1', 11.4); slideIn('.a2', 11.4);
+slideOut('.a2', 15.5); slideIn('.a3', 15.5);
+
+// STEP 1 — 이름 타이핑 + 날짜 선택 + 만들기
+const NAME = '주말 등산 모임 ⛰️';
+UPDATERS.push((t) => {
+  const chars = [...NAME];
+  const n = Math.floor(clamp((t - 7.6) / 0.55) * chars.length);
+  $('#typed').textContent = chars.slice(0, n).join('');
+  $('.caret').style.opacity = (Math.floor(t * 2.5) % 2 === 0 || t < 8.2) ? 1 : 0;
+});
+PICKS.forEach(([d, t]) => {
+  const cell = $(`.cell[data-d="${d}"]`);
+  A(cell.querySelector('.ripple'), [{ opacity: .9, transform: 'scale(.4)' }, { opacity: 0, transform: 'scale(1.6)' }], t, 0.5, 'ease-out', 'forwards');
+  A(cell.querySelector('.sel'), [{ opacity: 0, transform: 'scale(.3)' }, { opacity: 1, transform: 'none' }], t, 0.35, SPRING);
+  A(cell.querySelector('b'), [{ color: '#3f3f46' }, { color: '#ffffff' }], t, 0.15, 'linear');
+});
+A('.a1 .cta', [{ transform: 'none' }, { transform: 'scale(.94)' }, { transform: 'none' }], 10.5, 0.35, 'ease-in-out', 'forwards');
+A('.a1 .cta', [{ background: '#18181b' }, { background: '#3f3f46' }, { background: '#18181b' }], 10.5, 0.35, 'linear', 'forwards');
+
+// STEP 2 — 단톡방
+[['.m0', 11.9], ['.m1', 12.35], ['.m2', 13.2], ['.m3', 13.75], ['.m4', 14.3]].forEach(([s, t]) =>
+  A(s, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'none' }], t, 0.45, SPRING));
+
+// STEP 3 — 실시간 순위
+UPDATERS.push((t) => {
+  const voted = VOTERS.filter((n) => t >= voteTime(n)).length;
+  $('#ppl').textContent = voted;
+  $$('.row').forEach((row, i) => {
+    const r = ROWS[i];
+    const c = r.who.reduce((s, n) => s + smooth((t - voteTime(n)) / 0.45), 0);
+    const bar = row.querySelector('.bar');
+    bar.style.width = (c / 5) * 100 + '%';
+    row.querySelector('.n').textContent = r.who.filter((n) => t >= voteTime(n)).length;
+    row.querySelectorAll('.names span').forEach((s) => {
+      const k = smooth((t - +s.dataset.t) / 0.3);
+      s.style.opacity = k;
+      s.style.transform = `scale(${lerp(0.6, 1, k)})`;
+    });
+    if (i === 0) {
+      const k = smooth((t - CROWN_T) / 0.35);
+      bar.style.background = mix('#d4d4d8', '#fcd34d', k);
+      const gold = row.querySelector('.gold');
+      gold.style.opacity = k;
+      gold.style.transform = `scale(${lerp(0.4, 1, k)}) rotate(${lerp(-30, 0, k)}deg)`;
+      const kd = smooth((t - CONFIRM_T) / 0.35);
+      $('#chipNow').style.opacity = k * (1 - kd);
+      $('#chipDone').style.opacity = kd;
+      $('#chipDone').style.transform = `scale(${lerp(0.6, 1, kd)})`;
+      row.style.borderColor = mix('#e4e4e7', '#fcd34d', kd);
+      row.style.boxShadow = `0 0 0 ${8 * kd}px rgba(253,230,138,.6)`;
+    }
+  });
+  // 토스트: 투표 알림 → 확정 알림
+  const toast = $('#toast');
+  let text = '', k = 0;
+  if (t >= CONFIRM_T + 0.1) { text = '🎉 6/20 (토)에 모여요!'; k = smooth((t - CONFIRM_T - 0.1) / 0.3); }
+  else {
+    const idx = VOTERS.findLastIndex((n) => t >= voteTime(n));
+    if (idx >= 0) { text = `${VOTERS[idx]} 님이 투표했어요`; k = smooth((t - voteTime(VOTERS[idx])) / 0.2); }
+  }
+  toast.textContent = text;
+  toast.style.opacity = k;
+  toast.style.transform = `translateX(-50%) translateY(${lerp(20, 0, k)}px)`;
+});
+
+// Scene 6 엔딩 (21.1 ~ 25)
+show('.s6', 21.1, null, 'none', 0.3);
+A('.s6 .logo', [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], 21.2, 0.6, SPRING);
+A('.s6 .tag', [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'none' }], 21.6, 0.55);
+$$('.s6 .feats span').forEach((el, i) => A(el, [{ opacity: 0, transform: 'translateY(20px) scale(.9)' }, { opacity: 1, transform: 'none' }], 22.1 + i * 0.12, 0.4, SPRING));
+A('.s6 .go', [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'none' }], 22.7, 0.5, SPRING);
+A('.s6 .go', [{ transform: 'none' }, { transform: 'scale(1.05)' }, { transform: 'none' }], 23.5, 0.8, 'ease-in-out', 'forwards');
+A('.s6 .url', [{ opacity: 0 }, { opacity: 1 }], 23.0, 0.5);
+
+// 배경 점 격자가 천천히 흐른다
+A('.bg-dots', [{ transform: 'translate(0,0)' }, { transform: 'translate(44px,-88px)' }], 0, 25, 'linear');
+
+window.DURATION = 25;
+window.seek = (t) => {
+  ANIMS.forEach((a) => { a.currentTime = t * 1000; });
+  UPDATERS.forEach((u) => u(t));
+};
+window.seek(0);
+
+// 렌더러 없이 그냥 열었을 때는 실시간 재생
+if (!navigator.webdriver) {
+  const t0 = performance.now();
+  const loop = () => { window.seek(((performance.now() - t0) / 1000) % window.DURATION); requestAnimationFrame(loop); };
+  document.fonts.ready.then(loop);
+}
+</script>
+</body>
+</html>
