@@ -1,4 +1,5 @@
 import {
+  AddPlaceRequest,
   CreateRoomRequest,
   CreateRoomResponse,
   DateResult,
@@ -6,6 +7,7 @@ import {
   HEADER_CREATOR_TOKEN,
   JoinRoomRequest,
   JoinRoomResponse,
+  PlaceResult,
   RecoverParticipantRequest,
   RegionCode,
   RoomDetail,
@@ -39,6 +41,10 @@ export function getResults(roomId: string, signal?: AbortSignal) {
     confirmedDateId: number | null;
     confirmedDate: string | null;
     confirmedAt: string | null;
+    // 구버전 API(배포 순서가 어긋난 몇 분)엔 없다 — 호출부가 ?? 로 받는다.
+    places?: PlaceResult[];
+    confirmedPlaceId?: number | null;
+    confirmedPlaceAt?: string | null;
   }>(`/rooms/${roomId}/results`, { signal });
 }
 
@@ -69,6 +75,7 @@ export async function getMe(
       participantId: number;
       nickname: string;
       dateIds: number[];
+      placeIds?: number[]; // 불참 중에도 보존된 내 장소표
       declined: boolean;
     };
   }>(`/rooms/${roomId}/participants/me`, {
@@ -174,4 +181,88 @@ export function kickParticipant(
       headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
     },
   );
+}
+
+// ─── 장소·메뉴 투표 ─────────────────────────────────────────
+export function addPlace(
+  roomId: string,
+  clientToken: string,
+  body: AddPlaceRequest,
+) {
+  return api<{ placeId: number }>(`/rooms/${roomId}/places`, {
+    method: 'POST',
+    headers: { [HEADER_CLIENT_TOKEN]: clientToken },
+    body,
+  });
+}
+
+// 등록자 본인(client token) 또는 방장(creator token).
+export function deletePlace(
+  roomId: string,
+  placeId: number,
+  tokens: { clientToken?: string; creatorToken?: string },
+) {
+  return api<{ deleted: true }>(`/rooms/${roomId}/places/${placeId}`, {
+    method: 'DELETE',
+    headers: {
+      ...(tokens.clientToken ? { [HEADER_CLIENT_TOKEN]: tokens.clientToken } : {}),
+      ...(tokens.creatorToken
+        ? { [HEADER_CREATOR_TOKEN]: tokens.creatorToken }
+        : {}),
+    },
+  });
+}
+
+// PUT = 👍 있음, DELETE = 👍 없음 (멱등).
+export function setPlaceVote(
+  roomId: string,
+  clientToken: string,
+  placeId: number,
+  on: boolean,
+) {
+  return api<{ placeId: number; voted: boolean }>(
+    `/rooms/${roomId}/places/${placeId}/vote`,
+    {
+      method: on ? 'PUT' : 'DELETE',
+      headers: { [HEADER_CLIENT_TOKEN]: clientToken },
+    },
+  );
+}
+
+export function confirmPlace(
+  roomId: string,
+  creatorToken: string,
+  placeId: number,
+) {
+  return api<{ confirmedPlaceId: number }>(`/rooms/${roomId}/place-confirm`, {
+    method: 'POST',
+    headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
+    body: { placeId },
+  });
+}
+
+export function unconfirmPlace(roomId: string, creatorToken: string) {
+  return api<{ confirmedPlaceId: null }>(`/rooms/${roomId}/place-confirm`, {
+    method: 'DELETE',
+    headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
+  });
+}
+
+// 후보 수정 (등록자 본인 또는 방장). 전체 교체 — 빈 칸은 없음으로.
+export function updatePlace(
+  roomId: string,
+  placeId: number,
+  tokens: { clientToken?: string; creatorToken?: string },
+  body: AddPlaceRequest,
+) {
+  return api<{ placeId: number }>(`/rooms/${roomId}/places/${placeId}`, {
+    method: 'PATCH',
+    headers: {
+      ...(tokens.clientToken ? { [HEADER_CLIENT_TOKEN]: tokens.clientToken } : {}),
+      ...(tokens.creatorToken
+        ? { [HEADER_CREATOR_TOKEN]: tokens.creatorToken }
+        : {}),
+    },
+    body,
+  });
 }

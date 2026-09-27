@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -10,8 +11,14 @@ import {
   IsString,
   Length,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
-import { REGION_CODES, type RegionCode } from '@whenever/shared';
+import {
+  PLACES_PER_ROOM_MAX,
+  REGION_CODES,
+  type RegionCode,
+} from '@whenever/shared';
+import { AddPlaceDto } from './place.dto';
 
 export class CreateRoomDto {
   @IsString()
@@ -41,4 +48,13 @@ export class CreateRoomDto {
   @ValidateIf((_o, v) => v !== null)
   @IsIn(REGION_CODES)
   region?: RegionCode | null;
+
+  // 장소 후보 미리 넣기 (옵션). 첫 공유 전에 넣어두면 친구들이 첫 방문에
+  // 날짜·장소를 한 번에 고른다. 등록자는 없음(방장만 수정·삭제).
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(PLACES_PER_ROOM_MAX)
+  @ValidateNested({ each: true })
+  @Type(() => AddPlaceDto)
+  places?: AddPlaceDto[];
 }

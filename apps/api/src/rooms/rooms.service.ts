@@ -18,9 +18,11 @@ import { regionLabel } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
+import { normalizePlaceUrl } from '../common/place-url';
 import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
+import { PlacesService, type PlaceSnapshot } from './places.service';
 import { WeatherService } from './weather.service';
 
 @Injectable()
@@ -29,12 +31,25 @@ export class RoomsService {
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly realtime: RealtimeGateway,
     private readonly weather: WeatherService,
+    private readonly places: PlacesService,
   ) {}
 
   async create(dto: CreateRoomDto): Promise<CreateRoomResponse> {
     // 생성 시점에 이미 지난 마감일이면 만들자마자 잠긴 방이 되므로 거부.
     if (dto.deadline && new Date(dto.deadline).getTime() <= Date.now()) {
       throw new BadRequestException('deadline must be in the future');
+    }
+    // 장소 후보는 트랜잭션 전에 검증 — 잘못된 링크면 방을 만들기 전에 400.
+    const places = (dto.places ?? []).map((p) => ({
+      name: p.name.trim(),
+      url: normalizePlaceUrl(p.url),
+      memo: p.memo?.trim() || null,
+    }));
+    const seen = new Set<string>();
+    for (const p of places) {
+      const k = p.name.toLowerCase();
+      if (seen.has(k)) throw new BadRequestException('duplicate place');
+      seen.add(k);
     }
     const roomId = newRoomId();
     const creatorToken = newToken();
@@ -65,6 +80,22 @@ export class RoomsService {
           [roomId, uniqueDates],
         );
       }
+      if (places.length > 0) {
+        // 순서 보존 — 등록순이 동률 정렬 기준이라 입력 순서대로 created_at 을 벌린다.
+        await c.query(
+          `INSERT INTO room_places (room_id, name, url, memo, created_at)
+           SELECT $1, t.name, t.url, t.memo,
+                  now() + (t.ord * interval '1 millisecond')
+             FROM unnest($2::text[], $3::text[], $4::text[])
+                  WITH ORDINALITY AS t(name, url, memo, ord)`,
+          [
+            roomId,
+            places.map((p) => p.name),
+            places.map((p) => p.url),
+            places.map((p) => p.memo),
+          ],
+        );
+      }
     });
 
     this.realtime.emitAdminEvent('room_created', { roomId, title: dto.title });
@@ -72,9 +103,9 @@ export class RoomsService {
   }
 
   async getDetail(roomId: string): Promise<RoomDetail> {
-    // 다섯 쿼리는 서로 의존이 없다 — 순차 await 면 왕복 5번, 병렬이면 1번 값.
+    // 여섯 쿼리는 서로 의존이 없다 — 순차 await 면 왕복 6번, 병렬이면 1번 값.
     // (방이 없으면 나머지는 빈 결과로 끝나고 아래서 404 — 낭비는 미미하다)
-    const [roomRes, datesRes, partCountRes, results, declined] =
+    const [roomRes, datesRes, partCountRes, results, declined, places] =
       await Promise.all([
         this.pool.query<{
           id: string;
@@ -103,6 +134,7 @@ export class RoomsService {
         ),
         this.computeResults(roomId),
         this.getDeclined(roomId),
+        this.places.snapshot(roomId),
       ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
@@ -134,38 +166,43 @@ export class RoomsService {
       confirmedDateId,
       confirmedDate,
       confirmedAt: room.confirmed_at ? room.confirmed_at.toISOString() : null,
+      ...placeFields(places),
     };
   }
 
-  async getResults(roomId: string): Promise<{
-    results: DateResult[];
-    participantCount: number;
-    deadline: string | null;
-    region: RegionCode | null;
-    declined: Voter[];
-    confirmedDateId: number | null;
-    confirmedDate: string | null;
-    confirmedAt: string | null;
-  }> {
+  async getResults(roomId: string): Promise<
+    {
+      results: DateResult[];
+      participantCount: number;
+      deadline: string | null;
+      region: RegionCode | null;
+      declined: Voter[];
+      confirmedDateId: number | null;
+      confirmedDate: string | null;
+      confirmedAt: string | null;
+    } & PlaceSnapshot
+  > {
     // 폴링·소켓 push 마다 불리는 가장 잦은 조회 — getDetail 과 같은 이유로 병렬.
-    const [roomRes, partCountRes, results, declined] = await Promise.all([
-      this.pool.query<{
-        deadline: Date | null;
-        region: string | null;
-        confirmed_date_id: string | null;
-        confirmed_at: Date | null;
-      }>(
-        `SELECT deadline, region, confirmed_date_id::text, confirmed_at
+    const [roomRes, partCountRes, results, declined, places] =
+      await Promise.all([
+        this.pool.query<{
+          deadline: Date | null;
+          region: string | null;
+          confirmed_date_id: string | null;
+          confirmed_at: Date | null;
+        }>(
+          `SELECT deadline, region, confirmed_date_id::text, confirmed_at
          FROM rooms WHERE id = $1`,
-        [roomId],
-      ),
-      this.pool.query<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
-        [roomId],
-      ),
-      this.computeResults(roomId),
-      this.getDeclined(roomId),
-    ]);
+          [roomId],
+        ),
+        this.pool.query<{ c: string }>(
+          `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+          [roomId],
+        ),
+        this.computeResults(roomId),
+        this.getDeclined(roomId),
+        this.places.snapshot(roomId),
+      ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }
@@ -185,6 +222,7 @@ export class RoomsService {
       confirmedDateId,
       confirmedDate,
       confirmedAt: row.confirmed_at ? row.confirmed_at.toISOString() : null,
+      ...placeFields(places),
     };
   }
 
@@ -206,10 +244,16 @@ export class RoomsService {
       .replace(/[-:]/g, '')
       .replace(/\.\d{3}/, '');
     const summary = escapeIcsText(detail.title);
+    // 장소가 확정됐으면 캘린더 일정의 장소 칸과 설명(링크)에 같이 넣는다.
+    const place =
+      detail.confirmedPlaceId != null
+        ? detail.places.find((p) => p.placeId === detail.confirmedPlaceId)
+        : undefined;
     const description = escapeIcsText(
-      confirmed
+      (confirmed
         ? `모일까 확정 날짜. 방 ID ${detail.id}.`
-        : `모일까 투표 1위 (${target.votes}표). 방 ID ${detail.id}.`,
+        : `모일까 투표 1위 (${target.votes}표). 방 ID ${detail.id}.`) +
+        (place?.url ? `\n장소 링크: ${place.url}` : ''),
     );
 
     return [
@@ -225,6 +269,7 @@ export class RoomsService {
       `DTEND;VALUE=DATE:${endDate}`,
       `SUMMARY:${summary}`,
       `DESCRIPTION:${description}`,
+      ...(place ? [`LOCATION:${escapeIcsText(place.name)}`] : []),
       'TRANSP:TRANSPARENT',
       'END:VEVENT',
       'END:VCALENDAR',
@@ -426,6 +471,11 @@ export class RoomsService {
     );
     return res.rows.map((r) => ({ id: Number(r.id), nickname: r.nickname }));
   }
+}
+
+// 방이 없어 snapshot 이 null 인 경우는 호출부에서 이미 404 — 여기선 빈 값.
+function placeFields(s: PlaceSnapshot | null): PlaceSnapshot {
+  return s ?? { places: [], confirmedPlaceId: null, confirmedPlaceAt: null };
 }
 
 function nextDay(iso: string): string {

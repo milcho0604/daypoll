@@ -1,17 +1,28 @@
 'use client';
 
-import type { DateResult, RegionCode, RoomDetail } from '@whenever/shared';
+import type {
+  DateResult,
+  PlaceResult,
+  RegionCode,
+  RoomDetail,
+} from '@whenever/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiBaseUrl, ApiError } from '@/lib/api';
 import {
+  addPlace,
   confirmDate,
+  confirmPlace,
+  deletePlace,
   getMe,
   getResults,
   getRoom,
   joinRoom,
   kickParticipant,
   recoverParticipant,
+  setPlaceVote,
   unconfirmDate,
+  unconfirmPlace,
+  updatePlace,
   updateAvailabilities,
   setDecline,
   updateDeadline,
@@ -21,6 +32,7 @@ import { getSocket, joinRoomChannel, leaveRoomChannel } from '@/lib/socket';
 import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import { formatDateKR } from '@/lib/format';
+import { safeHref } from '@/lib/place-share';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
 import CrownIcon from '@/components/icons/crown';
 import EmptyState from '@/components/empty-state';
@@ -31,6 +43,7 @@ import RankList from '@/components/room/rank-list';
 import PersonList from '@/components/room/person-list';
 import VotersModal from '@/components/room/voters-modal';
 import WeatherStrip from '@/components/room/weather-strip';
+import PlaceSection, { type PlaceInput } from '@/components/room/place-section';
 
 const POLL_INTERVAL_MS_DEFAULT = 4000;
 const POLL_INTERVAL_MS_WHEN_LIVE = 30000; // 소켓 살아있으면 백업용 폴링은 느리게
@@ -40,6 +53,7 @@ type Me = {
   participantId: number;
   nickname: string;
   dateIds: number[];
+  placeIds?: number[];
   declined: boolean;
 };
 
@@ -104,6 +118,27 @@ export default function RoomView({
     date: string;
   } | null>(null);
   const [showUnconfirm, setShowUnconfirm] = useState(false);
+  // 장소 투표 — 내 👍 (불참 중에도 보존된 값, /me 기준), 확정·삭제 확인 모달 대상.
+  const [myPlaceIds, setMyPlaceIds] = useState<Set<number>>(new Set());
+  const [placeDeleteTarget, setPlaceDeleteTarget] = useState<PlaceResult | null>(
+    null,
+  );
+  const [placeConfirmTarget, setPlaceConfirmTarget] =
+    useState<PlaceResult | null>(null);
+  const [showPlaceUnconfirm, setShowPlaceUnconfirm] = useState(false);
+  // 👍 요청이 떠 있는 동안엔 폴링 응답이 낙관적 표시를 덮지 않게.
+  const placeInflightRef = useRef(0);
+  // 장소 변경 세대 — 내 쪽에서 장소를 바꿀 때마다 +1. 조회 시작 후 세대가 바뀌었으면
+  // 그 응답의 장소 부분(목록·확정·내 👍)은 이미 낡았으니 버린다.
+  const placeGenRef = useRef(0);
+  // 조회 응답 순번 — 늦게 도착한 옛 응답이 더 새 응답을 되돌리지 않게.
+  const fetchSeqRef = useRef(0);
+  const appliedSeqRef = useRef(0);
+  // tick 은 소켓 구독 effect 의 의존성이라 clientToken 을 ref 로 읽는다
+  // (토큰이 바뀔 때마다 소켓을 재구독하지 않게).
+  const clientTokenRef = useRef<string | undefined>(undefined);
+  // 같은 후보의 켜기/끄기 요청은 순서대로 — 반대 요청이 뒤바뀌어 도착하지 않게.
+  const placeChainRef = useRef(new Map<number, Promise<unknown>>());
   // 토글 직후 저장 확정 전까지 폴링이 낙관적 표시를 덮어쓰지 않게 막는 플래그
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,9 +150,28 @@ export default function RoomView({
   const WINNERS_PREVIEW = 6; // 1위 확정 칩 — 6개 까지, 나머지는 더보기
 
   const isConfirmed = room.confirmedDateId != null;
-  // 확정됐거나 마감 지나면 투표 잠금.
-  const isLocked =
-    isConfirmed || (!!room.deadline && new Date(room.deadline).getTime() <= now);
+  const deadlinePassed =
+    !!room.deadline && new Date(room.deadline).getTime() <= now;
+  // 날짜 투표 잠금 — 날짜 확정됐거나 마감 지남.
+  const isLocked = isConfirmed || deadlinePassed;
+  // 장소 투표 잠금 — 날짜와 독립. 장소 확정됐거나 마감 지남.
+  // (날짜를 먼저 정하고 장소는 계속 고르는 흐름을 허용)
+  // 구버전 API(배포 순서가 어긋난 몇 분, 또는 API 롤백)는 places 를 안 준다.
+  // 그땐 장소 UI 를 숨기고 잠금도 예전 기준(날짜만)으로 판단한다 — 안 그러면
+  // "장소 투표가 열린 방" 으로 오판해 입장 폼을 열고, 날짜는 423·장소는 404 가 난다.
+  const placesSupported = room.places !== undefined;
+  const places = room.places ?? [];
+  const confirmedPlaceId = room.confirmedPlaceId ?? null;
+  const confirmedPlace =
+    confirmedPlaceId != null
+      ? (places.find((p) => p.placeId === confirmedPlaceId) ?? null)
+      : null;
+  const placeLocked =
+    !placesSupported || deadlinePassed || confirmedPlaceId != null;
+  // 둘 다 잠겼을 때만 "끝난 모임" — 입장 폼을 걷고, 방 종료 버튼도 숨긴다.
+  const allLocked = isLocked && placeLocked;
+  // 불참 복귀: 날짜 확정 뒤에도 장소가 열려 있으면 돌아와서 장소를 고를 수 있다.
+  const canUndecline = !deadlinePassed && (!isConfirmed || !placeLocked);
   const isCreator = !!creatorToken;
 
   // '내 방' 목록에 기록 — 입장/재방문/이미 참여한 방까지 이 한 곳에서 커버.
@@ -136,6 +190,10 @@ export default function RoomView({
     if (t.clientToken) setMeLoading(true);
   }, [roomId]);
 
+  useEffect(() => {
+    clientTokenRef.current = clientToken;
+  }, [clientToken]);
+
   // 내 표 정보 로드
   useEffect(() => {
     if (!clientToken) return;
@@ -147,6 +205,7 @@ export default function RoomView({
         if (m) {
           setMe(m);
           setSelected(new Set(m.dateIds));
+          setMyPlaceIds(new Set(m.placeIds ?? []));
           setDeclined(m.declined);
         } else {
           // 토큰이 서버에 없는 경우 (예: 방 초기화) → 닉네임 다시 받기
@@ -165,22 +224,52 @@ export default function RoomView({
 
   // 결과/마감 동기화 — 소켓 push 와 폴링 fallback 이 공용으로 사용
   const tick = useCallback(async () => {
-    if (dirtyRef.current) return; // 저장 확정 전엔 낙관적 표시 유지
+    const seq = ++fetchSeqRef.current;
+    const gen = placeGenRef.current;
+    const token = clientTokenRef.current;
     try {
-      const r = await getResults(roomId);
+      // 내 👍 는 공개 voters 로 역산할 수 없다(불참 중 보존분, 다른 기기에서 누른 것).
+      // 그래서 입장한 사람은 /me 도 같이 받아 버튼 상태를 서버에 맞춘다.
+      const [r, m] = await Promise.all([
+        getResults(roomId),
+        token
+          ? getMe(roomId, token).catch(() => undefined)
+          : Promise.resolve(undefined),
+      ]);
+      if (seq < appliedSeqRef.current) return; // 더 새 응답이 이미 반영됨
+      appliedSeqRef.current = seq;
+      // 저장 확정 전엔 그 부분(날짜 순위·불참 / 장소 표)만 낙관적 표시를 유지하고,
+      // 잠금·확정 같은 방 상태는 항상 반영한다. 예전엔 날짜 저장 중이면 통째로
+      // 건너뛰어, 그 사이 장소 확정·마감 변경을 놓칠 수 있었다.
+      const keepDates = dirtyRef.current;
+      const keepPlaces =
+        placeInflightRef.current > 0 || gen !== placeGenRef.current;
       setRoom((prev) => ({
         ...prev,
-        results: r.results,
         participantCount: r.participantCount,
         deadline: r.deadline,
         region: r.region,
-        // declined 도 반영 — 빠뜨리면 남이 불참해도 "불참 N명" 배지가
-        // 새로고침 전까지 안 뜬다 (소켓/폴링이 tick 만 태우므로).
-        declined: r.declined,
+        ...(keepDates
+          ? {}
+          : {
+              results: r.results,
+              // declined 도 반영 — 빠뜨리면 남이 불참해도 "불참 N명" 배지가
+              // 새로고침 전까지 안 뜬다 (소켓/폴링이 tick 만 태우므로).
+              declined: r.declined,
+            }),
+        // 구버전 API 는 places 를 안 준다 — undefined 로 둬서 "기능 미지원" 을 유지.
+        ...(keepPlaces
+          ? {}
+          : {
+              places: r.places ?? prev.places,
+              confirmedPlaceId: r.confirmedPlaceId ?? null,
+              confirmedPlaceAt: r.confirmedPlaceAt ?? null,
+            }),
         confirmedDateId: r.confirmedDateId,
         confirmedDate: r.confirmedDate,
         confirmedAt: r.confirmedAt,
       }));
+      if (!keepPlaces && m) setMyPlaceIds(new Set(m.placeIds ?? []));
       setNow(Date.now());
     } catch {
       /* silent */
@@ -234,7 +323,6 @@ export default function RoomView({
 
     // 첫 페인트가 ISR 캐시(최대 30초 묵음)일 수 있어 마운트 직후 한 번 동기화.
     // tick 은 async — setState 는 fetch 응답 후에만 일어나 cascading render 아님.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void tick();
 
     const onVisible = () => {
@@ -454,7 +542,8 @@ export default function RoomView({
 
   // 사람 단위 불참 토글. 불참하면 고른 날짜는 서버가 비우므로 로컬도 비운다.
   async function toggleDecline(next: boolean) {
-    if (isLocked || !clientToken) return;
+    if (!clientToken) return;
+    if (next ? isLocked : !canUndecline) return;
     const prevSelected = selected; // 실패 롤백용 스냅샷
     dirtyRef.current = true; // 서버 확정 전 폴링이 낙관적 표시를 덮지 않게
     setDeclined(next);
@@ -531,6 +620,7 @@ export default function RoomView({
         declined: false,
       });
       setSelected(new Set());
+      setMyPlaceIds(new Set());
       setDeclined(false);
       void tick(); // 참여자 수 즉시 반영
     } catch (err) {
@@ -558,6 +648,7 @@ export default function RoomView({
       const m = await getMe(roomId, r.clientToken);
       setMe(m);
       setSelected(new Set(m?.dateIds ?? []));
+      setMyPlaceIds(new Set(m?.placeIds ?? []));
       setDeclined(m?.declined ?? false);
     } catch (err) {
       // 같은 PIN 충돌이면 닉네임 입력 모드로 전환 (모달 유지) — 모달 부제가 이유를 설명한다
@@ -616,7 +707,12 @@ export default function RoomView({
         `${i === 0 ? '🏆 ' : ''}${i + 1}위 ${formatDateKR(r.date)} — ${r.votes}표`,
       );
     });
-    lines.push(`참여 ${room.participantCount}명`, '', window.location.href);
+    const votedPlaces = places.filter((p) => p.votes > 0).slice(0, 3);
+    if (votedPlaces.length > 0) {
+      lines.push('', '📍 장소');
+      votedPlaces.forEach((p, i) => lines.push(`${i + 1}위 ${p.name} — ${p.votes}표`));
+    }
+    lines.push(`참여 ${room.participantCount}명`, '', window.location.href.split('#')[0]);
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
       setResultsCopied(true);
@@ -629,12 +725,24 @@ export default function RoomView({
   // 확정 소식 알리기 — 방에 안 들어온 친구도 단톡방에서 바로 알게, "○/○로 확정!"
   // 문구를 만들어 공유(모바일 공유시트)하거나 클립보드에 복사한다.
   async function announceConfirmed() {
-    if (!confirmedResult) return;
-    const url = window.location.href;
-    const text =
-      `📅 ${room.title} 날짜 확정!\n` +
-      `👉 ${formatDateKR(confirmedResult.date)}\n` +
-      `아직 못 본 친구들 확인해요`;
+    if (!confirmedResult && !confirmedPlace) return;
+    const url = window.location.href.split('#')[0];
+    // 날짜·장소 중 정해진 것만 담는다. 장소 링크는 친구가 바로 지도를 열 수 있게.
+    const what =
+      confirmedResult && confirmedPlace
+        ? '확정'
+        : confirmedResult
+          ? '날짜 확정'
+          : '장소 확정';
+    const lines = [`📅 ${room.title} ${what}!`];
+    if (confirmedResult) lines.push(`👉 ${formatDateKR(confirmedResult.date)}`);
+    if (confirmedPlace) {
+      lines.push(`📍 ${confirmedPlace.name}`);
+      const href = safeHref(confirmedPlace.url);
+      if (href) lines.push(href);
+    }
+    lines.push('아직 못 본 친구들 확인해요');
+    const text = lines.join('\n');
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: room.title, text, url });
@@ -701,6 +809,151 @@ export default function RoomView({
       setNow(Date.now());
     } catch (err) {
       setModalError(extractMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ─── 장소 투표 ───────────────────────────────────────────
+  // 장소 변경 후 서버 기준으로 다시 맞춘다. tick 이 순번·세대 검사를 하므로
+  // 여기서 따로 경쟁을 막을 필요가 없다 (변경 세대는 호출 전에 올려 둔다).
+  const syncPlaces = () => tick();
+
+  async function onAddPlace(input: PlaceInput): Promise<string | null> {
+    if (!clientToken) return '먼저 이름을 적고 들어와 주세요.';
+    placeGenRef.current += 1;
+    try {
+      const { placeId } = await addPlace(roomId, clientToken, {
+        name: input.name.trim(),
+        url: input.url.trim() || null,
+        memo: input.memo.trim() || null,
+      });
+      // 서버가 올린 사람 👍 를 같이 켠다 — 로컬도 맞춘다.
+      setMyPlaceIds((prev) => new Set(prev).add(placeId));
+      await syncPlaces();
+      return null;
+    } catch (err) {
+      return placeMsg(err);
+    }
+  }
+
+  async function onEditPlace(
+    placeId: number,
+    input: PlaceInput,
+  ): Promise<string | null> {
+    placeGenRef.current += 1;
+    try {
+      await updatePlace(
+        roomId,
+        placeId,
+        { clientToken, creatorToken },
+        {
+          name: input.name.trim(),
+          url: input.url.trim() || null,
+          memo: input.memo.trim() || null,
+        },
+      );
+      await syncPlaces();
+      return null;
+    } catch (err) {
+      return placeMsg(err);
+    }
+  }
+
+  function onTogglePlaceVote(placeId: number) {
+    if (!clientToken || !me || placeLocked || declined) return;
+    const on = !myPlaceIds.has(placeId);
+    placeGenRef.current += 1;
+    const mine = { id: me.participantId, nickname: me.nickname };
+    // 낙관적 반영 — 버튼·표수·이름이 즉시 바뀐다.
+    setMyPlaceIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(placeId);
+      else next.delete(placeId);
+      return next;
+    });
+    setRoom((prev) => ({
+      ...prev,
+      places: (prev.places ?? []).map((p) => {
+        if (p.placeId !== placeId) return p;
+        const others = p.voters.filter((v) => v.id !== mine.id);
+        const voters = on ? [...others, mine] : others;
+        return { ...p, voters, votes: voters.length };
+      }),
+    }));
+    placeInflightRef.current += 1;
+    const token = clientToken;
+    const prevOp = placeChainRef.current.get(placeId) ?? Promise.resolve();
+    const op = prevOp
+      .catch(() => {})
+      .then(() => setPlaceVote(roomId, token, placeId, on))
+      .catch((err: unknown) => {
+        // 복구는 따로 /me 를 부르지 않는다 — 그 응답이 뒤이은 성공보다 늦게 오면
+        // 최신 선택을 덮는다. 요청이 전부 끝난 뒤의 syncPlaces(tick) 가 서버 기준으로
+        // 목록과 내 👍 를 함께 맞춘다.
+        setError(placeMsg(err));
+      })
+      .finally(() => {
+        placeInflightRef.current -= 1;
+        if (placeChainRef.current.get(placeId) === op) {
+          placeChainRef.current.delete(placeId);
+        }
+        if (placeInflightRef.current === 0) void syncPlaces();
+      });
+    placeChainRef.current.set(placeId, op);
+  }
+
+  async function onDeletePlace() {
+    if (!placeDeleteTarget) return;
+    placeGenRef.current += 1;
+    setBusy(true);
+    setModalError(null);
+    try {
+      await deletePlace(roomId, placeDeleteTarget.placeId, {
+        clientToken,
+        creatorToken,
+      });
+      setMyPlaceIds((prev) => {
+        const next = new Set(prev);
+        next.delete(placeDeleteTarget.placeId);
+        return next;
+      });
+      setPlaceDeleteTarget(null);
+      await syncPlaces();
+    } catch (err) {
+      setModalError(placeMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onConfirmPlace() {
+    if (!creatorToken || !placeConfirmTarget) return;
+    placeGenRef.current += 1;
+    setBusy(true);
+    setModalError(null);
+    try {
+      await confirmPlace(roomId, creatorToken, placeConfirmTarget.placeId);
+      setPlaceConfirmTarget(null);
+      await syncPlaces();
+    } catch (err) {
+      setModalError(placeMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onUnconfirmPlace() {
+    if (!creatorToken) return;
+    placeGenRef.current += 1;
+    setBusy(true);
+    setModalError(null);
+    try {
+      await unconfirmPlace(roomId, creatorToken);
+      setShowPlaceUnconfirm(false);
+      await syncPlaces();
+    } catch (err) {
+      setModalError(placeMsg(err));
     } finally {
       setBusy(false);
     }
@@ -785,6 +1038,20 @@ export default function RoomView({
           <span aria-hidden>·</span>
           <span>참여자 {room.participantCount}명</span>
           <span aria-hidden>·</span>
+          {/* 장소 투표는 날짜 아래에 있어 스크롤해야 보인다 — 있다는 걸 위에서 알린다 */}
+          {placesSupported && (
+          <a
+            href="#places"
+            className="press underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            {confirmedPlace
+              ? `📍 ${confirmedPlace.name}`
+              : places.length > 0
+                ? `📍 장소 후보 ${places.length}곳`
+                : '📍 장소 정하기'}
+          </a>
+          )}
+          {placesSupported && <span aria-hidden>·</span>}
           {/* ISR(30s) HTML 과 클라이언트 시각이 분 단위로 어긋날 수 있어 경고 억제 */}
           <span suppressHydrationWarning>
             <DeadlineLabel deadline={room.deadline} now={now} />
@@ -806,9 +1073,20 @@ export default function RoomView({
           >
             {formatDateKR(confirmedResult.date)}
           </button>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            이 날로 모여요! 몇 시에 볼지는 단톡방에서 정해요 🙂
-          </p>
+          {confirmedPlace ? (
+            <p className="mt-2 break-words text-sm text-zinc-700 dark:text-zinc-300">
+              📍 <span className="font-semibold">{confirmedPlace.name}</span>
+              <span className="text-zinc-500 dark:text-zinc-400"> 에서 모여요!</span>
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              이 날로 모여요!{' '}
+              <a href="#places" className="underline underline-offset-2">
+                장소는 아래에서 같이 골라요
+              </a>{' '}
+              🙂
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {/* 주 액션 — 방에 안 들어온 친구도 알게 단톡방에 확정 소식 뿌리기 */}
             <button
@@ -950,19 +1228,19 @@ export default function RoomView({
             <div className="h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
           </div>
         </section>
-      ) : !clientToken && isLocked ? (
+      ) : !clientToken && allLocked ? (
         /* 마감·확정된 방에 뒤늦게 들어온 친구.
            백엔드 join() 엔 마감 가드가 없어 입장 자체는 되지만 투표는 423 으로 막힌다.
            그래서 닉네임부터 받으면 "골라주세요" 라고 해놓고 못 고르게 하는 꼴이 된다.
            위 확정/마감 카드와 아래 순위가 이미 결과를 말해주므로 입장 폼은 걷어낸다. */
         <section className="fade-up mt-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-base font-semibold">
-            {isConfirmed ? '날짜가 확정된 모임이에요' : '투표가 마감된 모임이에요'}
+            {deadlinePassed ? '투표가 마감된 모임이에요' : '날짜·장소가 확정된 모임이에요'}
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            {isConfirmed
-              ? '투표는 끝났어요. 확정된 날짜는 위에서 볼 수 있어요.'
-              : '투표는 끝났어요. 결과는 아래에서 볼 수 있어요.'}
+            {deadlinePassed
+              ? '투표는 끝났어요. 결과는 아래에서 볼 수 있어요.'
+              : '투표는 끝났어요. 정해진 날짜와 장소는 위에서 볼 수 있어요.'}
           </p>
           <button
             type="button"
@@ -997,7 +1275,12 @@ export default function RoomView({
           {/* 입장 전 후보 날짜 미리보기 — 뭘 고르는 모임인지 모르는 채로
               닉네임부터 적게 하면 이탈한다. 아무도 아직 투표 안 한 방에선
               아래 '실시간 순위'가 비어 있어 여기가 유일한 단서다. */}
-          {joinPreviewDates.length > 0 && (
+          {isLocked && (
+            <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              날짜는 정해졌어요! 장소는 아직 같이 고를 수 있어요.
+            </p>
+          )}
+          {!isLocked && joinPreviewDates.length > 0 && (
             <div className="mt-3">
               <p className="text-xs text-zinc-500">이 날짜들 중에 골라요</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -1095,7 +1378,7 @@ export default function RoomView({
               <button
                 type="button"
                 onClick={() => void toggleDecline(false)}
-                disabled={isLocked}
+                disabled={!canUndecline}
                 className="press mt-3 inline-flex h-10 items-center rounded-full bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-200"
               >
                 다시 참여할래요
@@ -1161,6 +1444,30 @@ export default function RoomView({
             눌러요.
           </p>
         </section>
+      )}
+
+      {placesSupported && (
+      <PlaceSection
+        places={places}
+        confirmedPlaceId={confirmedPlaceId}
+        myPlaceIds={myPlaceIds}
+        meId={me?.participantId ?? null}
+        joined={!!clientToken && !!me}
+        declined={declined}
+        locked={placeLocked}
+        deadlinePassed={deadlinePassed}
+        isCreator={isCreator}
+        onAdd={onAddPlace}
+        onEdit={onEditPlace}
+        onToggleVote={onTogglePlaceVote}
+        onDelete={(p) => setPlaceDeleteTarget(p)}
+        onConfirm={(p) => setPlaceConfirmTarget(p)}
+        onUnconfirm={() => setShowPlaceUnconfirm(true)}
+        onAnnounce={() => void announceConfirmed()}
+        announceCopied={announceCopied}
+        onShare={() => void shareRoom()}
+        linkCopied={linkCopied}
+      />
       )}
 
       <section className="mt-8">
@@ -1303,7 +1610,22 @@ export default function RoomView({
             className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3"
             aria-live="polite"
           >
-            <span className="text-xs text-zinc-500">{selected.size}개 선택</span>
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              {selected.size}개 선택
+              {/* 날짜만 고르고 떠나지 않게 — 장소 후보가 있는데 아직 하나도 안 골랐으면 */}
+              {placesSupported &&
+                places.length > 0 &&
+                myPlaceIds.size === 0 &&
+                !placeLocked &&
+                !declined && (
+                  <a
+                    href="#places"
+                    className="press font-medium text-zinc-900 underline underline-offset-2 dark:text-zinc-100"
+                  >
+                    📍 장소도 골라요
+                  </a>
+                )}
+            </span>
             {saveState === 'error' ? (
               <button
                 type="button"
@@ -1337,7 +1659,7 @@ export default function RoomView({
           currentRegion={room.region ?? null}
           regionError={regionError}
           error={modalError}
-          isLocked={isLocked}
+          isLocked={allLocked}
           busy={busy}
           onClose={() => {
             setShowDeadlineModal(false);
@@ -1378,6 +1700,59 @@ export default function RoomView({
         onConfirm={() => void onUnconfirm()}
         onCancel={() => {
           setShowUnconfirm(false);
+          setModalError(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={placeConfirmTarget !== null}
+        title="이 곳으로 정할까요?"
+        message={
+          placeConfirmTarget
+            ? `${placeConfirmTarget.name} 로 장소를 정해요.\n정하면 장소 투표가 잠겨요 (나중에 해제할 수 있어요).`
+            : ''
+        }
+        confirmLabel="확정하기"
+        busy={busy}
+        error={modalError}
+        onConfirm={() => void onConfirmPlace()}
+        onCancel={() => {
+          setPlaceConfirmTarget(null);
+          setModalError(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={showPlaceUnconfirm}
+        title="장소 확정을 해제할까요?"
+        message={'장소 투표를 다시 열어요.'}
+        confirmLabel="확정 해제"
+        busy={busy}
+        error={modalError}
+        onConfirm={() => void onUnconfirmPlace()}
+        onCancel={() => {
+          setShowPlaceUnconfirm(false);
+          setModalError(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={placeDeleteTarget !== null}
+        title={placeDeleteTarget ? `${placeDeleteTarget.name} 지우기` : ''}
+        message={
+          placeDeleteTarget
+            ? placeDeleteTarget.votes > 1
+              ? `${placeDeleteTarget.votes}명이 고른 후보예요. 지우면 그 표도 같이 사라져요.`
+              : '후보에서 빼요. 되돌릴 수 없어요.'
+            : undefined
+        }
+        confirmLabel="지우기"
+        danger
+        busy={busy}
+        error={modalError}
+        onConfirm={() => void onDeletePlace()}
+        onCancel={() => {
+          setPlaceDeleteTarget(null);
           setModalError(null);
         }}
       />
@@ -1487,4 +1862,33 @@ function extractMsg(err: unknown): string {
     return `API ${err.status}`;
   }
   return (err as Error).message;
+}
+
+// 장소 투표 실패 → 뭘 하면 되는지 말해주는 문구. 서버 message 로 구분한다
+// (같은 423 이라도 마감인지 장소 확정인지 다르다).
+const PLACE_MSG_KO: [RegExp, string][] = [
+  [/duplicate place/, '이미 같은 이름의 후보가 있어요.'],
+  [/too many places/, '후보는 20개까지예요. 안 되는 곳을 지우고 올려주세요.'],
+  [/participant declined/, '불참으로 표시돼 있어서 장소는 못 골라요.'],
+  [/place is confirmed/, '장소가 이미 정해졌어요.'],
+  [/room is locked/, '투표가 마감됐어요.'],
+  [/place not found/, '그 후보는 이미 지워졌어요.'],
+  [/not allowed/, '올린 사람이나 방장만 지울 수 있어요.'],
+  [/^url/, '링크가 이상해요. https:// 로 시작하는 주소를 넣어주세요.'],
+  [/^name/, '이름을 확인해주세요. 40자까지, 특수 기호 일부는 못 써요.'],
+  [/^memo/, '메모를 확인해주세요. 60자까지 적을 수 있어요.'],
+];
+
+function placeMsg(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429) return '너무 빨리 눌렀어요. 잠깐 뒤에 다시 해주세요.';
+    const payload = err.payload as { message?: unknown } | null;
+    const raw = payload && typeof payload === 'object' ? payload.message : null;
+    const texts = Array.isArray(raw) ? raw.map(String) : raw != null ? [String(raw)] : [];
+    for (const t of texts) {
+      const hit = PLACE_MSG_KO.find(([re]) => re.test(t));
+      if (hit) return hit[1];
+    }
+  }
+  return extractMsg(err);
 }
