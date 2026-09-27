@@ -40,9 +40,11 @@ export default function DateAvailabilityPicker({
     return map;
   }, [candidates]);
 
-  const candidateDates = useMemo(
-    () => candidates.map((c) => fromIso(c.date)),
-    [candidates],
+  // 밑줄(후보 표시)은 아직 안 고른 후보에만 — 고른 날은 초록 원이 이미 말해주고,
+  // 흰 글씨 밑에 검은 밑줄이 남으면 지저분하다.
+  const unpickedCandidateDates = useMemo(
+    () => candidates.filter((c) => !selectedIds.has(c.id)).map((c) => fromIso(c.date)),
+    [candidates, selectedIds],
   );
   const selectedDates = useMemo(() => {
     const out: Date[] = [];
@@ -175,7 +177,7 @@ export default function DateAvailabilityPicker({
             ? () => true
             : (d) => !idByIso.has(isoOf(d))
         }
-        modifiers={{ candidate: candidateDates }}
+        modifiers={{ candidate: unpickedCandidateDates }}
         modifiersClassNames={{
           candidate: 'font-semibold underline decoration-2 underline-offset-4',
         }}
@@ -189,11 +191,12 @@ export default function DateAvailabilityPicker({
               return <button {...p} />;
             }
             // 시각 강조는 button 자체에 직접 — 셀에 깔면 사각 블록처럼 보여 촌스러움.
-            // zinc-900 강조: amber 는 트로피·1등·확정 hot path 한정 (CLAUDE.md §1).
+            // "내가 가능" = emerald (시멘틱 success). 검정이 무겁다는 피드백 (2026-09-27).
+            // amber 는 1등·확정 전용이라 여기 쓰지 않는다 (CLAUDE.md §1).
             const isPicked = selectedIds.has(id);
-            const pickedCls = isPicked
-              ? 'rounded-full bg-zinc-900 font-bold text-white no-underline shadow-lg shadow-zinc-900/30 ring-2 ring-zinc-300 dark:bg-zinc-100 dark:text-zinc-900 dark:ring-zinc-700 dark:shadow-zinc-100/20'
-              : '';
+            // 색은 globals.css 의 .is-mine — 라이브러리 CSS 가 Tailwind 레이어 밖이라
+            // bg-* 유틸을 이긴다(예전 bg-zinc-900 도 실제론 안 칠해지고 테두리만 보였다).
+            const pickedCls = isPicked ? 'is-mine' : '';
             return (
               <button
                 {...p}
@@ -215,7 +218,8 @@ export default function DateAvailabilityPicker({
         weekStartsOn={0}
         showOutsideDays
       />
-      <p className="px-2 pb-2 text-xs text-zinc-500">
+      {/* 마지막 주 숫자와 붙어 보인다는 피드백 — 위로 여백 */}
+      <p className="mt-3 border-t border-zinc-100 px-2 pb-1 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
         후보일을 누르거나 <strong>드래그</strong>로 여러 날을 한 번에 토글.
       </p>
     </div>

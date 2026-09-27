@@ -139,6 +139,27 @@ html .rdp-root {
   margin-inline: auto;
 }
 
+/* 투표 달력 "내가 가능" = emerald (CLAUDE.md §1 내 선택).
+   react-day-picker 의 style.css 는 CSS 레이어 밖이라 Tailwind 유틸(bg-*)보다 우선한다 —
+   그래서 컴포넌트 className 이 아니라 여기서, 라이브러리 .rdp-selected .rdp-day_button
+   (0,2,0) 보다 높은 특이도로 칠한다. */
+html .rdp-root .rdp-day_button.is-mine {
+  background: #10b981; /* emerald-500 */
+  border-color: #10b981;
+  color: #fff;
+  font-weight: 700;
+  box-shadow:
+    0 0 0 2px #a7f3d0, /* emerald-200 */
+    0 4px 10px -2px rgb(16 185 129 / 0.35);
+}
+@media (prefers-color-scheme: dark) {
+  html .rdp-root .rdp-day_button.is-mine {
+    box-shadow:
+      0 0 0 2px #064e3b, /* emerald-900 */
+      0 4px 10px -2px rgb(16 185 129 / 0.25);
+  }
+}
+
 /* 캘린더 셀 spring 효과 */
 .rdp-day_button {
   transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);

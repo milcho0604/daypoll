@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { RegionCode, RoomWeather } from '@whenever/shared';
 import { getRoomWeather } from '@/lib/rooms';
 import { formatDateKR } from '@/lib/format';
+import { useFoldState } from '@/lib/fold-state';
+import FoldToggle from '@/components/fold-toggle';
 
 // 후보 날짜 날씨 — 방에 지역이 설정된 경우에만. 예보 범위(약 2주) 밖 날짜는 빠진다.
 // 날씨는 부가 정보라 실패하면 조용히 사라진다 (방 화면은 영향 없음).
@@ -17,6 +19,8 @@ export default function WeatherStrip({
   const [data, setData] = useState<RoomWeather | null>(null);
   const [failed, setFailed] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  // 접힘은 방별로 기억 — 다음에 들어와도 접은 채로.
+  const [open, setOpen] = useFoldState(roomId, 'weather', true);
 
   const PREVIEW = 5; // 기본 5개 노출, 나머지는 더보기
 
@@ -54,10 +58,32 @@ export default function WeatherStrip({
         <h2 className="text-base font-semibold">
           <span aria-hidden>📍</span> {data?.regionLabel ?? ''} 날씨
         </h2>
-        <span className="text-[11px] text-zinc-400">2주 이내 후보일</span>
+        <span className="flex items-center gap-1">
+          {open && <span className="text-[11px] text-zinc-400">2주 이내 후보일</span>}
+          <FoldToggle open={open} onToggle={() => setOpen(!open)} label="날씨" />
+        </span>
       </div>
 
-      {!data ? (
+      {!open ? (
+        // 접힌 상태 — 가까운 후보일 몇 개만 한 줄로. 누르면 펼친다.
+        data && data.days.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="press mt-2 flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-left text-sm text-zinc-600 dark:text-zinc-300"
+          >
+            {data.days.slice(0, 4).map((d) => (
+              <span key={d.date} className="flex shrink-0 items-center gap-1">
+                <span className="text-xs text-zinc-500">{`${Number(d.date.slice(5, 7))}/${Number(d.date.slice(8, 10))}`}</span>
+                <span aria-hidden>{d.emoji}</span>
+                {d.tempMax !== null && (
+                  <span className="text-xs tabular-nums text-zinc-400">{d.tempMax}°</span>
+                )}
+              </span>
+            ))}
+          </button>
+        ) : null
+      ) : !data ? (
         <div className="mt-3 flex flex-col gap-2">
           <div className="h-10 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
           <div className="h-10 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
