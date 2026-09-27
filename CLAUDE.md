@@ -154,7 +154,7 @@
 
 `apps/web/src/app/layout.tsx` 의 footer 는 **모든 페이지에 자동 출력**:
 - 1줄: `문의 · hello.mealplan@gmail.com · 버그 제보(GitHub Issues)`
-- 2줄: `개인정보처리방침 · 이용약관`
+- 2줄: `블로그 · 업데이트 소식 · 개인정보처리방침 · 이용약관`
 - `text-[11px] text-zinc-400` 사이즈 — 작게 유지
 - `pb-[calc(env(safe-area-inset-bottom)+1rem)]` — iOS 홈 인디케이터 영역 보호
 - `z-0` — fixed bottom 바 (z-20) 가 항상 위로 깔리도록 보장
@@ -190,3 +190,22 @@
 9. 한국어 카피가 친근 톤인가? 띄어쓰기 표준인가?
 
 이 9개 중 하나라도 어기면 시각적으로 깨지거나 톤이 안 맞는다 — 검증 안 하고 커밋하지 말 것.
+
+---
+
+## 9. 릴리스 절차 (변경 이력·태그·GitHub 릴리스)
+
+버전은 유의적 버전: 새 기능 = minor (1.6.0 → 1.7.0), 버그만 = patch, 서비스 성격이 바뀌는 큰 기능 = major.
+사용자에게 보이는 변화가 main 에 들어가면 **같은 PR 안에서** 아래 두 곳을 같이 고친다.
+
+1. `CHANGELOG.md` — `## [Unreleased]` 아래에 추가/개선/수정/보안/성능/운영 으로 한 줄씩 (PR 링크).
+2. 릴리스할 때: `[Unreleased]` 내용을 `## [x.y.z] - YYYY-MM-DD` 로 옮기고 맨 아래 비교 링크 추가.
+   `apps/web/src/lib/updates.ts` 맨 위에 사용자용 항목(친근한 말투, 화면에서 느끼는 것만) 추가.
+   `updates.spec.ts` 가 두 파일의 버전·날짜가 같은지 검사한다.
+3. 머지 후 태그 + GitHub 릴리스:
+   ```bash
+   git tag -a vX.Y.Z <merge-sha> -m "vX.Y.Z — 한 줄 요약"
+   git push origin vX.Y.Z
+   gh release create vX.Y.Z -R milcho0604/daypoll --title "vX.Y.Z — 한 줄 요약" --notes-file <CHANGELOG 해당 절>
+   ```
+   CSS 를 바꾼 릴리스는 배포 후 moilga.com 이 실제로 새 스타일을 불러오는지 확인 (Vercel 빌드 캐시가 옛 CSS 를 쓴 적 있음).

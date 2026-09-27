@@ -123,6 +123,15 @@ export default function RootLayout({
             <span aria-hidden className="mx-1.5">
               ·
             </span>
+            <Link
+              href="/updates"
+              className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+            >
+              업데이트 소식
+            </Link>
+            <span aria-hidden className="mx-1.5">
+              ·
+            </span>
             <a
               href="/privacy"
               className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"

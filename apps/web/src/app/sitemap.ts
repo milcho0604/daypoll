@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/blog';
 import { latestPostModifiedDate } from '@/lib/blog-core';
+import { UPDATES } from '@/lib/updates';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
@@ -28,6 +29,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/updates`,
+      lastModified: safeDate(UPDATES[0]?.date ?? ''),
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
       url: `${SITE_URL}/blog`,
