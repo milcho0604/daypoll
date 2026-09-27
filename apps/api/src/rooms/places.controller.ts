@@ -53,11 +53,13 @@ export class PlacesController {
 
   @Delete('places/:placeId')
   remove(
+    @Req() req: Request,
     @Param('roomId') roomId: string,
     @Param('placeId', ParseIntPipe) placeId: number,
     @Headers(HEADER_CLIENT_TOKEN) clientToken: string | undefined,
     @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
   ) {
+    this.rl.check(`place:add:${clientIp(req)}`, 20, 60);
     return this.places.remove(roomId, placeId, clientToken, creatorToken);
   }
 

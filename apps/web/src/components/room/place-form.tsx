@@ -1,7 +1,7 @@
 'use client';
 
 import { PLACE_MEMO_MAX, PLACE_NAME_MAX } from '@whenever/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { mapSearchLinks, parsePlaceShare } from '@/lib/place-share';
 
 export type PlaceInput = { name: string; url: string; memo: string };
@@ -44,6 +44,19 @@ export default function PlaceForm({
   useEffect(() => {
     onDraftChange?.(hasDraft);
   }, [hasDraft, onDraftChange]);
+  // 언마운트(예: 20번째를 넣어 폼이 사라짐)되면 남은 초안도 없는 것 — 안 알리면
+  // 바깥이 "적어둔 장소가 있어요" 에 갇힌다.
+  useEffect(() => () => onDraftChange?.(false), [onDraftChange]);
+
+  // 같은 틱에 두 번 들어오는 제출(한글 IME 의 Enter 이중 keydown 등)을 막는다.
+  // busy state 는 클로저라 같은 틱의 두 번째 호출을 못 막는다.
+  const busyRef = useRef(false);
+  const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!compact || e.key !== 'Enter') return;
+    e.preventDefault(); // compact(div) 모드: 바깥 방 만들기 폼 제출 방지
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return; // 한글 조합 중
+    void submit(e);
+  };
 
   function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
     const text = e.clipboardData.getData('text/plain');
@@ -73,10 +86,12 @@ export default function PlaceForm({
   async function submit(e: React.SyntheticEvent) {
     e.preventDefault();
     e.stopPropagation(); // 방 만들기 폼 안에 있을 때 바깥 폼 제출로 새지 않게
-    if (!name.trim() || busy) return;
+    if (!name.trim() || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     const err = await onSubmit({ name, url, memo });
+    busyRef.current = false;
     setBusy(false);
     if (err) {
       setError(err);
@@ -118,33 +133,26 @@ export default function PlaceForm({
           setNameTouched(true);
         }}
         onPaste={onPaste}
-        onKeyDown={(e) => {
-          // compact(div) 모드에선 Enter 가 바깥 폼(방 만들기)을 제출해버린다.
-          if (compact && e.key === 'Enter') {
-            e.preventDefault();
-            void submit(e);
-          }
-        }}
+        onKeyDown={onEnter}
         placeholder="가게·장소·메뉴 (예: 을지로 노가리골목)"
         maxLength={PLACE_NAME_MAX}
         aria-label="장소 이름"
         className={inputCls}
       />
       <input
-        type="url"
+        // type="url" 이면 바깥 폼 제출 때 브라우저 기본 검증 말풍선이 우리 안내보다 먼저 뜬다.
+        type="text"
         inputMode="url"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={url}
         onChange={(e) => {
           setUrl(e.target.value);
           setUrlChoices([]);
         }}
         onPaste={onPaste}
-        onKeyDown={(e) => {
-          if (compact && e.key === 'Enter') {
-            e.preventDefault();
-            void submit(e);
-          }
-        }}
+        onKeyDown={onEnter}
         placeholder="지도·가게 링크 (선택)"
         aria-label="링크"
         className={inputCls}
@@ -187,12 +195,7 @@ export default function PlaceForm({
         type="text"
         value={memo}
         onChange={(e) => setMemo(e.target.value)}
-        onKeyDown={(e) => {
-          if (compact && e.key === 'Enter') {
-            e.preventDefault();
-            void submit(e);
-          }
-        }}
+        onKeyDown={onEnter}
         placeholder="한 줄 메모 (선택) — 예: 1인 2만 원, 룸 있음"
         maxLength={PLACE_MEMO_MAX}
         aria-label="메모"

@@ -203,8 +203,12 @@ export default function CreateRoomForm() {
             })}
           </ul>
         )}
-        {placesOpen ? (
-          places.length < PLACES_PER_ROOM_MAX && (
+        {places.length >= PLACES_PER_ROOM_MAX ? (
+          <p className="text-xs text-zinc-500">
+            후보는 {PLACES_PER_ROOM_MAX}개까지예요. 더 넣으려면 하나를 빼주세요.
+          </p>
+        ) : placesOpen ? (
+          (
             <PlaceForm
               compact
               submitLabel="후보에 넣기"
@@ -223,6 +227,7 @@ export default function CreateRoomForm() {
                   return '링크가 이상해요. https:// 로 시작하는 주소를 넣어주세요.';
                 }
                 setPlaces((prev) => [...prev, input]);
+                setPlaceDraft(false);
                 return null;
               }}
             />
