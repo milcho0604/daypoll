@@ -76,6 +76,75 @@ describe('notice e2e', () => {
     });
   });
 
+  describe('한 번만 보여주기 + 버튼 링크', () => {
+    it('저장하고 공개 공지로도 그대로 나간다', async () => {
+      const c = await create({
+        title: '새 기능',
+        body: '장소 투표가 생겼어요',
+        showOnce: true,
+        linkUrl: ' /updates ',
+        linkLabel: '새 기능 보기',
+      }).expect(201);
+      expect(c.body).toMatchObject({
+        showOnce: true,
+        linkUrl: '/updates',
+        linkLabel: '새 기능 보기',
+      });
+      await publish(c.body.id, true).expect(201);
+      const pub = await request(server()).get('/notice').expect(200);
+      expect(pub.body.notice).toMatchObject({
+        showOnce: true,
+        linkUrl: '/updates',
+      });
+    });
+
+    it('생략하면 기존 동작 (한 번만 아님, 버튼 없음)', async () => {
+      const c = await create({ title: '점검', body: '밤 12시 점검' }).expect(
+        201,
+      );
+      expect(c.body).toMatchObject({
+        showOnce: false,
+        linkUrl: null,
+        linkLabel: null,
+      });
+    });
+
+    it('링크를 빼면 버튼 문구도 같이 비운다', async () => {
+      const c = await create({
+        title: 't',
+        body: 'b',
+        linkUrl: '/updates',
+        linkLabel: '보기',
+      }).expect(201);
+      const u = await withAdmin(
+        request(server()).patch(`/admin/notices/${c.body.id}`),
+      )
+        .send({ title: 't', body: 'b', linkUrl: '', linkLabel: '보기' })
+        .expect(200);
+      expect(u.body).toMatchObject({ linkUrl: null, linkLabel: null });
+    });
+
+    it.each([
+      'https://evil.example',
+      '//evil.example/x',
+      '/\\evil.example',
+      'javascript:alert(1)',
+      'updates',
+      '/up dates',
+    ])('사이트 밖·이상한 링크 400: %s', async (linkUrl) => {
+      await create({ title: 't', body: 'b', linkUrl }).expect(400);
+    });
+
+    it('버튼 문구 21자 400', async () => {
+      await create({
+        title: 't',
+        body: 'b',
+        linkUrl: '/updates',
+        linkLabel: 'ㄱ'.repeat(21),
+      }).expect(400);
+    });
+  });
+
   describe('validation', () => {
     it('400 when title missing', async () => {
       const r = await create({ body: 'y' });

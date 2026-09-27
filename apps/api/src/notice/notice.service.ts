@@ -17,6 +17,9 @@ interface NoticeRow {
   published_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  show_once: boolean;
+  link_url: string | null;
+  link_label: string | null;
 }
 
 function toNotice(r: NoticeRow): Notice {
@@ -29,10 +32,22 @@ function toNotice(r: NoticeRow): Notice {
     publishedAt: r.published_at ? r.published_at.toISOString() : null,
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
+    showOnce: r.show_once,
+    linkUrl: r.link_url,
+    linkLabel: r.link_label,
   };
 }
 
-const COLS = `id::text, title, body, scheduled_at, published, published_at, created_at, updated_at`;
+const COLS = `id::text, title, body, scheduled_at, published, published_at, created_at, updated_at, show_once, link_url, link_label`;
+
+type NoticeWrite = {
+  title: string;
+  body: string;
+  scheduledAt?: string | null;
+  showOnce?: boolean;
+  linkUrl?: string | null;
+  linkLabel?: string | null;
+};
 
 @Injectable()
 export class NoticeService {
@@ -68,30 +83,40 @@ export class NoticeService {
     return toNotice(res.rows[0]);
   }
 
-  async create(input: {
-    title: string;
-    body: string;
-    scheduledAt?: string | null;
-  }): Promise<Notice> {
+  async create(input: NoticeWrite): Promise<Notice> {
     const res = await this.pool.query<NoticeRow>(
-      `INSERT INTO notices (title, body, scheduled_at)
-       VALUES ($1, $2, $3)
+      `INSERT INTO notices (title, body, scheduled_at, show_once, link_url, link_label)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${COLS}`,
-      [input.title, input.body, input.scheduledAt ?? null],
+      [
+        input.title,
+        input.body,
+        input.scheduledAt ?? null,
+        input.showOnce ?? false,
+        input.linkUrl ?? null,
+        input.linkUrl ? (input.linkLabel ?? null) : null,
+      ],
     );
     return toNotice(res.rows[0]);
   }
 
-  async update(
-    id: number,
-    input: { title: string; body: string; scheduledAt?: string | null },
-  ): Promise<Notice> {
+  async update(id: number, input: NoticeWrite): Promise<Notice> {
     const res = await this.pool.query<NoticeRow>(
       `UPDATE notices
-          SET title = $2, body = $3, scheduled_at = $4, updated_at = now()
+          SET title = $2, body = $3, scheduled_at = $4,
+              show_once = $5, link_url = $6, link_label = $7,
+              updated_at = now()
         WHERE id = $1
         RETURNING ${COLS}`,
-      [id, input.title, input.body, input.scheduledAt ?? null],
+      [
+        id,
+        input.title,
+        input.body,
+        input.scheduledAt ?? null,
+        input.showOnce ?? false,
+        input.linkUrl ?? null,
+        input.linkUrl ? (input.linkLabel ?? null) : null,
+      ],
     );
     if (!res.rowCount) throw new NotFoundException('notice not found');
     return toNotice(res.rows[0]);
