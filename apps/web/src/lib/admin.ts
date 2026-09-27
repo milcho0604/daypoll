@@ -42,11 +42,15 @@ async function adminFetch<T>(
     body: init.body != null ? JSON.stringify(init.body) : undefined,
   });
   if (!res.ok) {
-    let payload: unknown = null;
+    // 본문은 딱 한 번만 읽는다. res.json() 이 실패한 뒤 res.text() 를 부르면
+    // "Body is unusable" TypeError 가 튀어 ApiError 가 사라진다 — 장애 시
+    // Cloudflare HTML 응답에서 어드민 화면 에러 메시지가 깨지던 원인. (api.ts 와 동일)
+    const raw = await res.text().catch(() => '');
+    let payload: unknown = raw;
     try {
-      payload = await res.json();
+      payload = raw ? JSON.parse(raw) : null;
     } catch {
-      payload = await res.text();
+      /* JSON 이 아니면 원문 그대로 */
     }
     throw new ApiError(res.status, payload);
   }
