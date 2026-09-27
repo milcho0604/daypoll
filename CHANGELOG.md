@@ -12,6 +12,9 @@
 ### 추가
 - 공지 팝업 "한 번만 보여주기" — 한 번 보면 그 기기에서 다시 안 뜸 (새 기능 안내용). 버튼 링크(사이트 안 경로만, 예: `/updates`)와 문구 지정
 
+### 보안
+- 의존성 업데이트: next 16.3.1 → 16.3.3 (+ eslint-config-next), js-yaml 4.3.2, sanitize-html 2.17.7, vitest 4.1.11
+
 ### 운영
 - DB 마이그레이션 `0016_notice_once_link` (notices 컬럼 3개 + 링크·문구 CHECK)
 
