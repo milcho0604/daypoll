@@ -1,6 +1,6 @@
 {
   "name": "whenever",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "private": true,
   "description": "회원가입 없이 링크 하나로 날짜를 맞추는 웹앱",
   "scripts": {
