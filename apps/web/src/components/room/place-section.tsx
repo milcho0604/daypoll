@@ -118,163 +118,183 @@ export default function PlaceSection({
       {places.length === 0 ? (
         <EmptyState emoji="📍" message="아직 장소 후보가 없어요" />
       ) : (
-        <ul className="mt-3 flex flex-col gap-2">
-          {places.map((p) => {
-            const mine = myPlaceIds.has(p.placeId);
-            const leading = !confirmed && maxVotes > 0 && p.votes === maxVotes;
-            const isConfirmed = p.placeId === confirmedPlaceId;
-            const canDelete =
-              !locked && (isCreator || (meId != null && p.createdBy?.id === meId));
-            if (editingId === p.placeId && canDelete) {
+        <>
+          {canWrite && !confirmed && (
+            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              가고 싶은 곳을 눌러요 · 여러 곳 골라도 돼요
+            </p>
+          )}
+          <ul className="mt-2 flex flex-col gap-2">
+            {places.map((p) => {
+              const mine = myPlaceIds.has(p.placeId);
+              const leading = !confirmed && maxVotes > 0 && p.votes === maxVotes;
+              const isConfirmed = p.placeId === confirmedPlaceId;
+              const canManage =
+                !locked && (isCreator || (meId != null && p.createdBy?.id === meId));
+              if (editingId === p.placeId && canManage) {
+                return (
+                  <li key={p.placeId}>
+                    <PlaceForm
+                      initial={{
+                        name: p.name,
+                        url: p.url ?? '',
+                        memo: p.memo ?? '',
+                      }}
+                      submitLabel="고치기"
+                      busyLabel="고치는 중…"
+                      onSubmit={async (input) => {
+                        const err = await onEdit(p.placeId, input);
+                        if (!err) setEditingId(null);
+                        return err;
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </li>
+                );
+              }
+              const showConfirm = isCreator && !confirmed;
               return (
-                <li key={p.placeId}>
-                  <PlaceForm
-                    initial={{
-                      name: p.name,
-                      url: p.url ?? '',
-                      memo: p.memo ?? '',
-                    }}
-                    submitLabel="고치기"
-                    busyLabel="고치는 중…"
-                    onSubmit={async (input) => {
-                      const err = await onEdit(p.placeId, input);
-                      if (!err) setEditingId(null);
-                      return err;
-                    }}
-                    onCancel={() => setEditingId(null)}
-                  />
-                </li>
-              );
-            }
-            return (
-              <li
-                key={p.placeId}
-                className={`rounded-xl border bg-white p-3 dark:bg-zinc-900 ${
-                  isConfirmed
-                    ? 'border-amber-300 dark:border-amber-700'
-                    : 'border-zinc-200 dark:border-zinc-800'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="break-words text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {p.name}
-                      </p>
-                      {leading && (
-                        <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-                          {deadlinePassed ? '1위' : '현재 1위'}
-                        </span>
-                      )}
-                    </div>
-                    {p.memo && (
-                      <p className="mt-0.5 break-words text-xs text-zinc-500 dark:text-zinc-400">
-                        {p.memo}
-                      </p>
-                    )}
-                  </div>
+                <li
+                  key={p.placeId}
+                  className={`overflow-hidden rounded-xl border bg-white transition-colors dark:bg-zinc-900 ${
+                    isConfirmed
+                      ? 'border-amber-300 dark:border-amber-700'
+                      : mine
+                        ? 'border-zinc-900 ring-1 ring-zinc-900 dark:border-zinc-100 dark:ring-zinc-100'
+                        : 'border-zinc-200 dark:border-zinc-800'
+                  }`}
+                >
+                  {/* 카드 전체가 투표 버튼 — 작은 👍 를 찾아 누르지 않아도 된다 */}
                   <button
                     type="button"
                     onClick={() => onToggleVote(p.placeId)}
                     disabled={!canWrite}
-                    aria-pressed={mine}
+                    aria-pressed={canWrite ? mine : undefined}
                     aria-label={`${p.name} ${mine ? '고른 것 취소' : '가고 싶어요'} (${p.votes}표)`}
-                    className={`press inline-flex h-10 shrink-0 items-center gap-1 rounded-full px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                      mine
-                        ? 'bg-zinc-900 text-white disabled:opacity-60 dark:bg-white dark:text-zinc-900'
-                        : 'border border-zinc-200 bg-white text-zinc-700 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
+                    className={`flex w-full items-start gap-3 p-3 text-left ${
+                      canWrite ? 'press' : 'cursor-default'
                     }`}
                   >
-                    <span aria-hidden>👍</span>
-                    {p.votes}
-                  </button>
-                </div>
-
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      leading
-                        ? 'bg-amber-300 dark:bg-amber-400'
-                        : 'bg-zinc-300 dark:bg-zinc-600'
-                    }`}
-                    style={{
-                      width: `${maxVotes ? (p.votes / maxVotes) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {p.url ? (
-                    <PlaceLink url={p.url} size="sm" />
-                  ) : (
-                    // 링크 없는 후보도 한 번에 지도를 열 수 있게 — 이름으로 검색.
-                    <a
-                      href={mapSearchLinks(p.name)[0]?.href}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      <span aria-hidden>🔎</span>지도에서 찾기
-                      <span aria-hidden className="text-zinc-400">
-                        ↗
+                    {canWrite && (
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
+                          mine
+                            ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                            : 'border-zinc-300 text-transparent dark:border-zinc-600'
+                        }`}
+                      >
+                        ✓
                       </span>
-                    </a>
-                  )}
-                  {p.voters.length > 0 && (
-                    <span className="break-words text-xs text-zinc-500 dark:text-zinc-400">
-                      {p.voters.map((v) => v.nickname).join(' · ')}
-                    </span>
-                  )}
-                  {(canDelete || (isCreator && !confirmed)) && (
-                    <span className="ml-auto flex items-center gap-3">
-                      {/* amber 는 1위 한 곳에만 — 모든 줄에 금색 버튼이 서면 "드물게" 가 깨진다.
-                          나머지 후보는 조용한 텍스트 링크로 (다른 곳으로 정하는 길은 열어둔다). */}
-                      {isCreator && !confirmed && leading && (
-                        <button
-                          type="button"
-                          onClick={() => onConfirm(p)}
-                          className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
-                        >
-                          <CrownIcon className="h-3.5 w-3.5" />이 곳으로 확정
-                        </button>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="break-words text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {p.name}
+                        </span>
+                        {leading && (
+                          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                            {deadlinePassed ? '1위' : '현재 1위'}
+                          </span>
+                        )}
+                      </span>
+                      {p.memo && (
+                        <span className="mt-0.5 block break-words text-xs text-zinc-500 dark:text-zinc-400">
+                          {p.memo}
+                        </span>
                       )}
-                      {isCreator && !confirmed && !leading && (
-                        <button
-                          type="button"
-                          onClick={() => onConfirm(p)}
-                          className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-                        >
-                          이 곳으로 정하기
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(p.placeId);
-                            setFormOpen(false);
+                      <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <span
+                          className={`block h-full transition-all duration-500 ${
+                            leading
+                              ? 'bg-amber-300 dark:bg-amber-400'
+                              : 'bg-zinc-300 dark:bg-zinc-600'
+                          }`}
+                          style={{
+                            width: `${maxVotes ? (p.votes / maxVotes) * 100 : 0}%`,
                           }}
-                          className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-                        >
-                          고치기
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(p)}
-                          className="press text-xs text-zinc-400 underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
-                        >
-                          지우기
-                        </button>
+                        />
+                      </span>
+                      {p.voters.length > 0 && (
+                        <span className="mt-1.5 block break-words text-xs text-zinc-500 dark:text-zinc-400">
+                          {p.voters.map((v) => v.nickname).join(' · ')}
+                        </span>
                       )}
                     </span>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {p.votes}
+                      <span className="ml-0.5 text-xs font-normal text-zinc-500">표</span>
+                    </span>
+                  </button>
+
+                  {/* 카드 아래 줄 — 지도 바로가기 + 관리 (투표 버튼 밖이라 오작동 없음) */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
+                    {p.url ? (
+                      <PlaceLink url={p.url} size="sm" />
+                    ) : (
+                      // 링크 없는 후보도 한 번에 지도를 열 수 있게 — 이름으로 검색.
+                      <a
+                        href={mapSearchLinks(p.name)[0]?.href}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        <span aria-hidden>🔎</span>지도에서 찾기
+                        <span aria-hidden className="text-zinc-400">
+                          ↗
+                        </span>
+                      </a>
+                    )}
+                    {(canManage || showConfirm) && (
+                      <span className="ml-auto flex items-center gap-3">
+                        {/* amber 는 1위 한 곳에만 — 모든 줄에 금색 버튼이 서면 "드물게" 가 깨진다 */}
+                        {showConfirm && leading && (
+                          <button
+                            type="button"
+                            onClick={() => onConfirm(p)}
+                            className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
+                          >
+                            <CrownIcon className="h-3.5 w-3.5" />이 곳으로 확정
+                          </button>
+                        )}
+                        {showConfirm && !leading && (
+                          <button
+                            type="button"
+                            onClick={() => onConfirm(p)}
+                            className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                          >
+                            확정
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(p.placeId);
+                              setFormOpen(false);
+                            }}
+                            className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                          >
+                            고치기
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => onDelete(p)}
+                            className="press text-xs text-zinc-400 underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
+                          >
+                            지우기
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {/* 쓰기 불가 사유 — 버튼이 왜 안 눌리는지 말해준다 */}
@@ -323,6 +343,7 @@ export default function PlaceSection({
         ) : (
           <div className="mt-3">
             <PlaceForm
+              autoFocus
               submitLabel="올리기"
               busyLabel="올리는 중…"
               onSubmit={async (input) => {

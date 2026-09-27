@@ -47,10 +47,27 @@ describe('parsePlaceShare', () => {
     });
   });
 
-  it('형식 모르는 텍스트의 첫 줄을 이름으로 우기지 않는다', () => {
-    const r = parsePlaceShare('여기 어때? 분위기 좋대\nhttps://blog.example.com/post/1');
-    expect(r.name).toBeNull();
-    expect(r.url).toBe('https://blog.example.com/post/1');
+  it('제목 + 링크를 한 줄로 붙여도 나눈다 (형식 몰라도)', () => {
+    expect(parsePlaceShare('을지로 노가리골목 https://naver.me/5abc')).toMatchObject({
+      name: '을지로 노가리골목',
+      url: 'https://naver.me/5abc',
+    });
+    expect(parsePlaceShare('https://naver.me/5abc 을지로 노가리골목')).toMatchObject({
+      name: '을지로 노가리골목',
+    });
+    expect(parsePlaceShare('곱창집 - https://blog.example.com/1')).toMatchObject({
+      name: '곱창집',
+      url: 'https://blog.example.com/1',
+    });
+  });
+
+  it('여러 줄 공유 글이 한 줄로 뭉개져 들어와도 주소 앞에서 자른다', () => {
+    // 한 줄 입력칸에 붙이면 브라우저가 줄바꿈을 공백으로 바꾼다
+    const r = parsePlaceShare(
+      '[네이버 지도] 을지로 노가리골목 서울 중구 을지로13길 19 https://naver.me/5abc',
+    );
+    expect(r.name).toBe('을지로 노가리골목');
+    expect(r.url).toBe('https://naver.me/5abc');
   });
 
   it('주소·전화·앱 안내 줄은 이름으로 안 잡는다', () => {
@@ -71,13 +88,13 @@ describe('parsePlaceShare', () => {
     expect(r.url).toBe('https://map.kakao.com/?q=곱창&x=1');
   });
 
-  it('링크 없는 텍스트', () => {
-    expect(parsePlaceShare('그냥 삼겹살')).toEqual({ url: null, urls: [], name: null });
+  it('링크 없는 텍스트는 이름만', () => {
+    expect(parsePlaceShare('그냥 삼겹살')).toEqual({ url: null, urls: [], name: '그냥 삼겹살' });
   });
 
-  it('40자 넘는 줄은 이름으로 안 넣는다', () => {
-    const r = parsePlaceShare(`[네이버 지도]\n${'가'.repeat(41)}\nhttps://naver.me/x`);
-    expect(r.name).toBeNull();
+  it('40자 넘는 이름은 40자로 자른다 (입력칸 한도와 같다)', () => {
+    const r = parsePlaceShare(`[네이버 지도]\n${'가'.repeat(45)}\nhttps://naver.me/x`);
+    expect(r.name).toBe('가'.repeat(40));
   });
 });
 

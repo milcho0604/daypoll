@@ -126,9 +126,13 @@ html .rdp-root {
   margin-inline: auto;
   max-width: 100%;
 }
-.dark .rdp-root {
-  --rdp-accent-color: #f4f4f5; /* zinc-100 */
-  --rdp-accent-background-color: #27272a; /* zinc-800 */
+/* 다크는 prefers-color-scheme 기반 (.dark 클래스는 어디서도 안 붙는다 — 예전 .dark 규칙은
+   죽은 코드였다). html 을 붙여 라이트 규칙과 같은 특이도 + 뒤에 와서 이긴다. */
+@media (prefers-color-scheme: dark) {
+  html .rdp-root {
+    --rdp-accent-color: #f4f4f5; /* zinc-100 */
+    --rdp-accent-background-color: #27272a; /* zinc-800 */
+  }
 }
 .rdp-months,
 .rdp-month {
@@ -390,5 +394,18 @@ html .rdp-root {
   .blog-prose th {
     background: #18181b;
     color: #f4f4f5;
+  }
+}
+
+/* 체크박스·라디오 — 브라우저 기본 파란색 대신 zinc (방 관리 "마감일 설정", 입장 폼
+   "비밀번호 정하기" 등). 토큰 밖 blue 금지 규칙 (CLAUDE.md §1). */
+html input[type='checkbox'],
+html input[type='radio'] {
+  accent-color: #18181b; /* zinc-900 */
+}
+@media (prefers-color-scheme: dark) {
+  html input[type='checkbox'],
+  html input[type='radio'] {
+    accent-color: #f4f4f5; /* zinc-100 */
   }
 }
