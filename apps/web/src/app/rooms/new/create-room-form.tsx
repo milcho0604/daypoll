@@ -49,6 +49,7 @@ export default function CreateRoomForm() {
   // 한 번에 고른다. 나중에 방에서 누구나 더 올릴 수 있으니 여기선 접어둔다.
   const [places, setPlaces] = useState<PlaceInput[]>([]);
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [placeDraft, setPlaceDraft] = useState(false);
   // 렌더 중에 랜덤을 뽑으면 서버 HTML 과 클라이언트가 다른 힌트를 그려 hydration mismatch 가 난다.
   // SSR 은 항상 [0] 을 그리고, 마운트된 뒤에만 랜덤으로 바꾼다.
   const [titleHint, setTitleHint] = useState(TITLE_HINTS[0]);
@@ -74,6 +75,10 @@ export default function CreateRoomForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+    if (placesOpen && placeDraft) {
+      setError('적어둔 장소가 아직 안 들어갔어요. "후보에 넣기"를 누르거나 칸을 비워주세요.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -204,7 +209,11 @@ export default function CreateRoomForm() {
               compact
               submitLabel="후보에 넣기"
               busyLabel="넣는 중…"
-              onCancel={() => setPlacesOpen(false)}
+              onCancel={() => {
+                setPlacesOpen(false);
+                setPlaceDraft(false);
+              }}
+              onDraftChange={setPlaceDraft}
               onSubmit={async (input) => {
                 const name = input.name.trim();
                 if (places.some((p) => p.name.trim().toLowerCase() === name.toLowerCase())) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { PLACE_MEMO_MAX, PLACE_NAME_MAX } from '@whenever/shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { mapSearchLinks, parsePlaceShare } from '@/lib/place-share';
 
 export type PlaceInput = { name: string; url: string; memo: string };
@@ -18,6 +18,7 @@ export default function PlaceForm({
   busyLabel,
   onSubmit,
   onCancel,
+  onDraftChange,
   compact = false,
 }: {
   initial?: PlaceInput;
@@ -26,6 +27,9 @@ export default function PlaceForm({
   onSubmit: (input: PlaceInput) => Promise<string | null>; // 실패 메시지 또는 null
   onCancel?: () => void;
   compact?: boolean; // 방 만들기 폼 안 — 테두리 카드 없이, 안내 문구 짧게
+  // 적어놓고 아직 안 넣은 게 있는지 — 방 만들기가 "넣기" 안 누른 후보를 조용히
+  // 버리지 않게 바깥에서 막는 데 쓴다.
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [nameTouched, setNameTouched] = useState(!!initial?.name);
@@ -35,6 +39,11 @@ export default function PlaceForm({
   const [pasteNote, setPasteNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasDraft = !initial && (name.trim() !== '' || url.trim() !== '');
+  useEffect(() => {
+    onDraftChange?.(hasDraft);
+  }, [hasDraft, onDraftChange]);
 
   function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
     const text = e.clipboardData.getData('text/plain');
