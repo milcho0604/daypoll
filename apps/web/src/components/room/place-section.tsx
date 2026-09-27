@@ -56,6 +56,8 @@ export default function PlaceSection({
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [menuId, setMenuId] = useState<number | null>(null);
 
   const confirmed =
     confirmedPlaceId != null
@@ -64,6 +66,15 @@ export default function PlaceSection({
   const maxVotes = places.reduce((m, p) => Math.max(m, p.votes), 0);
   const canWrite = joined && !declined && !locked;
   const full = places.length >= PLACES_PER_ROOM_MAX;
+  const leader = places[0] ?? null; // 서버 정렬: 표 DESC → 등록순
+  // 페이지가 길어지지 않게 3곳까지만 — 나머지는 "더 보기". 고치는 중인 후보는 숨기지 않는다.
+  const PREVIEW = 3;
+  const visible = showAll
+    ? places
+    : places.filter(
+        (p, i) => i < PREVIEW || p.placeId === editingId || p.placeId === menuId,
+      );
+  const hiddenCount = places.length - Math.min(places.length, PREVIEW);
 
   return (
     <section id="places" className="mt-8 scroll-mt-4">
@@ -76,7 +87,9 @@ export default function PlaceSection({
         )}
       </div>
       <p className="mt-1 text-balance break-keep text-sm text-zinc-500 dark:text-zinc-400">
-        식당·카페·메뉴 뭐든 좋아요. 가고 싶은 곳은 여러 개 골라도 돼요.
+        {canWrite && !confirmed
+          ? '가고 싶은 곳을 눌러요. 여러 곳 골라도 돼요.'
+          : '식당·카페·메뉴 뭐든 좋아요.'}
       </p>
 
       {confirmed && (
@@ -115,22 +128,38 @@ export default function PlaceSection({
         </div>
       )}
 
+      {/* 방장: 1위를 바로 확정 — 날짜 쪽 "이 날로 모임 정할까요?" 와 같은 패턴.
+          카드마다 금색 버튼을 세우지 않는다 (amber 는 드물게). */}
+      {isCreator && !confirmed && leader && leader.votes > 0 && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
+            현재 1위{' '}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">{leader.name}</span>{' '}
+            · {leader.votes}표
+          </p>
+          <button
+            type="button"
+            onClick={() => onConfirm(leader)}
+            className="press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
+          >
+            <CrownIcon className="h-3.5 w-3.5" />이 곳으로 확정
+          </button>
+        </div>
+      )}
+
       {places.length === 0 ? (
         <EmptyState emoji="📍" message="아직 장소 후보가 없어요" />
       ) : (
         <>
-          {canWrite && !confirmed && (
-            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-              가고 싶은 곳을 눌러요 · 여러 곳 골라도 돼요
-            </p>
-          )}
-          <ul className="mt-2 flex flex-col gap-2">
-            {places.map((p) => {
+          <ul className="mt-3 flex flex-col gap-2">
+            {visible.map((p) => {
               const mine = myPlaceIds.has(p.placeId);
               const leading = !confirmed && maxVotes > 0 && p.votes === maxVotes;
               const isConfirmed = p.placeId === confirmedPlaceId;
               const canManage =
                 !locked && (isCreator || (meId != null && p.createdBy?.id === meId));
+              const canConfirmThis = isCreator && !confirmed;
+              const hasMenu = canManage || canConfirmThis;
               if (editingId === p.placeId && canManage) {
                 return (
                   <li key={p.placeId}>
@@ -152,7 +181,12 @@ export default function PlaceSection({
                   </li>
                 );
               }
-              const showConfirm = isCreator && !confirmed;
+              const sub = [
+                p.memo,
+                p.voters.length > 0 ? p.voters.map((v) => v.nickname).join('·') : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
               return (
                 <li
                   key={p.placeId}
@@ -164,136 +198,146 @@ export default function PlaceSection({
                         : 'border-zinc-200 dark:border-zinc-800'
                   }`}
                 >
-                  {/* 카드 전체가 투표 버튼 — 작은 👍 를 찾아 누르지 않아도 된다 */}
-                  <button
-                    type="button"
-                    onClick={() => onToggleVote(p.placeId)}
-                    disabled={!canWrite}
-                    aria-pressed={canWrite ? mine : undefined}
-                    aria-label={`${p.name} ${mine ? '고른 것 취소' : '가고 싶어요'} (${p.votes}표)`}
-                    className={`flex w-full items-start gap-3 p-3 text-left ${
-                      canWrite ? 'press' : 'cursor-default'
-                    }`}
-                  >
-                    {canWrite && (
-                      <span
-                        aria-hidden
-                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
-                          mine
-                            ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                            : 'border-zinc-300 text-transparent dark:border-zinc-600'
-                        }`}
-                      >
-                        ✓
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="break-words text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                          {p.name}
+                  <div className="flex items-center">
+                    {/* 카드 대부분이 투표 버튼 — 한 줄짜리라 길어지지 않는다 */}
+                    <button
+                      type="button"
+                      onClick={() => onToggleVote(p.placeId)}
+                      disabled={!canWrite}
+                      aria-pressed={canWrite ? mine : undefined}
+                      aria-label={`${p.name} ${mine ? '고른 것 취소' : '가고 싶어요'} (${p.votes}표)`}
+                      title={p.name}
+                      className={`flex min-w-0 flex-1 items-center gap-3 py-3 pl-3 pr-2 text-left ${
+                        canWrite ? 'press' : 'cursor-default'
+                      }`}
+                    >
+                      {canWrite && (
+                        <span
+                          aria-hidden
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
+                            mine
+                              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                              : 'border-zinc-300 text-transparent dark:border-zinc-600'
+                          }`}
+                        >
+                          ✓
                         </span>
-                        {leading && (
-                          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-                            {deadlinePassed ? '1위' : '현재 1위'}
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {p.name}
+                          </span>
+                          {leading && (
+                            <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                              {deadlinePassed ? '1위' : '현재 1위'}
+                            </span>
+                          )}
+                        </span>
+                        {sub && (
+                          <span className="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                            {sub}
                           </span>
                         )}
-                      </span>
-                      {p.memo && (
-                        <span className="mt-0.5 block break-words text-xs text-zinc-500 dark:text-zinc-400">
-                          {p.memo}
-                        </span>
-                      )}
-                      <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <span
-                          className={`block h-full transition-all duration-500 ${
-                            leading
-                              ? 'bg-amber-300 dark:bg-amber-400'
-                              : 'bg-zinc-300 dark:bg-zinc-600'
-                          }`}
-                          style={{
-                            width: `${maxVotes ? (p.votes / maxVotes) * 100 : 0}%`,
-                          }}
-                        />
-                      </span>
-                      {p.voters.length > 0 && (
-                        <span className="mt-1.5 block break-words text-xs text-zinc-500 dark:text-zinc-400">
-                          {p.voters.map((v) => v.nickname).join(' · ')}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                      {p.votes}
-                      <span className="ml-0.5 text-xs font-normal text-zinc-500">표</span>
-                    </span>
-                  </button>
-
-                  {/* 카드 아래 줄 — 지도 바로가기 + 관리 (투표 버튼 밖이라 오작동 없음) */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-                    {p.url ? (
-                      <PlaceLink url={p.url} size="sm" />
-                    ) : (
-                      // 링크 없는 후보도 한 번에 지도를 열 수 있게 — 이름으로 검색.
-                      <a
-                        href={mapSearchLinks(p.name)[0]?.href}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                        className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      >
-                        <span aria-hidden>🔎</span>지도에서 찾기
-                        <span aria-hidden className="text-zinc-400">
-                          ↗
-                        </span>
-                      </a>
-                    )}
-                    {(canManage || showConfirm) && (
-                      <span className="ml-auto flex items-center gap-3">
-                        {/* amber 는 1위 한 곳에만 — 모든 줄에 금색 버튼이 서면 "드물게" 가 깨진다 */}
-                        {showConfirm && leading && (
-                          <button
-                            type="button"
-                            onClick={() => onConfirm(p)}
-                            className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-500 px-3.5 text-xs font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500"
-                          >
-                            <CrownIcon className="h-3.5 w-3.5" />이 곳으로 확정
-                          </button>
-                        )}
-                        {showConfirm && !leading && (
-                          <button
-                            type="button"
-                            onClick={() => onConfirm(p)}
-                            className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-                          >
-                            확정
-                          </button>
-                        )}
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingId(p.placeId);
-                              setFormOpen(false);
+                        <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                          <span
+                            className={`block h-full transition-all duration-500 ${
+                              leading
+                                ? 'bg-amber-300 dark:bg-amber-400'
+                                : 'bg-zinc-300 dark:bg-zinc-600'
+                            }`}
+                            style={{
+                              width: `${maxVotes ? (p.votes / maxVotes) * 100 : 0}%`,
                             }}
-                            className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-                          >
-                            고치기
-                          </button>
-                        )}
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => onDelete(p)}
-                            className="press text-xs text-zinc-400 underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
-                          >
-                            지우기
-                          </button>
-                        )}
+                          />
+                        </span>
                       </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                        {p.votes}
+                        <span className="ml-0.5 text-xs font-normal text-zinc-500">표</span>
+                      </span>
+                    </button>
+                    {/* 지도 바로가기 — 링크 없으면 이름으로 검색. 투표 버튼 밖이라 오작동 없음 */}
+                    <MapButton url={p.url} name={p.name} />
+                    {hasMenu ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMenuId((id) => (id === p.placeId ? null : p.placeId))
+                        }
+                        aria-expanded={menuId === p.placeId}
+                        aria-label={`${p.name} 더보기`}
+                        className="press mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg leading-none text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                      >
+                        ⋯
+                      </button>
+                    ) : (
+                      <span className="w-1.5 shrink-0" />
                     )}
                   </div>
+                  {menuId === p.placeId && hasMenu && (
+                    <div className="flex items-center justify-end gap-4 border-t border-zinc-100 px-4 py-2 dark:border-zinc-800">
+                      {canConfirmThis && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            onConfirm(p);
+                          }}
+                          className="press text-xs font-medium text-zinc-700 underline underline-offset-2 dark:text-zinc-300"
+                        >
+                          이 곳으로 확정
+                        </button>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            setEditingId(p.placeId);
+                            setFormOpen(false);
+                          }}
+                          className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        >
+                          고치기
+                        </button>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            onDelete(p);
+                          }}
+                          className="press text-xs text-zinc-400 underline underline-offset-2 hover:text-rose-600 dark:hover:text-rose-400"
+                        >
+                          지우기
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
           </ul>
+          {hiddenCount > 0 && (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                aria-expanded={showAll}
+                className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {showAll ? '접기' : `${hiddenCount}곳 더 보기`}
+                <span
+                  aria-hidden
+                  className={`text-[10px] transition-transform ${showAll ? 'rotate-180' : ''}`}
+                >
+                  ▾
+                </span>
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -381,6 +425,26 @@ function PlaceLink({ url, size }: { url: string | null; size: 'sm' | 'md' }) {
       <span aria-hidden className="text-zinc-400">
         ↗
       </span>
+    </a>
+  );
+}
+
+// 카드 오른쪽 지도 버튼 — 링크가 있으면 그 링크, 없으면 이름으로 네이버 지도 검색.
+function MapButton({ url, name }: { url: string | null; name: string }) {
+  const href = safeHref(url) ?? mapSearchLinks(name)[0]?.href ?? null;
+  if (!href) return null;
+  const provider = safeHref(url) ? providerOf(href) : null;
+  const label = provider ? `${provider.label}에서 보기` : '지도에서 찾기';
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      aria-label={`${name} ${label}`}
+      title={label}
+      className="press inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+    >
+      <span aria-hidden>{!provider ? '🔎' : provider.kind === 'map' ? '📍' : '🔗'}</span>
     </a>
   );
 }

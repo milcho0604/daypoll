@@ -1446,29 +1446,6 @@ export default function RoomView({
         </section>
       )}
 
-      {placesSupported && (
-      <PlaceSection
-        places={places}
-        confirmedPlaceId={confirmedPlaceId}
-        myPlaceIds={myPlaceIds}
-        meId={me?.participantId ?? null}
-        joined={!!clientToken && !!me}
-        declined={declined}
-        locked={placeLocked}
-        deadlinePassed={deadlinePassed}
-        isCreator={isCreator}
-        onAdd={onAddPlace}
-        onEdit={onEditPlace}
-        onToggleVote={onTogglePlaceVote}
-        onDelete={(p) => setPlaceDeleteTarget(p)}
-        onConfirm={(p) => setPlaceConfirmTarget(p)}
-        onUnconfirm={() => setShowPlaceUnconfirm(true)}
-        onAnnounce={() => void announceConfirmed()}
-        announceCopied={announceCopied}
-        onShare={() => void shareRoom()}
-        linkCopied={linkCopied}
-      />
-      )}
 
       <section className="mt-8">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -1593,6 +1570,32 @@ export default function RoomView({
           </div>
         )}
       </section>
+
+      {/* 장소는 날짜 순위 아래 — 날짜 흐름(고르기 → 순위)이 중간에 끊기지 않게.
+          위쪽 헤더 링크·하단 바 "장소도 골라요" 가 여기로 데려온다. */}
+      {placesSupported && (
+      <PlaceSection
+        places={places}
+        confirmedPlaceId={confirmedPlaceId}
+        myPlaceIds={myPlaceIds}
+        meId={me?.participantId ?? null}
+        joined={!!clientToken && !!me}
+        declined={declined}
+        locked={placeLocked}
+        deadlinePassed={deadlinePassed}
+        isCreator={isCreator}
+        onAdd={onAddPlace}
+        onEdit={onEditPlace}
+        onToggleVote={onTogglePlaceVote}
+        onDelete={(p) => setPlaceDeleteTarget(p)}
+        onConfirm={(p) => setPlaceConfirmTarget(p)}
+        onUnconfirm={() => setShowPlaceUnconfirm(true)}
+        onAnnounce={() => void announceConfirmed()}
+        announceCopied={announceCopied}
+        onShare={() => void shareRoom()}
+        linkCopied={linkCopied}
+      />
+      )}
 
       {error && (
         <p
