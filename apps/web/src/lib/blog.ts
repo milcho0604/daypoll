@@ -6,7 +6,10 @@ import { cache } from 'react';
 import { parsePostSource } from './blog-core';
 import type { AdjacentPosts, BlogPost, PostMeta } from './blog-types';
 
-const BLOG_DIR = join(process.cwd(), 'content', 'blog');
+const BLOG_DIR =
+  process.env.BLOG_E2E_FIXTURES === '1'
+    ? join(process.cwd(), 'e2e', 'fixtures', 'content')
+    : join(process.cwd(), 'content', 'blog');
 const VALID_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PREVIEW_DRAFTS = process.env.NODE_ENV !== 'production';
 
@@ -15,6 +18,7 @@ export type { AdjacentPosts, BlogPost, PostMeta, TocItem } from './blog-types';
 type PostQuery = {
   includePrivate?: boolean;
   includeDrafts?: boolean;
+  now?: Date;
 };
 
 const readAllPosts = cache(function readAllPosts(): BlogPost[] {
@@ -40,6 +44,17 @@ const readAllPosts = cache(function readAllPosts(): BlogPost[] {
           `[blog:${slug}] cover 파일을 찾을 수 없습니다: ${post.meta.cover}`,
         );
       }
+      for (const match of post.html.matchAll(/<img\s+[^>]*src="([^"]+)"/g)) {
+        const imagePath = match[1];
+        if (
+          !imagePath.startsWith('/') ||
+          !existsSync(join(process.cwd(), 'public', imagePath.slice(1)))
+        ) {
+          throw new Error(
+            `[blog:${slug}] 본문 이미지 파일을 찾을 수 없습니다: ${imagePath}`,
+          );
+        }
+      }
       return post;
     })
     .sort((a, b) => {
@@ -51,9 +66,28 @@ const readAllPosts = cache(function readAllPosts(): BlogPost[] {
 });
 
 function visible(post: BlogPost, query: PostQuery): boolean {
-  if (post.meta.draft && !(query.includeDrafts ?? PREVIEW_DRAFTS)) return false;
+  const previewingDraft =
+    post.meta.draft && (query.includeDrafts ?? PREVIEW_DRAFTS);
+  if (post.meta.draft && !previewingDraft) return false;
   if (post.meta.visibility === 'private' && !query.includePrivate) return false;
+  if (
+    !previewingDraft &&
+    post.meta.visibility === 'public' &&
+    post.meta.publishAt &&
+    new Date(post.meta.publishAt) > (query.now ?? new Date())
+  ) {
+    return false;
+  }
   return true;
+}
+
+export function isPostPubliclyVisible(
+  post: BlogPost,
+  now = new Date(),
+): boolean {
+  if (post.meta.visibility !== 'public') return false;
+  if (post.meta.draft) return PREVIEW_DRAFTS;
+  return !post.meta.publishAt || new Date(post.meta.publishAt) <= now;
 }
 
 export function getAllPosts(query: PostQuery = {}): PostMeta[] {

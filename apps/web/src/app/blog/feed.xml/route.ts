@@ -4,6 +4,7 @@ import { latestPostModifiedDate } from '@/lib/blog-core';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 
 export const dynamic = 'force-static';
+export const revalidate = 60;
 
 function xml(value: string): string {
   return value
@@ -15,6 +16,7 @@ function xml(value: string): string {
 }
 
 function rssDate(date: string): string {
+  if (date.includes('T')) return new Date(date).toUTCString();
   return new Date(`${date}T00:00:00+09:00`).toUTCString();
 }
 
@@ -33,7 +35,7 @@ export function GET() {
       <link>${xml(url)}</link>
       <guid isPermaLink="true">${xml(url)}</guid>
       <description>${xml(post.description)}</description>
-      <pubDate>${rssDate(post.date)}</pubDate>
+      <pubDate>${rssDate(post.publishAt ?? post.date)}</pubDate>
       <category>${xml(post.category)}</category>
       ${post.tags.map((tag) => `<category>${xml(tag)}</category>`).join('\n      ')}
     </item>`;
@@ -55,7 +57,7 @@ export function GET() {
   return new Response(body, {
     headers: {
       'Content-Type': 'application/rss+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
     },
   });
 }

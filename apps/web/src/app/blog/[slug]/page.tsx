@@ -7,12 +7,31 @@ import {
   getAllPosts,
   getPost,
   getRelatedPosts,
+  isPostPubliclyVisible,
 } from '@/lib/blog';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://moilga.com';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 type Params = { params: Promise<{ slug: string }> };
+
+function publicationTimes(meta: {
+  date: string;
+  updated?: string;
+  publishAt?: string;
+}): { published: string; modified: string } {
+  const published = meta.publishAt ?? `${meta.date}T00:00:00+09:00`;
+  const updated = meta.updated
+    ? `${meta.updated}T00:00:00+09:00`
+    : published;
+  return {
+    published,
+    modified:
+      new Date(updated).getTime() >= new Date(published).getTime()
+        ? updated
+        : published,
+  };
+}
 
 export function generateStaticParams() {
   return getAllPosts({
@@ -21,7 +40,9 @@ export function generateStaticParams() {
   }).map((post) => ({ slug: post.slug }));
 }
 
-export const dynamicParams = false;
+// 예약 발행 글은 빌드 시점에 경로가 없어도 발행 시각 이후 처음 요청에서 생성한다.
+export const dynamicParams = true;
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
@@ -34,8 +55,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       robots: { index: false, follow: false, noarchive: true },
     };
   }
+  if (!isPostPubliclyVisible(post)) return {};
 
   const { meta } = post;
+  const times = publicationTimes(meta);
   const image = meta.cover ?? `/blog/${slug}/opengraph-image`;
   return {
     title: `${meta.title} · 모일까`,
@@ -48,8 +71,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       title: meta.title,
       description: meta.description,
       url: `/blog/${slug}`,
-      publishedTime: `${meta.date}T00:00:00+09:00`,
-      modifiedTime: `${meta.updated ?? meta.date}T00:00:00+09:00`,
+      publishedTime: times.published,
+      modifiedTime: times.modified,
       tags: meta.tags,
       images: [{ url: image, alt: meta.coverAlt ?? meta.title }],
     },
@@ -70,20 +93,22 @@ export default async function BlogPostPage({ params }: Params) {
   if (post.meta.visibility === 'private') {
     return <PrivatePostGate slug={slug} />;
   }
+  if (!isPostPubliclyVisible(post)) notFound();
 
   const related = getRelatedPosts(slug);
   const adjacent = getAdjacentPosts(slug);
   const image = post.meta.cover
     ? new URL(post.meta.cover, SITE_URL).toString()
     : `${SITE_URL}/blog/${slug}/opengraph-image`;
+  const times = publicationTimes(post.meta);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.meta.title,
     description: post.meta.description,
     image,
-    datePublished: post.meta.date,
-    dateModified: post.meta.updated ?? post.meta.date,
+    datePublished: times.published,
+    dateModified: times.modified,
     mainEntityOfPage: `${SITE_URL}/blog/${slug}`,
     inLanguage: 'ko-KR',
     articleSection: post.meta.category,

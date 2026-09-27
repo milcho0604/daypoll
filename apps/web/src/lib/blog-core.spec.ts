@@ -94,6 +94,31 @@ echo ok
     ).toThrow('안전한 내부 경로');
   });
 
+  it('시간대가 있는 예약 발행만 허용하고 private 예약을 거부한다', () => {
+    const scheduled = parsePostSource(
+      'scheduled-post',
+      source('## 예약 본문', 'publishAt: "2026-09-01T09:00:00+09:00"\n'),
+    );
+    expect(scheduled.meta.publishAt).toBe('2026-09-01T09:00:00+09:00');
+
+    expect(() =>
+      parsePostSource(
+        'local-time-post',
+        source('## 예약 본문', 'publishAt: "2026-09-01T09:00:00"\n'),
+      ),
+    ).toThrow('시간대가 포함된 ISO 8601');
+
+    expect(() =>
+      parsePostSource(
+        'private-scheduled-post',
+        source(
+          '## 예약 본문',
+          'publishAt: "2026-09-01T09:00:00+09:00"\n',
+        ).replace('visibility: public', 'visibility: private'),
+      ),
+    ).toThrow('public 글에서만');
+  });
+
   it('private 글에서 공개 이미지 경로가 새는 것을 막는다', () => {
     const privateSource = source('## 본문\n\n![민감한 이미지](/private/leak.png)')
       .replace('visibility: public', 'visibility: private');
@@ -237,6 +262,15 @@ echo ok
         source('## 본문\n\n![](/blog/images/example.webp)'),
       ),
     ).toThrow('대체 텍스트');
+  });
+
+  it('본문 이미지는 추적 위험이 없는 내부 경로만 허용한다', () => {
+    expect(() =>
+      parsePostSource(
+        'external-image',
+        source('## 본문\n\n![외부 이미지](https://example.com/pixel.png)'),
+      ),
+    ).toThrow('안전한 내부 경로');
   });
 
   it('피드와 사이트맵의 최신일은 게시 순서가 아니라 실제 수정일로 계산한다', () => {

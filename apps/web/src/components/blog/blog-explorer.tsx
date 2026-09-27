@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useRef } from 'react';
 import EmptyState from '@/components/empty-state';
+import { trackBlogEvent } from '@/lib/blog-analytics';
 import type { PostMeta } from '@/lib/blog-types';
 
 function formatDate(date: string): string {
@@ -17,6 +18,33 @@ function formatDate(date: string): string {
 
 function normalize(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase('ko-KR').trim();
+}
+
+function filterPosts(
+  posts: PostMeta[],
+  query: string,
+  category: string,
+  tag: string,
+): PostMeta[] {
+  const needle = normalize(query);
+  return posts.filter((post) => {
+    if (category && post.category !== category) return false;
+    if (tag && !post.tags.includes(tag)) return false;
+    if (!needle) return true;
+    return normalize(
+      [post.title, post.description, post.category, post.tags.join(' ')].join(
+        ' ',
+      ),
+    ).includes(needle);
+  });
+}
+
+function queryLengthBucket(length: number): string {
+  if (length === 0) return '0';
+  if (length <= 5) return '1-5';
+  if (length <= 15) return '6-15';
+  if (length <= 30) return '16-30';
+  return '31+';
 }
 
 export default function BlogExplorer({
@@ -37,20 +65,7 @@ export default function BlogExplorer({
   const searchInput = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
-    const needle = normalize(urlQuery);
-    return posts.filter((post) => {
-      if (category && post.category !== category) return false;
-      if (tag && !post.tags.includes(tag)) return false;
-      if (!needle) return true;
-      return normalize(
-        [
-          post.title,
-          post.description,
-          post.category,
-          post.tags.join(' '),
-        ].join(' '),
-      ).includes(needle);
-    });
+    return filterPosts(posts, urlQuery, category, tag);
   }, [category, posts, tag, urlQuery]);
 
   function updateUrl(next: {
@@ -70,6 +85,7 @@ export default function BlogExplorer({
   }
 
   function reset() {
+    trackBlogEvent('Blog Filters Reset');
     router.replace(pathname, { scroll: false });
   }
 
@@ -82,7 +98,13 @@ export default function BlogExplorer({
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            updateUrl({ q: searchInput.current?.value.trim() ?? '' });
+            const query = searchInput.current?.value.trim() ?? '';
+            trackBlogEvent('Blog Searched', {
+              queryLength: queryLengthBucket(query.length),
+              results: filterPosts(posts, query, category, tag).length,
+              filtered: Boolean(category || tag),
+            });
+            updateUrl({ q: query });
           }}
           className="flex items-center gap-3"
         >
@@ -110,12 +132,16 @@ export default function BlogExplorer({
           <div className="flex flex-wrap gap-2" aria-label="카테고리 필터">
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                trackBlogEvent('Blog Filtered', {
+                  type: 'category',
+                  selected: false,
+                });
                 updateUrl({
                   category: '',
                   q: searchInput.current?.value.trim() ?? urlQuery,
-                })
-              }
+                });
+              }}
               aria-pressed={!category}
               className={`press h-9 rounded-full px-3.5 text-xs font-medium ${
                 !category
@@ -129,12 +155,16 @@ export default function BlogExplorer({
               <button
                 key={item}
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  trackBlogEvent('Blog Filtered', {
+                    type: 'category',
+                    selected: true,
+                  });
                   updateUrl({
                     category: item,
                     q: searchInput.current?.value.trim() ?? urlQuery,
-                  })
-                }
+                  });
+                }}
                 aria-pressed={category === item}
                 className={`press h-9 rounded-full px-3.5 text-xs font-medium ${
                   category === item
@@ -154,12 +184,17 @@ export default function BlogExplorer({
               <button
                 key={item}
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const selected = tag !== item;
+                  trackBlogEvent('Blog Filtered', {
+                    type: 'tag',
+                    selected,
+                  });
                   updateUrl({
-                    tag: tag === item ? '' : item,
+                    tag: selected ? item : '',
                     q: searchInput.current?.value.trim() ?? urlQuery,
-                  })
-                }
+                  });
+                }}
                 aria-pressed={tag === item}
                 className={`press h-9 rounded-full px-3 text-xs ${
                   tag === item

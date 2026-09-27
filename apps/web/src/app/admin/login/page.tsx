@@ -2,7 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { adminGetStats, setAdminToken } from '@/lib/admin';
+import {
+  adminGetStats,
+  clearAdminToken,
+  setAdminToken,
+} from '@/lib/admin';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -20,6 +24,7 @@ export default function AdminLoginPage() {
       await adminGetStats(); // 검증
       router.replace('/admin');
     } catch {
+      clearAdminToken();
       setError('토큰이 잘못됐어요.');
       setBusy(false);
     }

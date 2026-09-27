@@ -95,6 +95,8 @@ tailscale funnel --bg 3001
    - `NEXT_PUBLIC_SITE_URL` = `https://<your>.vercel.app` (Deploy 후 받은 도메인)
 4. Deploy → 5~8분.
 
+비공개 블로그는 백엔드의 기존 `ADMIN_TOKEN`과 `AdminGuard`를 재사용하므로 Vercel에 별도 비밀값을 추가하지 않는다. `ADMIN_TOKEN`은 계속 API 서버 환경변수에만 두며 저장소·빌드 로그·`NEXT_PUBLIC_*`에는 기록하지 않는다.
+
 > `apps/web/package.json` 의 build 스크립트가 `pnpm --filter @whenever/shared build &&
 > next build` 로 shared 를 먼저 빌드하도록 되어있어, Vercel 의 install/build 기본값으로
 > 충분하다.

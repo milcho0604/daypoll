@@ -14,7 +14,10 @@
     "db:logs": "docker compose logs -f postgres",
     "test": "bash scripts/test.sh",
     "test:api": "pnpm --filter @whenever/api test:e2e",
-    "test:web": "bash scripts/web-smoke.sh"
+    "test:web": "bash scripts/web-smoke.sh",
+    "blog:new": "pnpm --filter @whenever/web blog:new",
+    "blog:check": "pnpm --filter @whenever/web blog:check",
+    "blog:preview": "pnpm --filter @whenever/web blog:preview"
   },
   "packageManager": "pnpm@10.32.1",
   "engines": {
