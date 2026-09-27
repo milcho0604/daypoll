@@ -474,12 +474,25 @@ export class ParticipantsService {
     if (roomRes.rows[0].confirmed_date_id != null) {
       throw new HttpException('room is confirmed', HttpStatus.LOCKED);
     }
-    const del = await this.pool.query(
-      `DELETE FROM participants WHERE id = $1 AND room_id = $2`,
-      [participantId, roomId],
-    );
-    if (del.rowCount === 0)
-      throw new NotFoundException('participant not found');
+    // 삭제는 rooms 행 잠금 안에서 — 장소 추가·투표 트랜잭션(같은 행을 먼저 잠근다)과
+    // 직렬화해, 그쪽이 참여자를 확인한 직후 강퇴가 끼어들어 표 INSERT 가 FK 오류(500)로
+    // 터지는 경쟁을 막는다. 확정 여부도 잠금 안에서 다시 본다.
+    const deleted = await withTransaction(this.pool, async (c) => {
+      const r = await c.query<{ confirmed_date_id: string | null }>(
+        `SELECT confirmed_date_id::text FROM rooms WHERE id = $1 FOR UPDATE`,
+        [roomId],
+      );
+      if (r.rowCount === 0) throw new NotFoundException('room not found');
+      if (r.rows[0].confirmed_date_id != null) {
+        throw new HttpException('room is confirmed', HttpStatus.LOCKED);
+      }
+      const del = await c.query(
+        `DELETE FROM participants WHERE id = $1 AND room_id = $2`,
+        [participantId, roomId],
+      );
+      return del.rowCount ?? 0;
+    });
+    if (deleted === 0) throw new NotFoundException('participant not found');
     this.realtime.emitResultsUpdated(roomId);
     return { deleted: true };
   }

@@ -453,6 +453,19 @@ describe('places e2e', () => {
       expect((await decline(roomId, b.token, false)).status).toBe(423);
     });
 
+    it('장소 확정은 "대상" 을 고정할 뿐 — 불참하면 표수는 줄고 확정 장소는 그대로', async () => {
+      const { roomId, creator } = await makeRoom();
+      const a = await join(roomId, '민수');
+      const b = await join(roomId, '지수');
+      const pid = (await add(roomId, a.token, { name: 'A집' })).body.placeId;
+      await vote(roomId, b.token, pid).expect(200);
+      await confirmPlace(roomId, creator, pid).expect(201);
+      await decline(roomId, b.token, true).expect(200); // 날짜 미확정이라 허용
+      const res = await results(roomId);
+      expect(res.confirmedPlaceId).toBe(pid);
+      expect(res.places[0].votes).toBe(1);
+    });
+
     it('날짜 미확정이면 기존처럼 불참·복귀 자유', async () => {
       const { roomId } = await makeRoom();
       const a = await join(roomId, '민수');
