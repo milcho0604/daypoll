@@ -108,10 +108,11 @@ html {
 }
 
 /* ─── react-day-picker 테마 — zinc 무채색 (amber 는 1등·트로피·확정 hot path 한정) ─── */
-/* 선택자를 두 번 쓴다(.rdp-root.rdp-root): 라이브러리 style.css 는 컴포넌트에서
-   import 돼 이 파일보다 뒤에 로드될 수 있고, 같은 특이도면 뒤가 이겨서 라이트 모드
-   달력 화살표·오늘 날짜가 기본값 blue 로 나오고 있었다(운영에서 확인). */
-.rdp-root.rdp-root {
+/* html 을 앞에 붙여 특이도를 올린다: 라이브러리 style.css 는 컴포넌트에서 import 돼
+   이 파일보다 뒤에 로드될 수 있고, 같은 특이도면 뒤가 이겨서 라이트 모드 달력
+   화살표·오늘 날짜가 기본값 blue 로 나오고 있었다(운영 확인).
+   .rdp-root.rdp-root 는 안 된다 — 프로덕션 CSS 압축이 중복 클래스를 하나로 접는다. */
+html .rdp-root {
   --rdp-accent-color: #18181b; /* zinc-900 */
   --rdp-accent-background-color: #f4f4f5; /* zinc-100 */
   --rdp-day-width: 2.5rem;
@@ -125,7 +126,7 @@ html {
   margin-inline: auto;
   max-width: 100%;
 }
-.dark .rdp-root.rdp-root {
+.dark .rdp-root {
   --rdp-accent-color: #f4f4f5; /* zinc-100 */
   --rdp-accent-background-color: #27272a; /* zinc-800 */
 }
