@@ -13,7 +13,9 @@ describe('normalizePlaceUrl', () => {
       'https://naver.me/5abcDEF',
     );
     expect(
-      normalizePlaceUrl('https://map.naver.com/p/entry/place/123?c=15.00,0,0#x'),
+      normalizePlaceUrl(
+        'https://map.naver.com/p/entry/place/123?c=15.00,0,0#x',
+      ),
     ).toBe('https://map.naver.com/p/entry/place/123?c=15.00,0,0#x');
     expect(normalizePlaceUrl('http://place.map.kakao.com/8888')).toBe(
       'http://place.map.kakao.com/8888',

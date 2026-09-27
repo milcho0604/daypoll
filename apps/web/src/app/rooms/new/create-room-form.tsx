@@ -2,12 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { REGIONS, type RegionCode } from '@whenever/shared';
+import {
+  PLACES_PER_ROOM_MAX,
+  REGIONS,
+  type RegionCode,
+} from '@whenever/shared';
 import { ApiError } from '@/lib/api';
 import { createRoom } from '@/lib/rooms';
 import { writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import DateBuilder from '@/components/date-builder';
+import PlaceForm, { type PlaceInput } from '@/components/room/place-form';
+import { providerOf, safeHref } from '@/lib/place-share';
 
 function isoToLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -39,6 +45,10 @@ export default function CreateRoomForm() {
   const [useDeadline, setUseDeadline] = useState(false);
   const [deadline, setDeadline] = useState<string>('');
   const [region, setRegion] = useState<string>('');
+  // 장소 후보 미리 넣기 (선택) — 첫 공유 전에 넣어두면 친구들이 첫 방문에 날짜·장소를
+  // 한 번에 고른다. 나중에 방에서 누구나 더 올릴 수 있으니 여기선 접어둔다.
+  const [places, setPlaces] = useState<PlaceInput[]>([]);
+  const [placesOpen, setPlacesOpen] = useState(false);
   // 렌더 중에 랜덤을 뽑으면 서버 HTML 과 클라이언트가 다른 힌트를 그려 hydration mismatch 가 난다.
   // SSR 은 항상 [0] 을 그리고, 마운트된 뒤에만 랜덤으로 바꾼다.
   const [titleHint, setTitleHint] = useState(TITLE_HINTS[0]);
@@ -73,6 +83,13 @@ export default function CreateRoomForm() {
         deadline: useDeadline && deadline ? new Date(deadline).toISOString() : null,
         createdBy: createdBy.trim() || undefined,
         region: (region as RegionCode) || null,
+        places: places.length
+          ? places.map((p) => ({
+              name: p.name.trim(),
+              url: p.url.trim() || null,
+              memo: p.memo.trim() || null,
+            }))
+          : undefined,
       });
       writeTokens(res.roomId, { creatorToken: res.creatorToken });
       recordRoom(res.roomId, title.trim());
@@ -141,6 +158,80 @@ export default function CreateRoomForm() {
 
       <section className="flex flex-col gap-3">
         <div>
+          <label className="text-sm font-medium">
+            장소·메뉴도 같이 정할래요? <span className="text-zinc-400">·</span>
+            <span className="ml-1 text-xs font-normal text-zinc-500">선택</span>
+          </label>
+          <p className="mt-0.5 break-keep text-xs text-zinc-500">
+            후보를 넣어두면 친구들이 날짜랑 같이 골라요. 방에서 누구나 더 올릴 수도 있어요.
+          </p>
+        </div>
+        {places.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {places.map((p, i) => {
+              const href = safeHref(p.url);
+              return (
+                <li
+                  key={`${p.name}-${i}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">📍 {p.name}</p>
+                    {(href || p.memo.trim()) && (
+                      <p className="truncate text-xs text-zinc-500">
+                        {[href ? providerOf(href)?.label : null, p.memo.trim() || null]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPlaces((prev) => prev.filter((_, j) => j !== i))}
+                    aria-label={`${p.name} 빼기`}
+                    className="press inline-flex h-9 shrink-0 items-center rounded-full px-3 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-rose-600 dark:hover:bg-zinc-800"
+                  >
+                    빼기
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {placesOpen ? (
+          places.length < PLACES_PER_ROOM_MAX && (
+            <PlaceForm
+              compact
+              submitLabel="후보에 넣기"
+              busyLabel="넣는 중…"
+              onCancel={() => setPlacesOpen(false)}
+              onSubmit={async (input) => {
+                const name = input.name.trim();
+                if (places.some((p) => p.name.trim().toLowerCase() === name.toLowerCase())) {
+                  return '이미 같은 이름의 후보가 있어요.';
+                }
+                if (input.url.trim() && !safeHref(input.url.trim())) {
+                  return '링크가 이상해요. https:// 로 시작하는 주소를 넣어주세요.';
+                }
+                setPlaces((prev) => [...prev, input]);
+                return null;
+              }}
+            />
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPlacesOpen(true)}
+            className="press flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          >
+            <span aria-hidden>＋</span>
+            {places.length > 0 ? '후보 더 넣기' : '장소 후보 넣기'}
+          </button>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
           <label className="text-sm font-medium">언제까지 받을까요?</label>
           <p className="mt-0.5 text-xs text-zinc-500">
             마감 후엔 투표가 잠겨요. 비워두면 무기한.
@@ -185,7 +276,7 @@ export default function CreateRoomForm() {
       <section className="flex flex-col gap-3">
         <div>
           <label htmlFor="region" className="text-sm font-medium">
-            어디서 모여요? <span className="text-zinc-400">·</span>
+            어느 지역이에요? <span className="text-zinc-400">·</span>
             <span className="ml-1 text-xs font-normal text-zinc-500">날씨 (선택)</span>
           </label>
           <p className="mt-0.5 text-xs text-zinc-500">

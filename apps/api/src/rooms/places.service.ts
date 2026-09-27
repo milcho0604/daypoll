@@ -44,7 +44,10 @@ export class PlacesService {
   // 후보 목록 + 확정 상태를 한 쿼리(한 스냅샷)로. 확정 해제·삭제 도중에
   // "목록엔 없는데 확정 id 는 남은" 섞인 응답이 나가지 않게 한다.
   // 방이 없으면 null.
-  async snapshot(roomId: string, q: Queryable = this.pool): Promise<PlaceSnapshot | null> {
+  async snapshot(
+    roomId: string,
+    q: Queryable = this.pool,
+  ): Promise<PlaceSnapshot | null> {
     const res = await q.query<{
       confirmed_place_id: string | null;
       confirmed_place_at: Date | null;
@@ -108,7 +111,10 @@ export class PlacesService {
             ? { id: Number(p.cb_id), nickname: p.cb_nickname ?? '' }
             : null,
         votes: Number(p.votes),
-        voters: p.voters.map((v) => ({ id: Number(v.id), nickname: v.nickname })),
+        voters: p.voters.map((v) => ({
+          id: Number(v.id),
+          nickname: v.nickname,
+        })),
         createdAt: new Date(p.created_at).toISOString(),
       })),
     };
@@ -125,36 +131,39 @@ export class PlacesService {
     const memo = dto.memo?.trim() || null;
     if (!name) throw new BadRequestException('name required');
 
-    const { placeId, nickname } = await withTransaction(this.pool, async (c) => {
-      await lockPlacesWritable(c, roomId);
-      const me = await findParticipant(c, roomId, clientToken);
-      // 불참자는 안 오는 사람 — 후보를 올리거나 표를 던지면 참석자들의 결정이 흔들린다.
-      if (me.declined) throw new ConflictException('participant declined');
+    const { placeId, nickname } = await withTransaction(
+      this.pool,
+      async (c) => {
+        await lockPlacesWritable(c, roomId);
+        const me = await findParticipant(c, roomId, clientToken);
+        // 불참자는 안 오는 사람 — 후보를 올리거나 표를 던지면 참석자들의 결정이 흔들린다.
+        if (me.declined) throw new ConflictException('participant declined');
 
-      const cnt = await c.query<{ n: number; dup: boolean }>(
-        `SELECT COUNT(*)::int AS n,
+        const cnt = await c.query<{ n: number; dup: boolean }>(
+          `SELECT COUNT(*)::int AS n,
                 COALESCE(bool_or(lower(name) = lower($2)), false) AS dup
            FROM room_places WHERE room_id = $1`,
-        [roomId, name],
-      );
-      if (cnt.rows[0].dup) throw new ConflictException('duplicate place');
-      if (cnt.rows[0].n >= PLACES_PER_ROOM_MAX) {
-        throw new ConflictException('too many places');
-      }
-      const ins = await c.query<{ id: string }>(
-        `INSERT INTO room_places (room_id, name, url, memo, created_by)
+          [roomId, name],
+        );
+        if (cnt.rows[0].dup) throw new ConflictException('duplicate place');
+        if (cnt.rows[0].n >= PLACES_PER_ROOM_MAX) {
+          throw new ConflictException('too many places');
+        }
+        const ins = await c.query<{ id: string }>(
+          `INSERT INTO room_places (room_id, name, url, memo, created_by)
          VALUES ($1, $2, $3, $4, $5) RETURNING id::text`,
-        [roomId, name, url, memo, me.id],
-      );
-      const id = Number(ins.rows[0].id);
-      // 올린 사람은 당연히 가고 싶은 곳 — 👍 를 같이 켠다 (본인이 끌 수 있다).
-      await c.query(
-        `INSERT INTO place_votes (participant_id, place_id) VALUES ($1, $2)
+          [roomId, name, url, memo, me.id],
+        );
+        const id = Number(ins.rows[0].id);
+        // 올린 사람은 당연히 가고 싶은 곳 — 👍 를 같이 켠다 (본인이 끌 수 있다).
+        await c.query(
+          `INSERT INTO place_votes (participant_id, place_id) VALUES ($1, $2)
          ON CONFLICT DO NOTHING`,
-        [me.id, id],
-      );
-      return { placeId: id, nickname: me.nickname };
-    });
+          [me.id, id],
+        );
+        return { placeId: id, nickname: me.nickname };
+      },
+    );
 
     this.realtime.emitResultsUpdated(roomId);
     this.realtime.emitAdminEvent('place_added', { roomId, nickname, name });
@@ -173,27 +182,60 @@ export class PlacesService {
     }
     await withTransaction(this.pool, async (c) => {
       const room = await lockPlacesWritable(c, roomId);
-      const place = await c.query<{ created_by: string | null }>(
-        `SELECT created_by::text FROM room_places
-          WHERE id = $1 AND room_id = $2 FOR UPDATE`,
-        [placeId, roomId],
+      await assertOwnerOrCreator(
+        c,
+        roomId,
+        placeId,
+        room,
+        clientToken,
+        creatorToken,
       );
-      if (place.rowCount === 0) throw new NotFoundException('place not found');
-
-      const isCreator =
-        !!creatorToken && secureEquals(room.creator_token, creatorToken);
-      if (!isCreator) {
-        if (!clientToken) throw new ForbiddenException('not allowed');
-        const me = await findParticipant(c, roomId, clientToken);
-        const owner = place.rows[0].created_by;
-        if (owner == null || Number(owner) !== me.id) {
-          throw new ForbiddenException('not allowed');
-        }
-      }
       await c.query(`DELETE FROM room_places WHERE id = $1`, [placeId]);
     });
     this.realtime.emitResultsUpdated(roomId);
     return { deleted: true };
+  }
+
+  // 후보 수정 — 등록자 본인 또는 방장. 오타 하나 고치려고 지웠다 다시 올리면
+  // 다른 사람 표가 날아가서, 표를 유지한 채 고칠 수 있게 한다. 전체 교체(빈 칸 = 없음).
+  async update(
+    roomId: string,
+    placeId: number,
+    clientToken: string | undefined,
+    creatorToken: string | undefined,
+    dto: AddPlaceDto,
+  ): Promise<{ placeId: number }> {
+    if (!clientToken && !creatorToken) {
+      throw new ForbiddenException('token required');
+    }
+    const url = normalizePlaceUrl(dto.url);
+    const name = dto.name.trim();
+    const memo = dto.memo?.trim() || null;
+    if (!name) throw new BadRequestException('name required');
+    await withTransaction(this.pool, async (c) => {
+      const room = await lockPlacesWritable(c, roomId);
+      await assertOwnerOrCreator(
+        c,
+        roomId,
+        placeId,
+        room,
+        clientToken,
+        creatorToken,
+      );
+      const dup = await c.query(
+        `SELECT 1 FROM room_places
+          WHERE room_id = $1 AND id <> $2 AND lower(name) = lower($3)`,
+        [roomId, placeId, name],
+      );
+      if ((dup.rowCount ?? 0) > 0)
+        throw new ConflictException('duplicate place');
+      await c.query(
+        `UPDATE room_places SET name = $2, url = $3, memo = $4 WHERE id = $1`,
+        [placeId, name, url, memo],
+      );
+    });
+    this.realtime.emitResultsUpdated(roomId);
+    return { placeId };
   }
 
   // 👍 켜기/끄기. PUT = "표 있음" 보장, DELETE = "표 없음" 보장 (멱등).
@@ -315,6 +357,31 @@ async function lockPlacesWritable(
     throw new HttpException('place is confirmed', HttpStatus.LOCKED);
   }
   return room;
+}
+
+// 이 방의 후보인지 + (방장 || 등록자 본인) 인지. 등록자 없는 후보(방 만들 때 넣었거나
+// 등록자가 강퇴됨)는 방장만.
+async function assertOwnerOrCreator(
+  c: PoolClient,
+  roomId: string,
+  placeId: number,
+  room: LockedRoom,
+  clientToken: string | undefined,
+  creatorToken: string | undefined,
+): Promise<void> {
+  const place = await c.query<{ created_by: string | null }>(
+    `SELECT created_by::text FROM room_places
+      WHERE id = $1 AND room_id = $2 FOR UPDATE`,
+    [placeId, roomId],
+  );
+  if (place.rowCount === 0) throw new NotFoundException('place not found');
+  if (creatorToken && secureEquals(room.creator_token, creatorToken)) return;
+  if (!clientToken) throw new ForbiddenException('not allowed');
+  const me = await findParticipant(c, roomId, clientToken);
+  const owner = place.rows[0].created_by;
+  if (owner == null || Number(owner) !== me.id) {
+    throw new ForbiddenException('not allowed');
+  }
 }
 
 async function findParticipant(

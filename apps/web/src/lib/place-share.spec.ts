@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlaceShare, providerOf, safeHref } from './place-share';
+import {
+  mapSearchLinks,
+  parsePlaceShare,
+  providerOf,
+  safeHref,
+} from './place-share';
 
 describe('parsePlaceShare', () => {
   it('네이버 지도 공유 텍스트 — 이름과 링크', () => {
@@ -109,5 +114,19 @@ describe('safeHref', () => {
     expect(safeHref('javascript:alert(1)')).toBeNull();
     expect(safeHref('data:text/html,x')).toBeNull();
     expect(safeHref(null)).toBeNull();
+  });
+});
+
+
+describe('mapSearchLinks', () => {
+  it('이름을 인코딩해 네이버·카카오 검색 링크를 만든다', () => {
+    const links = mapSearchLinks(' 을지로 노가리&골목 ');
+    expect(links.map((l) => l.href)).toEqual([
+      'https://map.naver.com/p/search/%EC%9D%84%EC%A7%80%EB%A1%9C%20%EB%85%B8%EA%B0%80%EB%A6%AC%26%EA%B3%A8%EB%AA%A9',
+      'https://map.kakao.com/?q=%EC%9D%84%EC%A7%80%EB%A1%9C%20%EB%85%B8%EA%B0%80%EB%A6%AC%26%EA%B3%A8%EB%AA%A9',
+    ]);
+  });
+  it('빈 이름이면 없음', () => {
+    expect(mapSearchLinks('  ')).toEqual([]);
   });
 });

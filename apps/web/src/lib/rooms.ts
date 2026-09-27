@@ -247,3 +247,22 @@ export function unconfirmPlace(roomId: string, creatorToken: string) {
     headers: { [HEADER_CREATOR_TOKEN]: creatorToken },
   });
 }
+
+// 후보 수정 (등록자 본인 또는 방장). 전체 교체 — 빈 칸은 없음으로.
+export function updatePlace(
+  roomId: string,
+  placeId: number,
+  tokens: { clientToken?: string; creatorToken?: string },
+  body: AddPlaceRequest,
+) {
+  return api<{ placeId: number }>(`/rooms/${roomId}/places/${placeId}`, {
+    method: 'PATCH',
+    headers: {
+      ...(tokens.clientToken ? { [HEADER_CLIENT_TOKEN]: tokens.clientToken } : {}),
+      ...(tokens.creatorToken
+        ? { [HEADER_CREATOR_TOKEN]: tokens.creatorToken }
+        : {}),
+    },
+    body,
+  });
+}

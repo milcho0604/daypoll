@@ -1,17 +1,14 @@
 'use client';
 
 import type { PlaceResult } from '@whenever/shared';
-import {
-  PLACE_MEMO_MAX,
-  PLACE_NAME_MAX,
-  PLACES_PER_ROOM_MAX,
-} from '@whenever/shared';
+import { PLACES_PER_ROOM_MAX } from '@whenever/shared';
 import { useState } from 'react';
 import CrownIcon from '@/components/icons/crown';
 import EmptyState from '@/components/empty-state';
-import { parsePlaceShare, providerOf, safeHref } from '@/lib/place-share';
+import PlaceForm, { type PlaceInput } from '@/components/room/place-form';
+import { mapSearchLinks, providerOf, safeHref } from '@/lib/place-share';
 
-export type PlaceInput = { name: string; url: string; memo: string };
+export type { PlaceInput };
 
 // 장소·메뉴 투표 — 날짜 투표와 같은 방에서 "동시에". 후보 목록이 곧 투표지이자 결과.
 // 서버 호출은 room-view 가 한다 (이 컴포넌트는 그리기 + 입력 폼 상태만).
@@ -26,6 +23,7 @@ export default function PlaceSection({
   deadlinePassed,
   isCreator,
   onAdd,
+  onEdit,
   onToggleVote,
   onDelete,
   onConfirm,
@@ -45,6 +43,7 @@ export default function PlaceSection({
   deadlinePassed: boolean;
   isCreator: boolean;
   onAdd: (input: PlaceInput) => Promise<string | null>; // 실패 메시지 또는 null
+  onEdit: (placeId: number, input: PlaceInput) => Promise<string | null>;
   onToggleVote: (placeId: number) => void;
   onDelete: (place: PlaceResult) => void;
   onConfirm: (place: PlaceResult) => void;
@@ -55,14 +54,7 @@ export default function PlaceSection({
   linkCopied: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [nameTouched, setNameTouched] = useState(false);
-  const [url, setUrl] = useState('');
-  const [urlChoices, setUrlChoices] = useState<string[]>([]);
-  const [memo, setMemo] = useState('');
-  const [pasteNote, setPasteNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [justAdded, setJustAdded] = useState(false);
 
   const confirmed =
@@ -72,60 +64,6 @@ export default function PlaceSection({
   const maxVotes = places.reduce((m, p) => Math.max(m, p.votes), 0);
   const canWrite = joined && !declined && !locked;
   const full = places.length >= PLACES_PER_ROOM_MAX;
-
-  function resetForm() {
-    setName('');
-    setNameTouched(false);
-    setUrl('');
-    setUrlChoices([]);
-    setMemo('');
-    setPasteNote(null);
-    setFormError(null);
-  }
-
-  // 지도 앱의 "공유 → 복사" 텍스트를 이름·링크 칸 어디에 붙여넣어도 알아서 나눈다.
-  // 링크가 없는 평범한 붙여넣기는 건드리지 않는다.
-  function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    const text = e.clipboardData.getData('text/plain');
-    if (!/https?:\/\//i.test(text)) return;
-    const parsed = parsePlaceShare(text);
-    if (parsed.urls.length === 0) return;
-    e.preventDefault();
-    if (parsed.url) {
-      setUrl(parsed.url);
-      setUrlChoices([]);
-    } else {
-      setUrlChoices(parsed.urls.slice(0, 4));
-    }
-    // 사용자가 이미 적은 이름은 덮지 않는다.
-    const canFillName = !nameTouched || name.trim() === '';
-    if (parsed.name && canFillName) {
-      setName(parsed.name.slice(0, PLACE_NAME_MAX));
-      setPasteNote('이름이랑 링크를 채웠어요. 맞는지 한 번 봐주세요');
-    } else if (parsed.url) {
-      setPasteNote(
-        name.trim() ? '링크를 채웠어요' : '링크를 채웠어요. 이름은 직접 적어주세요',
-      );
-    } else {
-      setPasteNote('링크가 여러 개예요. 하나 골라주세요');
-    }
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    setFormError(null);
-    const err = await onAdd({ name, url, memo });
-    setBusy(false);
-    if (err) {
-      setFormError(err);
-      return;
-    }
-    resetForm();
-    setFormOpen(false);
-    setJustAdded(true);
-  }
 
   return (
     <section id="places" className="mt-8 scroll-mt-4">
@@ -187,6 +125,27 @@ export default function PlaceSection({
             const isConfirmed = p.placeId === confirmedPlaceId;
             const canDelete =
               !locked && (isCreator || (meId != null && p.createdBy?.id === meId));
+            if (editingId === p.placeId && canDelete) {
+              return (
+                <li key={p.placeId}>
+                  <PlaceForm
+                    initial={{
+                      name: p.name,
+                      url: p.url ?? '',
+                      memo: p.memo ?? '',
+                    }}
+                    submitLabel="고치기"
+                    busyLabel="고치는 중…"
+                    onSubmit={async (input) => {
+                      const err = await onEdit(p.placeId, input);
+                      if (!err) setEditingId(null);
+                      return err;
+                    }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                </li>
+              );
+            }
             return (
               <li
                 key={p.placeId}
@@ -245,7 +204,22 @@ export default function PlaceSection({
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <PlaceLink url={p.url} size="sm" />
+                  {p.url ? (
+                    <PlaceLink url={p.url} size="sm" />
+                  ) : (
+                    // 링크 없는 후보도 한 번에 지도를 열 수 있게 — 이름으로 검색.
+                    <a
+                      href={mapSearchLinks(p.name)[0]?.href}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="press inline-flex h-9 items-center gap-1 rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    >
+                      <span aria-hidden>🔎</span>지도에서 찾기
+                      <span aria-hidden className="text-zinc-400">
+                        ↗
+                      </span>
+                    </a>
+                  )}
                   {p.voters.length > 0 && (
                     <span className="break-words text-xs text-zinc-500 dark:text-zinc-400">
                       {p.voters.map((v) => v.nickname).join(' · ')}
@@ -271,6 +245,18 @@ export default function PlaceSection({
                           className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
                         >
                           이 곳으로 정하기
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(p.placeId);
+                            setFormOpen(false);
+                          }}
+                          className="press text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        >
+                          고치기
                         </button>
                       )}
                       {canDelete && (
@@ -327,6 +313,7 @@ export default function PlaceSection({
             type="button"
             onClick={() => {
               setFormOpen(true);
+              setEditingId(null);
               setJustAdded(false);
             }}
             className="press mt-3 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
@@ -334,98 +321,21 @@ export default function PlaceSection({
             <span aria-hidden>＋</span> 후보 올리기
           </button>
         ) : (
-          <form
-            onSubmit={(e) => void submit(e)}
-            className="fade-up mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              💡 네이버 지도·카카오맵에서 <b>공유 → 복사</b> 한 걸 그대로 붙여넣으면 이름이랑 링크가 채워져요
-            </p>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setNameTouched(true);
-              }}
-              onPaste={onPaste}
-              placeholder="가게·장소·메뉴 (예: 을지로 노가리골목)"
-              maxLength={PLACE_NAME_MAX}
-              aria-label="장소 이름"
-              required
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
-            />
-            <input
-              type="url"
-              inputMode="url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                setUrlChoices([]);
-              }}
-              onPaste={onPaste}
-              placeholder="지도·가게 링크 (선택)"
-              aria-label="링크"
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
-            />
-            {urlChoices.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {urlChoices.map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => {
-                      setUrl(u);
-                      setUrlChoices([]);
-                      setPasteNote(null);
-                    }}
-                    className="press inline-flex h-9 max-w-full items-center truncate rounded-full border border-zinc-200 bg-white px-3 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
-                  >
-                    {u}
-                  </button>
-                ))}
-              </div>
-            )}
-            <input
-              type="text"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="한 줄 메모 (선택) — 예: 1인 2만 원, 룸 있음"
-              maxLength={PLACE_MEMO_MAX}
-              aria-label="메모"
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100 dark:focus:ring-zinc-100/40"
-            />
-            {pasteNote && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400">{pasteNote}</p>
-            )}
-            {formError && (
-              <p
-                role="alert"
-                className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
-              >
-                {formError}
-              </p>
-            )}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
+          <div className="mt-3">
+            <PlaceForm
+              submitLabel="올리기"
+              busyLabel="올리는 중…"
+              onSubmit={async (input) => {
+                const err = await onAdd(input);
+                if (!err) {
                   setFormOpen(false);
-                }}
-                className="press h-12 flex-1 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                disabled={busy || !name.trim()}
-                className="press h-12 flex-1 rounded-xl bg-zinc-900 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
-              >
-                {busy ? '올리는 중…' : '올리기'}
-              </button>
-            </div>
-          </form>
+                  setJustAdded(true);
+                }
+                return err;
+              }}
+              onCancel={() => setFormOpen(false)}
+            />
+          </div>
         ))}
     </section>
   );

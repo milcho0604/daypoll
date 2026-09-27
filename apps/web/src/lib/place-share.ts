@@ -112,3 +112,14 @@ export function safeHref(url: string | null | undefined): string | null {
     return null;
   }
 }
+
+// 이름으로 지도 앱 검색 — 링크 없는 후보도 한 번에 지도를 열 수 있게,
+// 그리고 입력 중에 "찾아서 공유 링크 복사" 동선을 열어준다. 네트워크 요청 없음(그냥 링크).
+export function mapSearchLinks(name: string): { label: string; href: string }[] {
+  const q = encodeURIComponent(name.trim());
+  if (!q) return [];
+  return [
+    { label: '네이버 지도', href: `https://map.naver.com/p/search/${q}` },
+    { label: '카카오맵', href: `https://map.kakao.com/?q=${q}` },
+  ];
+}

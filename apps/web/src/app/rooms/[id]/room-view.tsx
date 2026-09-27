@@ -22,6 +22,7 @@ import {
   setPlaceVote,
   unconfirmDate,
   unconfirmPlace,
+  updatePlace,
   updateAvailabilities,
   setDecline,
   updateDeadline,
@@ -836,6 +837,29 @@ export default function RoomView({
     }
   }
 
+  async function onEditPlace(
+    placeId: number,
+    input: PlaceInput,
+  ): Promise<string | null> {
+    placeGenRef.current += 1;
+    try {
+      await updatePlace(
+        roomId,
+        placeId,
+        { clientToken, creatorToken },
+        {
+          name: input.name.trim(),
+          url: input.url.trim() || null,
+          memo: input.memo.trim() || null,
+        },
+      );
+      await syncPlaces();
+      return null;
+    } catch (err) {
+      return placeMsg(err);
+    }
+  }
+
   function onTogglePlaceVote(placeId: number) {
     if (!clientToken || !me || placeLocked || declined) return;
     const on = !myPlaceIds.has(placeId);
@@ -1434,6 +1458,7 @@ export default function RoomView({
         deadlinePassed={deadlinePassed}
         isCreator={isCreator}
         onAdd={onAddPlace}
+        onEdit={onEditPlace}
         onToggleVote={onTogglePlaceVote}
         onDelete={(p) => setPlaceDeleteTarget(p)}
         onConfirm={(p) => setPlaceConfirmTarget(p)}
@@ -1585,7 +1610,22 @@ export default function RoomView({
             className="mx-auto flex h-10 w-full max-w-2xl items-center justify-between gap-3"
             aria-live="polite"
           >
-            <span className="text-xs text-zinc-500">{selected.size}개 선택</span>
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              {selected.size}개 선택
+              {/* 날짜만 고르고 떠나지 않게 — 장소 후보가 있는데 아직 하나도 안 골랐으면 */}
+              {placesSupported &&
+                places.length > 0 &&
+                myPlaceIds.size === 0 &&
+                !placeLocked &&
+                !declined && (
+                  <a
+                    href="#places"
+                    className="press font-medium text-zinc-900 underline underline-offset-2 dark:text-zinc-100"
+                  >
+                    📍 장소도 골라요
+                  </a>
+                )}
+            </span>
             {saveState === 'error' ? (
               <button
                 type="button"

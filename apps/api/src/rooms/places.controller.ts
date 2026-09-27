@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Req,
@@ -35,6 +36,19 @@ export class PlacesController {
     // 후보 도배 방지: IP당 1분에 20개 (방당 상한 20개는 서비스가 따로 막는다).
     this.rl.check(`place:add:${clientIp(req)}`, 20, 60);
     return this.places.add(roomId, clientToken, dto);
+  }
+
+  @Patch('places/:placeId')
+  update(
+    @Req() req: Request,
+    @Param('roomId') roomId: string,
+    @Param('placeId', ParseIntPipe) placeId: number,
+    @Headers(HEADER_CLIENT_TOKEN) clientToken: string | undefined,
+    @Headers(HEADER_CREATOR_TOKEN) creatorToken: string | undefined,
+    @Body() dto: AddPlaceDto,
+  ) {
+    this.rl.check(`place:add:${clientIp(req)}`, 20, 60);
+    return this.places.update(roomId, placeId, clientToken, creatorToken, dto);
   }
 
   @Delete('places/:placeId')

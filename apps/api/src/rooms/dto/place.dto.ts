@@ -25,6 +25,8 @@ const optOneLine = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() || null : value;
 
 // 보이지 않는 제어문자·방향 제어 문자 금지 (이름으로 화면을 흐트러뜨리는 것 방지).
+// 제어문자를 막는 게 목적이라 정규식에 제어문자 범위가 들어가는 건 의도다.
+// eslint-disable-next-line no-control-regex
 const NO_CONTROL = /^[^\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]*$/;
 
 export class AddPlaceDto {

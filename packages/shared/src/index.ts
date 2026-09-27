@@ -134,6 +134,8 @@ export interface CreateRoomRequest {
   deadline?: string | null;
   createdBy?: string;
   region?: RegionCode | null;
+  // 장소 후보 미리 넣기 (선택, 최대 PLACES_PER_ROOM_MAX). 방장만 수정·삭제.
+  places?: AddPlaceRequest[];
 }
 
 export interface CreateRoomResponse {

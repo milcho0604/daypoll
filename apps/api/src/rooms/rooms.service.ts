@@ -18,6 +18,7 @@ import { regionLabel } from '@whenever/shared';
 import { PG_POOL } from '../database/database.module';
 import { withTransaction } from '../common/db.helpers';
 import { newRoomId, newToken } from '../common/ids';
+import { normalizePlaceUrl } from '../common/place-url';
 import { secureEquals } from '../common/secure-compare';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { CreateRoomDto } from './dto/create-room.dto';
@@ -37,6 +38,18 @@ export class RoomsService {
     // 생성 시점에 이미 지난 마감일이면 만들자마자 잠긴 방이 되므로 거부.
     if (dto.deadline && new Date(dto.deadline).getTime() <= Date.now()) {
       throw new BadRequestException('deadline must be in the future');
+    }
+    // 장소 후보는 트랜잭션 전에 검증 — 잘못된 링크면 방을 만들기 전에 400.
+    const places = (dto.places ?? []).map((p) => ({
+      name: p.name.trim(),
+      url: normalizePlaceUrl(p.url),
+      memo: p.memo?.trim() || null,
+    }));
+    const seen = new Set<string>();
+    for (const p of places) {
+      const k = p.name.toLowerCase();
+      if (seen.has(k)) throw new BadRequestException('duplicate place');
+      seen.add(k);
     }
     const roomId = newRoomId();
     const creatorToken = newToken();
@@ -65,6 +78,22 @@ export class RoomsService {
            SELECT $1, unnest($2::date[])
            ON CONFLICT DO NOTHING`,
           [roomId, uniqueDates],
+        );
+      }
+      if (places.length > 0) {
+        // 순서 보존 — 등록순이 동률 정렬 기준이라 입력 순서대로 created_at 을 벌린다.
+        await c.query(
+          `INSERT INTO room_places (room_id, name, url, memo, created_at)
+           SELECT $1, t.name, t.url, t.memo,
+                  now() + (t.ord * interval '1 millisecond')
+             FROM unnest($2::text[], $3::text[], $4::text[])
+                  WITH ORDINALITY AS t(name, url, memo, ord)`,
+          [
+            roomId,
+            places.map((p) => p.name),
+            places.map((p) => p.url),
+            places.map((p) => p.memo),
+          ],
         );
       }
     });
@@ -141,36 +170,39 @@ export class RoomsService {
     };
   }
 
-  async getResults(roomId: string): Promise<{
-    results: DateResult[];
-    participantCount: number;
-    deadline: string | null;
-    region: RegionCode | null;
-    declined: Voter[];
-    confirmedDateId: number | null;
-    confirmedDate: string | null;
-    confirmedAt: string | null;
-  } & PlaceSnapshot> {
+  async getResults(roomId: string): Promise<
+    {
+      results: DateResult[];
+      participantCount: number;
+      deadline: string | null;
+      region: RegionCode | null;
+      declined: Voter[];
+      confirmedDateId: number | null;
+      confirmedDate: string | null;
+      confirmedAt: string | null;
+    } & PlaceSnapshot
+  > {
     // 폴링·소켓 push 마다 불리는 가장 잦은 조회 — getDetail 과 같은 이유로 병렬.
-    const [roomRes, partCountRes, results, declined, places] = await Promise.all([
-      this.pool.query<{
-        deadline: Date | null;
-        region: string | null;
-        confirmed_date_id: string | null;
-        confirmed_at: Date | null;
-      }>(
-        `SELECT deadline, region, confirmed_date_id::text, confirmed_at
+    const [roomRes, partCountRes, results, declined, places] =
+      await Promise.all([
+        this.pool.query<{
+          deadline: Date | null;
+          region: string | null;
+          confirmed_date_id: string | null;
+          confirmed_at: Date | null;
+        }>(
+          `SELECT deadline, region, confirmed_date_id::text, confirmed_at
          FROM rooms WHERE id = $1`,
-        [roomId],
-      ),
-      this.pool.query<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
-        [roomId],
-      ),
-      this.computeResults(roomId),
-      this.getDeclined(roomId),
-      this.places.snapshot(roomId),
-    ]);
+          [roomId],
+        ),
+        this.pool.query<{ c: string }>(
+          `SELECT COUNT(*)::text AS c FROM participants WHERE room_id = $1`,
+          [roomId],
+        ),
+        this.computeResults(roomId),
+        this.getDeclined(roomId),
+        this.places.snapshot(roomId),
+      ]);
     if (roomRes.rowCount === 0) {
       throw new NotFoundException('room not found');
     }

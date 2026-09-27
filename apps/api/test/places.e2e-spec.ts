@@ -124,7 +124,11 @@ describe('places e2e', () => {
     it('링크·메모 없이 이름만으로도 된다 (빈 문자열 = 없음)', async () => {
       const { roomId } = await makeRoom();
       const a = await join(roomId, '민수');
-      const r = await add(roomId, a.token, { name: '삼겹살', url: '', memo: ' ' });
+      const r = await add(roomId, a.token, {
+        name: '삼겹살',
+        url: '',
+        memo: ' ',
+      });
       expect(r.status).toBe(201);
       const res = await results(roomId);
       expect(res.places[0].url).toBeNull();
@@ -164,7 +168,9 @@ describe('places e2e', () => {
       const { roomId } = await makeRoom();
       const a = await join(roomId, '민수');
       for (let i = 0; i < 19; i++) {
-        expect((await add(roomId, a.token, { name: `곳${i}` })).status).toBe(201);
+        expect((await add(roomId, a.token, { name: `곳${i}` })).status).toBe(
+          201,
+        );
       }
       const rs = await Promise.all(
         [0, 1, 2, 3, 4].map((i) => add(roomId, a.token, { name: `동시${i}` })),
@@ -214,7 +220,8 @@ describe('places e2e', () => {
       const r2 = await makeRoom();
       const a = await join(r1.roomId, '민수');
       const b = await join(r2.roomId, '남');
-      const pid = (await add(r2.roomId, b.token, { name: '남의집' })).body.placeId;
+      const pid = (await add(r2.roomId, b.token, { name: '남의집' })).body
+        .placeId;
       expect((await vote(r1.roomId, a.token, pid)).status).toBe(404);
     });
 
@@ -229,7 +236,9 @@ describe('places e2e', () => {
       expect((await decline(roomId, b.token, true)).status).toBe(200);
       let res = await results(roomId);
       expect(res.places[0].votes).toBe(1);
-      expect(res.places[0].voters.map((v: { id: number }) => v.id)).toEqual([a.id]);
+      expect(res.places[0].voters.map((v: { id: number }) => v.id)).toEqual([
+        a.id,
+      ]);
       // 불참 중엔 투표·추가 불가
       expect((await vote(roomId, b.token, pid, false)).status).toBe(409);
       expect((await add(roomId, b.token, { name: '다른곳' })).status).toBe(409);
@@ -474,6 +483,126 @@ describe('places e2e', () => {
     });
   });
 
+  describe('방 만들 때 장소 미리 넣기', () => {
+    it('입력 순서대로 0표로 들어가고, 등록자 없음 → 방장만 수정·삭제', async () => {
+      const r = await request(server())
+        .post('/rooms')
+        .send({
+          title: '회식',
+          dates: ['2026-10-01'],
+          places: [
+            { name: '곱창', url: 'https://naver.me/a' },
+            { name: '삼겹살', memo: '가성비' },
+            { name: '횟집', url: '' },
+          ],
+        })
+        .expect(201);
+      const { roomId, creatorToken } = r.body;
+      const res = await results(roomId);
+      expect(res.places.map((p: { name: string }) => p.name)).toEqual([
+        '곱창',
+        '삼겹살',
+        '횟집',
+      ]);
+      expect(res.places[0]).toMatchObject({
+        votes: 0,
+        createdBy: null,
+        url: 'https://naver.me/a',
+      });
+      expect(res.places[2].url).toBeNull();
+      const a = await join(roomId, '민수');
+      const pid = res.places[0].placeId;
+      expect(
+        (
+          await request(server())
+            .patch(`/rooms/${roomId}/places/${pid}`)
+            .set('x-client-token', a.token)
+            .send({ name: '곱창2' })
+        ).status,
+      ).toBe(403);
+      await request(server())
+        .patch(`/rooms/${roomId}/places/${pid}`)
+        .set('x-creator-token', creatorToken)
+        .send({ name: '곱창 본점' })
+        .expect(200);
+    });
+
+    it('잘못된 링크·중복 이름·21개면 방 자체를 만들지 않는다 (400)', async () => {
+      const base = { title: '회식', dates: ['2026-10-01'] };
+      for (const places of [
+        [{ name: 'x', url: 'javascript:alert(1)' }],
+        [{ name: 'A' }, { name: 'a' }],
+        Array.from({ length: 21 }, (_, i) => ({ name: `p${i}` })),
+        [{ name: '' }],
+      ]) {
+        const r = await request(server())
+          .post('/rooms')
+          .send({ ...base, places });
+        expect(r.status).toBe(400);
+      }
+      const n = await getTestPool().query(
+        `SELECT COUNT(*)::int AS n FROM rooms`,
+      );
+      expect(n.rows[0].n).toBe(0);
+    });
+
+    it('places 없이도 기존처럼 만들어진다', async () => {
+      const { roomId } = await makeRoom();
+      expect((await results(roomId)).places).toEqual([]);
+    });
+  });
+
+  describe('수정', () => {
+    it('등록자 본인이 고치면 표는 그대로 남는다', async () => {
+      const { roomId } = await makeRoom();
+      const a = await join(roomId, '민수');
+      const b = await join(roomId, '지수');
+      const pid = (
+        await add(roomId, a.token, {
+          name: '을지로 노가리',
+          url: 'https://naver.me/x',
+        })
+      ).body.placeId;
+      await vote(roomId, b.token, pid).expect(200);
+      await request(server())
+        .patch(`/rooms/${roomId}/places/${pid}`)
+        .set('x-client-token', a.token)
+        .send({ name: '을지로 노가리골목', memo: '야장' })
+        .expect(200);
+      const p = (await results(roomId)).places[0];
+      expect(p).toMatchObject({
+        name: '을지로 노가리골목',
+        memo: '야장',
+        url: null,
+        votes: 2,
+      });
+    });
+
+    it('남의 후보 403, 다른 이름과 겹치면 409, 확정 뒤 423, 나쁜 링크 400', async () => {
+      const { roomId, creator } = await makeRoom();
+      const a = await join(roomId, '민수');
+      const b = await join(roomId, '지수');
+      const pa = (await add(roomId, a.token, { name: 'A집' })).body.placeId;
+      await add(roomId, b.token, { name: 'B집' }).expect(201);
+      const patch = (token: string, body: object) =>
+        request(server())
+          .patch(`/rooms/${roomId}/places/${pa}`)
+          .set('x-client-token', token)
+          .send(body);
+      expect((await patch(b.token, { name: 'C집' })).status).toBe(403);
+      expect((await patch(a.token, { name: 'b집' })).status).toBe(409);
+      expect(
+        (await patch(a.token, { name: 'A집', url: 'data:x' })).status,
+      ).toBe(400);
+      // 자기 이름 그대로 저장은 중복이 아니다
+      expect((await patch(a.token, { name: 'A집', memo: '메모' })).status).toBe(
+        200,
+      );
+      await confirmPlace(roomId, creator, pa).expect(201);
+      expect((await patch(a.token, { name: 'A집!' })).status).toBe(423);
+    });
+  });
+
   describe('캘린더(.ics)', () => {
     it('장소가 확정되면 LOCATION 과 링크가 들어간다', async () => {
       const { roomId, creator } = await makeRoom();
@@ -490,7 +619,8 @@ describe('places e2e', () => {
           url: 'https://naver.me/abc',
         })
       ).body.placeId;
-      let ics = (await request(server()).get(`/rooms/${roomId}/winner.ics`)).text;
+      let ics = (await request(server()).get(`/rooms/${roomId}/winner.ics`))
+        .text;
       expect(ics).not.toContain('LOCATION:');
       await confirmPlace(roomId, creator, pid).expect(201);
       ics = (await request(server()).get(`/rooms/${roomId}/winner.ics`)).text;
