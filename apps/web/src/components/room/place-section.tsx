@@ -194,7 +194,7 @@ export default function PlaceSection({
                     isConfirmed
                       ? 'border-amber-300 dark:border-amber-700'
                       : mine
-                        ? 'border-zinc-900 ring-1 ring-zinc-900 dark:border-zinc-100 dark:ring-zinc-100'
+                        ? 'border-emerald-500 ring-1 ring-emerald-500'
                         : 'border-zinc-200 dark:border-zinc-800'
                   }`}
                 >
@@ -216,7 +216,7 @@ export default function PlaceSection({
                           aria-hidden
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
                             mine
-                              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
                               : 'border-zinc-300 text-transparent dark:border-zinc-600'
                           }`}
                         >

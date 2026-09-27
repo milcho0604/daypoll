@@ -33,6 +33,8 @@ import { readTokens, writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import { formatDateKR } from '@/lib/format';
 import { safeHref } from '@/lib/place-share';
+import { useFoldState } from '@/lib/fold-state';
+import FoldToggle from '@/components/fold-toggle';
 import DateAvailabilityPicker from '@/components/date-availability-picker';
 import CrownIcon from '@/components/icons/crown';
 import EmptyState from '@/components/empty-state';
@@ -173,6 +175,14 @@ export default function RoomView({
   // 불참 복귀: 날짜 확정 뒤에도 장소가 열려 있으면 돌아와서 장소를 고를 수 있다.
   const canUndecline = !deadlinePassed && (!isConfirmed || !placeLocked);
   const isCreator = !!creatorToken;
+  // 투표 달력 접기 — 방별로 기억. 기억한 게 없으면: 잠긴 방이거나 이미 골라둔 채로
+  // 다시 들어왔으면 접고, 처음 고르는 중이면 펼친다. (me 는 불러온 시점 값이라
+  // 고르는 도중에 저절로 접히지 않는다)
+  const [calOpen, setCalOpen] = useFoldState(
+    roomId,
+    'calendar',
+    isLocked ? false : me == null ? null : me.dateIds.length === 0,
+  );
 
   // '내 방' 목록에 기록 — 입장/재방문/이미 참여한 방까지 이 한 곳에서 커버.
   useEffect(() => {
@@ -1355,12 +1365,21 @@ export default function RoomView({
         <section className="mt-4 fade-up">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">가능한 날짜를 골라주세요</h2>
-            {me && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900">
-                <span aria-hidden>·</span>
-                {me.nickname}
-              </span>
-            )}
+            <span className="flex items-center gap-1">
+              {me && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900">
+                  <span aria-hidden>·</span>
+                  {me.nickname}
+                </span>
+              )}
+              {!declined && room.dates.length > 0 && (
+                <FoldToggle
+                  open={calOpen}
+                  onToggle={() => setCalOpen(!calOpen)}
+                  label="투표 달력"
+                />
+              )}
+            </span>
           </div>
           {isLocked && (
             <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
@@ -1384,6 +1403,42 @@ export default function RoomView({
                 다시 참여할래요
               </button>
             </div>
+          ) : !calOpen ? (
+            // 접힌 달력 — 내가 고른 날만 한 줄 요약. 누르면 펼친다.
+            <button
+              type="button"
+              onClick={() => setCalOpen(true)}
+              className="press mt-3 flex w-full flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-left dark:border-zinc-800 dark:bg-zinc-900"
+            >
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {selected.size > 0
+                  ? `✓ ${selected.size}일 골랐어요`
+                  : isLocked
+                    ? '고른 날짜가 없어요'
+                    : '아직 안 골랐어요 — 눌러서 골라요'}
+              </span>
+              {selected.size > 0 && (
+                <span className="flex flex-wrap gap-1.5">
+                  {room.dates
+                    .filter((d) => selected.has(d.id))
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .slice(0, 8)
+                    .map((d) => (
+                      <span
+                        key={d.id}
+                        className="inline-flex h-9 items-center rounded-full bg-emerald-50 px-2.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      >
+                        {formatDateKR(d.date)}
+                      </span>
+                    ))}
+                  {selected.size > 8 && (
+                    <span className="inline-flex h-9 items-center rounded-full bg-zinc-100 px-2.5 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      외 {selected.size - 8}일
+                    </span>
+                  )}
+                </span>
+              )}
+            </button>
           ) : (
             <>
               <DateAvailabilityPicker

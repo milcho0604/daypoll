@@ -32,7 +32,11 @@
 > - **1등 막대는 amber-500 이 아니라 amber-300** — 100% 꽉 차면 amber-500 은 형광펜처럼 튄다.
 > - "현재 1위" 라벨로 잠정성을 못박는다 — 금색이 "우승 확정" 처럼 읽히던 문제를 색이 아니라 말로 해결.
 >
-> 그 외 안내 박스·"이미 N명 답했어요"·me 칩·focus ring·"내 표" dot·캘린더 선택·"(나)" 라벨·메인 칩·hover/focus·법적 페이지 링크 = 전부 zinc 톤.
+> 그 외 안내 박스·"이미 N명 답했어요"·me 칩·focus ring·"(나)" 라벨·메인 칩·hover/focus·법적 페이지 링크 = 전부 zinc 톤.
+>
+> **"내가 고른 것" = emerald** (2026-09-27, 사용자 요청 — 검정 선택이 무겁다): 투표 달력에서 고른 날짜,
+> 장소 카드 체크·테두리, 순위의 "내 표" dot, 접힌 달력의 고른 날짜 칩. "가능" 이라는 뜻이라 success 시멘틱과 맞는다.
+> 방 만들기 달력(DateBuilder, 후보를 "정하는" 쪽)은 zinc 그대로.
 
 | 토큰 | 라이트 | 다크 |
 |---|---|---|
@@ -44,6 +48,7 @@
 | 보조 강조 / 안내 박스 | `bg-zinc-100 text-zinc-700` | `bg-zinc-800 text-zinc-300` |
 | Focus ring | `focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40` | `focus:border-zinc-100 focus:ring-zinc-100/40` |
 | 선택 강조 (캘린더 / 칩) | `bg-zinc-900 text-white shadow-lg shadow-zinc-900/30 ring-2 ring-zinc-300` | `bg-zinc-100 text-zinc-900 ring-zinc-700` |
+| 내 선택 (투표 달력·장소 체크) | `bg-emerald-500 text-white ring-2 ring-emerald-200 shadow-md shadow-emerald-500/30` / 칩 `bg-emerald-50 text-emerald-700` | `bg-emerald-500 ring-emerald-900` / 칩 `bg-emerald-950/40 text-emerald-300` |
 | **실시간 1위 (단색 amber)** | 막대 `bg-amber-300` (2등↓ `bg-zinc-300`) + `bg-amber-500` 원 안에 왕관 SVG + `현재 1위` `bg-amber-50 text-amber-700` 칩 | 막대 `bg-amber-400` (2등↓ `bg-zinc-600`) / 배지 `bg-amber-600` |
 | **마감 확정 (amber 한정)** | `bg-amber-500` 단색 + `border-amber-300 ring-amber-200/60` + 왕관 SVG | `dark:bg-amber-600` / `dark:border-amber-700 dark:ring-amber-900/60` |
 | 시멘틱 success | `bg-emerald-100 text-emerald-800` / `text-emerald-600` | `bg-emerald-950/40 text-emerald-200` / `text-emerald-400` |
