@@ -12,6 +12,7 @@ import { createRoom } from '@/lib/rooms';
 import { writeTokens } from '@/lib/tokens';
 import { recordRoom } from '@/lib/recent-rooms';
 import DateBuilder from '@/components/date-builder';
+import DeadlinePicker from '@/components/deadline-picker';
 import PlaceForm, { type PlaceInput } from '@/components/room/place-form';
 import { providerOf, safeHref } from '@/lib/place-share';
 
@@ -210,6 +211,7 @@ export default function CreateRoomForm() {
         ) : placesOpen ? (
           (
             <PlaceForm
+              autoFocus
               compact
               submitLabel="후보에 넣기"
               busyLabel="넣는 중…"
@@ -278,12 +280,7 @@ export default function CreateRoomForm() {
           </button>
         </div>
         {useDeadline && (
-          <input
-            type="datetime-local"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-zinc-100"
-          />
+          <DeadlinePicker value={deadline} onChange={setDeadline} />
         )}
       </section>
 

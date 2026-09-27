@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { REGIONS, type RegionCode } from '@whenever/shared';
+import DeadlinePicker from '@/components/deadline-picker';
 import { useEscClose } from './use-esc-close';
 
 // 개설자 방 관리 — 마감일 설정/해제 + 지역(날씨) + 지금 즉시 종료.
@@ -50,7 +51,7 @@ export default function DeadlineModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 dark:bg-zinc-900 sm:rounded-2xl">
+      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] dark:bg-zinc-900 sm:rounded-2xl">
         <h3 className="text-base font-semibold">방 관리</h3>
 
         <div className="mt-4">
@@ -64,12 +65,9 @@ export default function DeadlineModal({
             마감일 설정
           </label>
           {useDeadline ? (
-            <input
-              type="datetime-local"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="mt-3 h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/40 dark:focus:ring-zinc-100/40 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
-            />
+            <div className="mt-3">
+              <DeadlinePicker value={value} onChange={setValue} />
+            </div>
           ) : (
             <p className="mt-2 text-xs text-zinc-500">해제하면 무기한이 됩니다.</p>
           )}
