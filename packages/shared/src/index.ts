@@ -88,6 +88,39 @@ export interface RoomDetail extends RoomSummary {
   confirmedDateId: number | null;
   confirmedDate: string | null; // YYYY-MM-DD (confirmedDateId 의 날짜)
   confirmedAt: string | null; // ISO8601
+  // 장소·메뉴 투표 — 날짜와 같은 방에서 동시에 진행. 순서 = 표 DESC → 등록순.
+  places: PlaceResult[];
+  // 방장이 못박은 장소. 날짜 확정과 독립 (날짜 확정은 장소 투표를 잠그지 않는다).
+  confirmedPlaceId: number | null;
+  confirmedPlaceAt: string | null; // ISO8601
+}
+
+// 장소·메뉴 후보 1개 + 집계. voters 에 불참자는 빠진다(표는 보존, 복귀 시 복원).
+export interface PlaceResult {
+  placeId: number;
+  name: string;
+  url: string | null; // http/https 만 (서버 검증)
+  memo: string | null;
+  createdBy: Voter | null; // 등록자. 강퇴되면 null
+  votes: number;
+  voters: Voter[];
+  createdAt: string;
+}
+
+export const PLACE_NAME_MAX = 40;
+export const PLACE_URL_MAX = 500;
+export const PLACE_MEMO_MAX = 60;
+export const PLACES_PER_ROOM_MAX = 20;
+
+export interface AddPlaceRequest {
+  name: string;
+  url?: string | null;
+  memo?: string | null;
+}
+
+// 장소 확정 요청 (방장 전용, creator_token 헤더).
+export interface ConfirmPlaceRequest {
+  placeId: number;
 }
 
 // 모임 확정 요청 (방장 전용, creator_token 헤더).

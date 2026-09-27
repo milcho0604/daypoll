@@ -34,6 +34,49 @@ async function assertRoomWritable(
     throw new HttpException('room is confirmed', HttpStatus.LOCKED);
   }
 }
+
+// 불참 토글 가능 여부. 날짜 투표만 있던 때는 "날짜 확정 = 잠금" 하나였지만,
+// 장소 투표는 날짜 확정 뒤에도 열려 있다. 그래서:
+//   - 마감 지남 → 잠금
+//   - 날짜 미확정 → 허용 (기존 그대로)
+//   - 날짜 확정 + 장소 투표 열림 → **복귀(false)만** 허용. 불참했던 친구가
+//     돌아와 장소를 고를 수 있게. 불참(true)은 막는다 — 불참은 날짜표를 지워
+//     확정된 날짜의 표수를 흔든다(강퇴를 막는 것과 같은 이유).
+//   - 날짜·장소 둘 다 확정 → 잠금
+function declineBlockReason(
+  row: {
+    deadline: Date | null;
+    confirmed_date_id: string | null;
+    confirmed_place_id: string | null;
+  },
+  declined: boolean,
+): string | null {
+  if (row.deadline && row.deadline.getTime() <= Date.now()) {
+    return 'room is locked';
+  }
+  if (row.confirmed_date_id == null) return null;
+  if (!declined && row.confirmed_place_id == null) return null;
+  return 'room is confirmed';
+}
+
+async function assertDeclineWritable(
+  c: PoolClient,
+  roomId: string,
+  declined: boolean,
+): Promise<void> {
+  const r = await c.query<{
+    deadline: Date | null;
+    confirmed_date_id: string | null;
+    confirmed_place_id: string | null;
+  }>(
+    `SELECT deadline, confirmed_date_id::text, confirmed_place_id::text
+       FROM rooms WHERE id = $1 FOR UPDATE`,
+    [roomId],
+  );
+  if (r.rowCount === 0) throw new NotFoundException('room not found');
+  const reason = declineBlockReason(r.rows[0], declined);
+  if (reason) throw new HttpException(reason, HttpStatus.LOCKED);
+}
 import { newToken } from '../common/ids';
 import { hashPin, verifyPin } from '../common/pin';
 import { secureEquals } from '../common/secure-compare';
@@ -363,18 +406,15 @@ export class ParticipantsService {
     const roomRes = await this.pool.query<{
       deadline: Date | null;
       confirmed_date_id: string | null;
-    }>(`SELECT deadline, confirmed_date_id::text FROM rooms WHERE id = $1`, [
-      roomId,
-    ]);
+      confirmed_place_id: string | null;
+    }>(
+      `SELECT deadline, confirmed_date_id::text, confirmed_place_id::text
+         FROM rooms WHERE id = $1`,
+      [roomId],
+    );
     if (roomRes.rowCount === 0) throw new NotFoundException('room not found');
-    const deadline = roomRes.rows[0].deadline;
-    if (deadline && deadline.getTime() <= Date.now()) {
-      throw new HttpException('room is locked', HttpStatus.LOCKED);
-    }
-    // 확정된 방은 투표/불참 잠금 (방장이 해제하면 다시 열림).
-    if (roomRes.rows[0].confirmed_date_id != null) {
-      throw new HttpException('room is confirmed', HttpStatus.LOCKED);
-    }
+    const blocked = declineBlockReason(roomRes.rows[0], declined);
+    if (blocked) throw new HttpException(blocked, HttpStatus.LOCKED);
     const me = await this.pool.query<{ id: string; nickname: string }>(
       `SELECT id::text, nickname FROM participants WHERE room_id = $1 AND client_token = $2`,
       [roomId, clientToken],
@@ -385,7 +425,7 @@ export class ParticipantsService {
 
     await withTransaction(this.pool, async (c) => {
       // race 가드 — updateAvailabilities 와 동일. 확정 UPDATE 와 직렬화.
-      await assertRoomWritable(c, roomId);
+      await assertDeclineWritable(c, roomId, declined);
       // declined_at: 불참 처리 순간을 기록(활동 피드용). 참여로 되돌리면 NULL.
       await c.query(
         `UPDATE participants
@@ -460,14 +500,23 @@ export class ParticipantsService {
     if (me.rowCount === 0) {
       return null;
     }
-    const av = await this.pool.query<{ room_date_id: string }>(
-      `SELECT room_date_id::text FROM availabilities WHERE participant_id = $1`,
-      [me.rows[0].id],
-    );
+    // 장소표는 불참 중에도 보존된다(집계에서만 빠짐) — 공개 결과의 voters 로는
+    // 역산할 수 없으니 본인 것은 여기서 따로 준다.
+    const [av, pv] = await Promise.all([
+      this.pool.query<{ room_date_id: string }>(
+        `SELECT room_date_id::text FROM availabilities WHERE participant_id = $1`,
+        [me.rows[0].id],
+      ),
+      this.pool.query<{ place_id: string }>(
+        `SELECT place_id::text FROM place_votes WHERE participant_id = $1`,
+        [me.rows[0].id],
+      ),
+    ]);
     return {
       participantId: Number(me.rows[0].id),
       nickname: me.rows[0].nickname,
       dateIds: av.rows.map((r) => Number(r.room_date_id)),
+      placeIds: pv.rows.map((r) => Number(r.place_id)),
       declined: me.rows[0].declined,
     };
   }
