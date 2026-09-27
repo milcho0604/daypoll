@@ -343,7 +343,6 @@ export default function PlaceSection({
         ) : (
           <div className="mt-3">
             <PlaceForm
-              autoFocus
               submitLabel="올리기"
               busyLabel="올리는 중…"
               onSubmit={async (input) => {

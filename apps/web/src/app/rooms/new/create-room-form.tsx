@@ -211,7 +211,6 @@ export default function CreateRoomForm() {
         ) : placesOpen ? (
           (
             <PlaceForm
-              autoFocus
               compact
               submitLabel="후보에 넣기"
               busyLabel="넣는 중…"

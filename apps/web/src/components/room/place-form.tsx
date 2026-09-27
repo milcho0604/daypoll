@@ -27,7 +27,6 @@ export default function PlaceForm({
   onCancel,
   onDraftChange,
   compact = false,
-  autoFocus = false,
 }: {
   initial?: PlaceInput;
   submitLabel: string;
@@ -37,8 +36,9 @@ export default function PlaceForm({
   // 적어놓고 아직 안 넣은 게 있는지 — 방 만들기가 "넣기" 안 누른 후보를 조용히
   // 버리지 않게 바깥에서 막는 데 쓴다.
   onDraftChange?: (hasDraft: boolean) => void;
+  // 자동 포커스는 일부러 안 한다 — 모바일에서 폼을 열자마자 키패드가 올라와 화면을
+  // 가린다는 제보. 사용자가 칸을 눌렀을 때만 올라오게.
   compact?: boolean; // 방 만들기 폼 안 — <form> 중첩 불가라 div 로, 테두리 카드 없이
-  autoFocus?: boolean;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [url, setUrl] = useState(initial?.url ?? '');
@@ -48,7 +48,6 @@ export default function PlaceForm({
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
   // 같은 틱에 두 번 들어오는 제출(한글 IME 의 Enter 이중 keydown 등) 방지.
   // busy state 는 클로저라 같은 틱의 두 번째 호출을 못 막는다.
   const busyRef = useRef(false);
@@ -128,7 +127,6 @@ export default function PlaceForm({
       setMemoOpen(false);
       setNote(null);
       setUrlChoices([]);
-      nameRef.current?.focus(); // 연달아 여러 곳 넣기 편하게
     }
   }
 
@@ -158,13 +156,11 @@ export default function PlaceForm({
       }`}
     >
       <input
-        ref={nameRef}
         type="text"
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
         onPaste={onPaste}
         onKeyDown={onEnter}
-        autoFocus={autoFocus}
         enterKeyHint="done"
         placeholder="가게 이름, 또는 지도 링크 붙여넣기"
         aria-label="장소 이름 또는 링크"
@@ -239,17 +235,31 @@ export default function PlaceForm({
       )}
 
       {memoOpen ? (
-        <input
-          type="text"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          onKeyDown={onEnter}
-          enterKeyHint="done"
-          placeholder="한 줄 메모 — 예: 1인 2만 원, 룸 있음"
-          maxLength={PLACE_MEMO_MAX}
-          aria-label="메모"
-          className={inputCls}
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            onKeyDown={onEnter}
+            enterKeyHint="done"
+            placeholder="한 줄 메모 — 예: 1인 2만 원, 룸 있음"
+            maxLength={PLACE_MEMO_MAX}
+            aria-label="메모"
+            className={`${inputCls} pr-12`}
+          />
+          {/* 메모 칸 닫기 — 한 번 열면 못 빼던 문제. 적은 메모도 같이 비운다. */}
+          <button
+            type="button"
+            onClick={() => {
+              setMemo('');
+              setMemoOpen(false);
+            }}
+            aria-label="메모 빼기"
+            className="press absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          >
+            ✕
+          </button>
+        </div>
       ) : (
         <button
           type="button"
