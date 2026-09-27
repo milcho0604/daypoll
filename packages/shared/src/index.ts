@@ -263,6 +263,11 @@ export interface Notice {
   publishedAt: string | null; // ISO8601, 마지막 게시 시각. "현재 공지" 정렬 기준.
   createdAt: string;
   updatedAt: string;
+  // true = 한 번 보면 그 기기에서 다시 안 뜸 (새 기능 안내용). false = "다시 보지 않기" 전까지 매번.
+  showOnce: boolean;
+  // 팝업 버튼 링크 — 사이트 안 경로만 ("/updates"). null = 버튼 없음.
+  linkUrl: string | null;
+  linkLabel: string | null; // 버튼 문구, null 이면 "자세히 보기"
 }
 
 // 어드민 작성/수정 입력. published 는 별도 publish 엔드포인트로 토글.
@@ -270,6 +275,9 @@ export interface NoticeInput {
   title: string;
   body: string;
   scheduledAt?: string | null;
+  showOnce?: boolean;
+  linkUrl?: string | null;
+  linkLabel?: string | null;
 }
 
 export const HEADER_ADMIN_TOKEN = 'x-admin-token';

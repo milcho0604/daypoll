@@ -47,7 +47,14 @@ function formatKST(iso: string): string {
   }
 }
 
-const EMPTY = { title: '', body: '', scheduledLocal: '' };
+const EMPTY = {
+  title: '',
+  body: '',
+  scheduledLocal: '',
+  showOnce: false,
+  linkUrl: '',
+  linkLabel: '',
+};
 
 export default function AdminNoticesPage() {
   const router = useRouter();
@@ -91,6 +98,9 @@ export default function AdminNoticesPage() {
       title: n.title,
       body: n.body,
       scheduledLocal: isoToLocal(n.scheduledAt),
+      showOnce: n.showOnce,
+      linkUrl: n.linkUrl ?? '',
+      linkLabel: n.linkLabel ?? '',
     });
     setError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -109,6 +119,9 @@ export default function AdminNoticesPage() {
         title: form.title.trim(),
         body: form.body,
         scheduledAt: localToIso(form.scheduledLocal),
+        showOnce: form.showOnce,
+        linkUrl: form.linkUrl.trim() || null,
+        linkLabel: form.linkUrl.trim() ? form.linkLabel.trim() || null : null,
       };
       if (editingId == null) await adminCreateNotice(input);
       else await adminUpdateNotice(editingId, input);
@@ -117,7 +130,10 @@ export default function AdminNoticesPage() {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401)
         router.replace('/admin/login');
-      else setError('저장에 실패했어요. 입력을 확인해주세요.');
+      else
+        setError(
+          '저장에 실패했어요. 입력을 확인해주세요. (버튼 링크는 /updates 처럼 사이트 안 경로만, 문구는 20자까지)',
+        );
     } finally {
       setBusy(false);
     }
@@ -209,6 +225,48 @@ export default function AdminNoticesPage() {
             className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           />
         </label>
+        {/* 한 번만 보여주기 — 새 기능 안내처럼 반복할 필요 없는 공지.
+            점검 공지는 끄고 쓰면 "다시 보지 않기" 전까지 매번 뜬다. */}
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.showOnce}
+            onChange={(e) => setForm((f) => ({ ...f, showOnce: e.target.checked }))}
+            className="mt-0.5 h-5 w-5 shrink-0 rounded border-zinc-300"
+          />
+          <span>
+            한 번만 보여주기
+            <span className="block text-xs text-zinc-500">
+              한 번 보면 그 사람한텐 다시 안 떠요. 새 기능 안내에 좋아요. (끄면 &ldquo;다시 보지
+              않기&rdquo; 누를 때까지 매번 떠요)
+            </span>
+          </span>
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            <span className="text-zinc-500">버튼 링크 (선택 · 사이트 안 경로)</span>
+            <input
+              type="text"
+              value={form.linkUrl}
+              onChange={(e) => setForm((f) => ({ ...f, linkUrl: e.target.value }))}
+              placeholder="/updates"
+              maxLength={200}
+              className={inputCls}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm sm:w-44">
+            <span className="text-zinc-500">버튼 문구</span>
+            <input
+              type="text"
+              value={form.linkLabel}
+              onChange={(e) => setForm((f) => ({ ...f, linkLabel: e.target.value }))}
+              placeholder="자세히 보기"
+              maxLength={20}
+              disabled={!form.linkUrl.trim()}
+              className={`${inputCls} disabled:opacity-50`}
+            />
+          </label>
+        </div>
         {error && (
           <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
             {error}
@@ -267,6 +325,16 @@ export default function AdminNoticesPage() {
                   {n.scheduledAt && (
                     <p className="mt-1 text-xs text-zinc-400">
                       🗓️ {formatKST(n.scheduledAt)}
+                    </p>
+                  )}
+                  {(n.showOnce || n.linkUrl) && (
+                    <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-zinc-400">
+                      {n.showOnce && <span>한 번만</span>}
+                      {n.linkUrl && (
+                        <span>
+                          버튼 → {n.linkUrl} ({n.linkLabel || '자세히 보기'})
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { Notice } from '@whenever/shared';
 
@@ -26,6 +27,9 @@ function formatKST(iso: string): string {
 // - "다시 보지 않기" → 이 공지(id)를 localStorage 에 기록, 다신 안 뜸.
 // - "확인" / 배경 탭 / Esc → 이번만 닫음 (다음 방문에 다시 뜸).
 // - 새 공지를 게시하면 id 가 바뀌므로, 예전 공지를 dismiss 했어도 새 공지는 다시 뜬다.
+// - showOnce(한 번만 보여주기) 공지는 뜨는 순간 본 것으로 기록 — 어떻게 닫든 다시 안 뜬다.
+//   ("다시 보지 않기" 버튼도 필요 없어 숨긴다). 새 기능 안내처럼 반복할 이유가 없는 공지용.
+// - linkUrl 이 있으면 버튼으로 그 페이지(사이트 안 경로)로 보낸다 (예: /updates).
 export default function AnnouncementModal({
   notice,
 }: {
@@ -52,6 +56,14 @@ export default function AnnouncementModal({
     // effect 안 setState 가 의도된 것 (repo 관례 — room-view 와 동일).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(true);
+    if (notice.showOnce) {
+      // 한 번만 — 보여준 순간 기록 (새로고침·뒤로가기로 닫아도 다시 안 뜨게)
+      try {
+        window.localStorage.setItem(storageKey, '1');
+      } catch {
+        /* 저장 실패 시 다음 방문에 한 번 더 뜰 수 있음 — 치명적이지 않다 */
+      }
+    }
   }, [notice, storageKey]);
 
   useEffect(() => {
@@ -107,23 +119,51 @@ export default function AnnouncementModal({
           </p>
         )}
         <div className="mt-5 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={dismissForever}
-            className="press h-11 flex-1 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
-          >
-            다시 보지 않기
-          </button>
+          {!notice.showOnce && (
+            <button
+              type="button"
+              onClick={dismissForever}
+              className="press h-11 flex-1 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+            >
+              다시 보지 않기
+            </button>
+          )}
           <button
             ref={closeRef}
             type="button"
             onClick={() => setOpen(false)}
-            className="press h-11 flex-1 rounded-xl bg-zinc-900 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
+            className={`press h-11 flex-1 rounded-xl text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/40 dark:focus-visible:ring-zinc-100/40 ${
+              notice.linkUrl
+                ? 'border border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'
+                : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+            }`}
           >
-            확인
+            {notice.linkUrl ? '닫기' : '확인'}
           </button>
+          {notice.linkUrl && isSitePath(notice.linkUrl) && (
+            <Link
+              href={notice.linkUrl}
+              onClick={() => {
+                // 링크로 넘어가면 이 공지는 본 것 — 돌아왔을 때 또 뜨지 않게
+                try {
+                  window.localStorage.setItem(storageKey, '1');
+                } catch {
+                  /* noop */
+                }
+                setOpen(false);
+              }}
+              className="press flex h-11 flex-1 items-center justify-center rounded-xl bg-zinc-900 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
+            >
+              {notice.linkLabel || '자세히 보기'}
+            </Link>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+// 서버가 이미 막지만 화면도 사이트 안 경로만 따라간다 ("//evil" 같은 프로토콜 상대 경로 차단).
+function isSitePath(url: string): boolean {
+  return /^\/(?![\/\\])/.test(url) || url === '/';
 }
