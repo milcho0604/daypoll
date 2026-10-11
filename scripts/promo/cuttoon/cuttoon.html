@@ -90,7 +90,7 @@ function petsOnCard(cardY, cardH, pw, inner = '') {
 const counter = (x, y, w, h, inner = '') =>
   `<path d="M${x} ${y} H${x + w} V${y + h - 44} Q${x + w} ${y + h} ${x + w - 44} ${y + h} H${x + 44} Q${x} ${y + h} ${x} ${y + h - 44}Z" fill="${C.white}" filter="url(#sh)"/>` + inner;
 // 한 마리 얼굴 크롭 (원본 좌표의 중심·반지름)
-const FACE = { choco: [318, 410, 235], milk: [700, 380, 215] };
+const FACE = { choco: [300, 425, 218], milk: [736, 392, 178] }; // 서로의 털이 원 안에 안 들어오게
 function faceImg(who, cx, cy, r) {
   const id = 'pf' + (PID++), [fx, fy, fr] = FACE[who], k = r / fr;
   return `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath><g clip-path="url(#${id})"><image href="${IMG}" x="${cx - fx * k}" y="${cy - fy * k}" width="${1024 * k}" height="${1024 * k}"/></g>`;
@@ -206,7 +206,7 @@ S.push(() => {
   let s = chrome(6);
   s += headline(['단톡방에 링크', '[하나면 끝]'], 230);
   s += sub(388, '카톡용 문구까지 알아서 만들어 줘요');
-  const x = 150, y = 450, w = 780, h = 610;
+  const x = 150, y = 450, w = 780, h = 690;
   let in_ = T(x + 44, y + 76, '고딩 친구들', { size: 34, weight: 800 }) + `<path d="M${x} ${y + 112} H${x + w}" stroke="${C.z100}" stroke-width="3"/>`;
   const lw = 520, lx = x + w - 44 - lw, ly = y + 146, lh = 236;
   in_ += `<rect x="${lx}" y="${ly}" width="${lw}" height="${lh}" rx="28" fill="${C.ink}"/>` + calIcon(lx + 30, ly + 30, 36, C.white);
@@ -218,8 +218,8 @@ S.push(() => {
   let r = msgL(x + 44, yy, 'kong', '오 편하다'); in_ += r.svg; yy += r.h + 22;
   r = msgL(x + 44, yy, 'dubu', '체크 완료!'); in_ += r.svg;
   s += card(x, y, w, h, in_);
-  s += photoFace('milk', 850, 1208, 100);
-  s += say(520, 1150, ['(몰래) 나도 체크함'], 'dr', { size: 30 });
+  s += photoFace('milk', 860, 1238, 84);
+  s += say(560, 1200, ['(몰래) 나도 체크함'], 'dr', { size: 30 });
   return s;
 });
 
