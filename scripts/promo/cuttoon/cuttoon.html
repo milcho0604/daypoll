@@ -67,17 +67,17 @@ function pill(y, str) {
   return `<rect x="${W / 2 - w / 2}" y="${y}" width="${w}" height="64" rx="32" fill="${C.ink}"/>` + T(W / 2, y + 43, str, { size: 30, weight: 800, fill: C.a300, anchor: 'middle' });
 }
 function chrome(n) {
-  return `<rect width="${W}" height="${H}" fill="${C.bg}"/>` + DEFS + mark(M, 54, 42) + T(M + 56, 86, '모일까', { size: 27, weight: 800 }) +
+  return `<rect width="${W}" height="${H}" fill="${C.bg}"/>` + DEFS + mascotDefs() + mark(M, 54, 42) + T(M + 56, 86, '모일까', { size: 27, weight: 800 }) +
     T(W - M, 86, `${n} / 8`, { size: 26, weight: 600, fill: C.z400, anchor: 'end', ls: 0.5 });
 }
 const card = (x, y, w, h, inner = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="44" fill="${C.white}" filter="url(#sh)"/>` + inner;
 
 // ---------- 젤리 아바타 / 채팅 ----------
-const WHO = { choco: ['choco', '초코'], milk: ['milk', '밀크'], kong: ['oat', '콩이'], dubu: ['almond', '두부'] };
+const WHO = { choco: ['choco', '초코'], milk: ['milk', '밀크'], kong: ['kong', '콩이'], dubu: ['dubu', '두부'] };
 function avatar(who, cx, cy, r, face = 'dot') {
   const id = 'av' + Math.random().toString(36).slice(2, 8);
   return `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath><circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.z100}"/>` +
-    `<g clip-path="url(#${id})">${place(cx, cy + r * 0.78, r / 115, jelly(WHO[who][0], { face }))}</g>`;
+    `<g clip-path="url(#${id})">${place(cx, cy - mascotFaceY[who] * (r / 100) + r * 0.12, r / 100, mascot(WHO[who][0], { face }))}</g>`;
 }
 function msgL(x, y, who, text, { size = 32, name = true, fill = C.z100 } = {}) {
   const r = 30, bx = x + r * 2 + 16;
@@ -107,8 +107,8 @@ S.push(() => {
   s += sub(500, '단톡방에서 날짜 맞추다 지친 우리 얘기');
   // 바닥 무대
   s += `<ellipse cx="${W / 2}" cy="1170" rx="480" ry="84" fill="#efece6"/>`;
-  s += place(318, 1160, 1.42, jelly('choco', { face: 'dot', lean: 0.45, tongue: true }));
-  s += place(775, 1170, 1.32, jelly('milk', { face: 'side', lean: -0.5 }));
+  s += place(318, 1160, 0.966, mascot('choco', { face: 'dot', tongue: true }));
+  s += place(775, 1170, 0.898, mascot('milk', { face: 'side' }));
   s += say(300, 650, ['언제 볼래?'], 'dr') + say(800, 680, ['다음에 보자~'], 'dl');
   s += T(W / 2, 1290, '옆으로 넘겨 보기 →', { size: 28, weight: 600, fill: C.z400, anchor: 'middle' });
   return s;
@@ -127,7 +127,7 @@ S.push(() => {
   in_ += sysPill(x + w / 2, yy, '3주 후');
   in_ += T(x + w / 2, yy + 140, '· · ·', { size: 44, weight: 800, fill: C.z300, anchor: 'middle', ls: 6 });
   s += card(x, y, w, h, in_);
-  s += place(800, 1262, 0.9, jelly('choco', { face: 'flat', lean: -0.4 }));
+  s += place(800, 1268, 0.72, mascot('choco', { face: 'flat' }));
   s += say(560, 1110, ['…?'], 'dr');
   return s;
 });
@@ -141,8 +141,8 @@ S.push(() => {
   [['kong', '나 15일만 돼', 0], ['dubu', '난 그날 안 됨 ㅠ', 300], ['kong', '주말은??', 40], ['dubu', '다음 주는 어때', 260]].forEach(([who, t, dx]) => { const r = msgL(x + 50 + dx, yy, who, t, { name: false }); in_ += r.svg; yy += r.h + 26; });
   in_ += T(x + w - 50, y + h - 50, '읽음 4 · 답장 0', { size: 26, weight: 700, fill: C.z400, anchor: 'end' });
   s += card(x, y, w, h, in_);
-  s += place(300, 1262, 0.9, jelly('choco', { face: 'squint', lean: 0.3 }));
-  s += place(660, 1262, 0.88, jelly('milk', { face: 'side', lean: -0.45 }));
+  s += place(300, 1268, 0.72, mascot('choco', { face: 'squint' }));
+  s += place(660, 1268, 0.72, mascot('milk', { face: 'side' }));
   s += say(880, 1040, ['또 시작이네'], 'dl');
   return s;
 });
@@ -156,9 +156,9 @@ S.push(() => {
   const mw = 120, gap = 26, tx = tw('모일까', 96, 800), tot = mw + gap + tx, x0 = W / 2 - tot / 2;
   s += card(150, 590, 780, 260, mark(x0, 660, mw) + T(x0 + mw + gap, 660 + mw * 0.79, '모일까', { size: 96, weight: 800, ls: -2 }));
   s += `<ellipse cx="${W / 2}" cy="1180" rx="420" ry="70" fill="#efece6"/>`;
-  s += place(350, 1170, 1.08, jelly('choco', { face: 'happy', lean: 0.4, tongue: true }));
-  s += place(750, 1176, 1.0, jelly('milk', { face: 'wow', lean: -0.4 }));
-  s += say(250, 930, ['이거다!'], 'dr');
+  s += place(360, 1172, 0.86, mascot('choco', { face: 'happy', tongue: true }));
+  s += place(740, 1178, 0.84, mascot('milk', { face: 'wow' }));
+  s += say(170, 880, ['이거다!'], 'dr');
   return s;
 });
 
@@ -180,7 +180,7 @@ S.push(() => {
     in_ += T(cx, cy, String(d), { size: 27, weight: sel.has(d) ? 800 : 600, fill: sel.has(d) ? C.white : C.z700, anchor: 'middle', ls: 0 });
   }
   s += card(x, y, w, h, in_);
-  s += place(830, 1270, 0.8, jelly('choco', { face: 'happy', lean: -0.5, tongue: true }));
+  s += place(830, 1270, 0.544, mascot('choco', { face: 'happy', tongue: true }));
   s += say(520, 1150, ['닉네임만 쓰면 끝!'], 'dr');
   return s;
 });
@@ -202,7 +202,7 @@ S.push(() => {
   let r = msgL(x + 44, yy, 'kong', '오 편하다'); in_ += r.svg; yy += r.h + 22;
   r = msgL(x + 44, yy, 'dubu', '체크 완료!'); in_ += r.svg;
   s += card(x, y, w, h, in_);
-  s += place(830, 1270, 0.78, jelly('milk', { face: 'side', lean: -0.5 }));
+  s += place(830, 1270, 0.53, mascot('milk', { face: 'side' }));
   s += say(520, 1150, ['(몰래) 나도 체크함'], 'dr', { size: 30 });
   return s;
 });
@@ -226,7 +226,7 @@ S.push(() => {
     in_ += `<rect x="${x0}" y="${ry + 66}" width="${x1 - x0}" height="16" rx="8" fill="${C.z100}"/><rect x="${x0}" y="${ry + 66}" width="${(x1 - x0) * n / 4}" height="16" rx="8" fill="${first ? C.a300 : C.z300}"/>`;
   });
   s += card(x, y, w, h, in_);
-  s += place(250, 1270, 0.78, jelly('milk', { face: 'side', lean: 0.5 }));
+  s += place(250, 1270, 0.53, mascot('milk', { face: 'side' }));
   s += say(560, 1150, ['…좋아. 그날 간다.'], 'dl', { size: 30 });
   return s;
 });
@@ -238,10 +238,10 @@ S.push(() => {
   s += headline(['링크 하나로', '[1분 컷]'], 340);
   s += sub(500, '가입 없음 · 닉네임만 · 무료');
   s += `<ellipse cx="${W / 2}" cy="1010" rx="470" ry="80" fill="#efece6"/>`;
-  s += place(170, 990, 0.62, jelly('oat', { face: 'happy', lean: 0.3 }));
-  s += place(400, 1004, 0.96, jelly('choco', { face: 'happy', lean: 0.35, tongue: true }));
-  s += place(700, 1008, 0.92, jelly('milk', { face: 'happy', lean: -0.35 }));
-  s += place(920, 992, 0.6, jelly('almond', { face: 'wow', lean: -0.3 }));
+  s += place(175, 996, 0.56, mascot('kong', { face: 'happy' }));
+  s += place(400, 1004, 0.68, mascot('choco', { face: 'happy', tongue: true, pose: 'cheer' }));
+  s += place(690, 1008, 0.66, mascot('milk', { face: 'happy', pose: 'cheer' }));
+  s += place(915, 996, 0.56, mascot('dubu', { face: 'wow' }));
   s += say(W / 2, 640, ['드디어 만났다!'], 'down', { size: 38 });
   const uw = tw('moilga.com', 46, 800) + 120;
   s += `<rect x="${W / 2 - uw / 2}" y="1120" width="${uw}" height="104" rx="52" fill="${C.ink}"/>` + T(W / 2, 1189, 'moilga.com', { size: 46, weight: 800, fill: C.white, anchor: 'middle', ls: 0 });

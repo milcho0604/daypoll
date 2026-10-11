@@ -12,8 +12,8 @@ node render.mjs 3 5      # 03.png, 05.png 만 다시 찍고 preview 갱신
 
 - 필요: Playwright + Chromium. 로컬에 없으면 전역 설치본(`npm root -g`)을 쓴다.
 - 폰트: `fonts/` 의 Pretendard woff2 (Medium/SemiBold/Bold/ExtraBold) — git 에 없음. `cp -r ../fonts .` (상위 `scripts/promo/render.mjs` 가 처음 실행될 때 npm 에서 받아 온다).
-- 원본: `cuttoon.html`(슬라이드·레이아웃·앱 UI 카드) + `chars.js`(젤리 캐릭터 `jelly(kind, {face, lean, squash})` — choco·milk·oat·almond, 표정 dot/happy/side/squint/wow/sleepy/flat).
-- 아트 디렉션: 말랑한 젤리 블롭 캐릭터(부드러운 입체 음영·반사광, 점 눈) + 가운데 정렬 굵은 헤드라인 + 형광펜 강조 + 실제 앱 UI 카드.
+- 원본: `cuttoon.html`(슬라이드·레이아웃·앱 UI 카드) + `chars.js`(마스코트 `mascot(kind, {face, tongue, pose, tilt})` — choco·milk·kong·dubu, 표정 dot/happy/side/squint/wow/sleepy/flat).
+- 아트 디렉션: 실제 초코(폼폼 토이푸들)·밀크(회색 모자 털뭉치 고양이)를 닮은 입체 봉제인형 마스코트 + 가운데 정렬 굵은 헤드라인 + 형광펜 강조 + 실제 앱 UI 카드.
 - 캐릭터 시트 미리보기: `dev/sheet.html`.
 - 브라우저에서 `cuttoon.html?s=4` 로 한 장만 열어 볼 수 있다.
 
