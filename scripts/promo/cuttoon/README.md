@@ -13,7 +13,7 @@ node render.mjs 3 5      # 03.png, 05.png 만 다시 찍고 preview 갱신
 - 필요: Playwright + Chromium. 로컬에 없으면 전역 설치본(`npm root -g`)을 쓴다.
 - 폰트: `fonts/` 의 Pretendard woff2 (Medium/SemiBold/Bold/ExtraBold) — git 에 없음. `cp -r ../fonts .` (상위 `scripts/promo/render.mjs` 가 처음 실행될 때 npm 에서 받아 온다).
 - 원본: `cuttoon.html`(슬라이드·레이아웃·앱 UI 카드) + `choco-milk.png`(초코·밀크 AI 생성 이미지, 1024²).
-- 사진 배치: `photoPanel()` 위가 둥근 사진 패널 + `counter()` 카드 — 둘이 카드 위에 앞발을 올린 구도. `photoFace()` 는 한 마리 얼굴 원형 크롭(`FACE` 좌표).
+- 사진 배치: `petsOnCard()` — 배경을 지운 `choco-milk-cut.png`(rembg isnet-general-use 로 누끼 + 유리 카드 잔상 정리)를 모일까 카드 위에 올려 앞발이 카드에 걸치게. `photoFace()` 는 원본의 얼굴 원형 크롭(`FACE` 좌표).
 - 아트 디렉션: 가운데 정렬 굵은 헤드라인 + 형광펜 강조 + 실제 앱 UI 카드 + 초코·밀크 사진.
 - 게시할 때 인스타 'AI 정보' 라벨을 켠다 (주인공 이미지가 AI 생성).
 - 브라우저에서 `cuttoon.html?s=4` 로 한 장만 열어 볼 수 있다.

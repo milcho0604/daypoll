@@ -80,6 +80,13 @@ function photoPanel(x, y, w, cropTop = 140, cropBot = 836) {
   return { h, svg: `<clipPath id="${id}"><path d="M${x} ${y + h} V${y + 44} Q${x} ${y} ${x + 44} ${y} H${x + w - 44} Q${x + w} ${y} ${x + w} ${y + 44} V${y + h}Z"/></clipPath>` +
     `<g clip-path="url(#${id})"><image href="${IMG}" x="${x}" y="${y - cropTop * k}" width="${w}" height="${w}" preserveAspectRatio="none"/></g>` };
 }
+// 배경 없는 초코·밀크(choco-milk-cut.png)를 카드 위에 — 앞발이 카드 윗면에 걸치고 초코 발은 카드 앞으로 늘어진다
+const CUT = 'choco-milk-cut.png', CUT_EDGE = 812; // 원본에서 카드 윗면 y
+function petsOnCard(cardY, cardH, pw, inner = '') {
+  const k = pw / 1024, ix = W / 2 - pw / 2;
+  return `<rect x="${M}" y="${cardY}" width="${W - M * 2}" height="${cardH}" rx="40" fill="${C.white}" filter="url(#sh)"/>` + inner +
+    `<image href="${CUT}" x="${ix}" y="${cardY - CUT_EDGE * k}" width="${pw}" height="${pw}"/>`;
+}
 const counter = (x, y, w, h, inner = '') =>
   `<path d="M${x} ${y} H${x + w} V${y + h - 44} Q${x + w} ${y + h} ${x + w - 44} ${y + h} H${x + 44} Q${x} ${y + h} ${x} ${y + h - 44}Z" fill="${C.white}" filter="url(#sh)"/>` + inner;
 // 한 마리 얼굴 크롭 (원본 좌표의 중심·반지름)
@@ -122,8 +129,8 @@ S.push(() => {
   s += pill(170, '모일까 컷툰 EP.1');
   s += headline(['약속 잡기, 왜 맨날', '[흐지부지]될까?'], 340);
   s += sub(500, '단톡방에서 날짜 맞추다 지친 우리 얘기');
-  const P = photoPanel(M, 560, W - M * 2, 150, 824);
-  s += P.svg + counter(M, 560 + P.h, W - M * 2, 96, T(W / 2, 560 + P.h + 60, '초코랑 밀크의 약속 잡기  →', { size: 30, weight: 700, fill: C.z500, anchor: 'middle' }));
+  const cy = 1110;
+  s += petsOnCard(cy, 170, 840, T(W - M - 44, cy + 104, '초코랑 밀크의 약속 잡기 →', { size: 30, weight: 700, fill: C.z500, anchor: 'end' }));
   return s;
 });
 
@@ -165,10 +172,9 @@ S.push(() => {
   s += pill(170, '그래서 찾은 방법');
   s += headline(['이럴 땐', '[모일까]'], 340);
   s += sub(500, '친구들이랑 모일 날, 가입 없이 링크 하나로');
-  const P = photoPanel(M, 560, W - M * 2, 196, 824);
-  const cy = 560 + P.h, mw = 84, gap = 20, tx = tw('모일까', 66, 800), tot = mw + gap + tx, x0 = W / 2 - tot / 2;
-  s += P.svg + counter(M, cy, W - M * 2, 150, mark(x0, cy + 33, mw) + T(x0 + mw + gap, cy + 33 + mw * 0.8, '모일까', { size: 66, weight: 800, ls: -1.5 }));
-  s += say(250, 600, ['이거다!'], 'down');
+  const cy = 1110, mw = 76, gap = 18, tx = tw('모일까', 60, 800), x0 = W - M - 48 - (mw + gap + tx);
+  s += petsOnCard(cy, 170, 840, mark(x0, cy + 47, mw) + T(x0 + mw + gap, cy + 47 + mw * 0.8, '모일까', { size: 60, weight: 800, ls: -1.4 }));
+  s += say(200, 610, ['이거다!'], 'dr');
   return s;
 });
 
@@ -247,11 +253,9 @@ S.push(() => {
   s += pill(170, '6/20 (토) 확정!');
   s += headline(['링크 하나로', '[1분 컷]'], 340);
   s += sub(500, '가입 없음 · 닉네임만 · 무료');
-  const P = photoPanel(M, 560, W - M * 2, 196, 824);
-  const cy = 560 + P.h, uw = tw('moilga.com', 44, 800) + 110;
-  s += P.svg + counter(M, cy, W - M * 2, 150, `<rect x="${W / 2 - uw / 2}" y="${cy + 28}" width="${uw}" height="94" rx="47" fill="${C.ink}"/>` + T(W / 2, cy + 90, 'moilga.com', { size: 44, weight: 800, fill: C.white, anchor: 'middle', ls: 0 }));
-  s += say(300, 600, ['드디어 만났다!'], 'down', { size: 34 });
-  s += T(W / 2, cy + 196, '프로필 링크에서 바로 시작해요', { size: 26, weight: 600, fill: C.z400, anchor: 'middle' });
+  const cy = 1110, uw = tw('moilga.com', 40, 800) + 96, ux = W - M - 40 - uw;
+  s += petsOnCard(cy, 170, 840, `<rect x="${ux}" y="${cy + 42}" width="${uw}" height="86" rx="43" fill="${C.ink}"/>` + T(ux + uw / 2, cy + 99, 'moilga.com', { size: 40, weight: 800, fill: C.white, anchor: 'middle', ls: 0 }));
+  s += say(220, 610, ['드디어 만났다!'], 'dr', { size: 32 });
   return s;
 });
 
