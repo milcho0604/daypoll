@@ -14,6 +14,7 @@
 
 ### 보안
 - 의존성 업데이트: next 16.3.1 → 16.3.3 (+ eslint-config-next), js-yaml 4.3.2, sanitize-html 2.17.7, vitest 4.1.11
+- API 서버 Node.js 20 → 24 — 20은 지원 종료로 2026-10-21 보안 릴리스(Brotli 메모리 오류 등 High 4건)를 못 받는다. API 이미지·CI·`.nvmrc`·engines 를 Vercel(웹)과 같은 24로 통일
 
 ### 운영
 - DB 마이그레이션 `0016_notice_once_link` (notices 컬럼 3개 + 링크·문구 CHECK)

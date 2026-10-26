@@ -7,7 +7,7 @@
 #   classic builder 만으로 충분한 단순 Dockerfile 이라 syntax 명시 불필요.
 
 # ---------- builder ----------
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -31,7 +31,7 @@ RUN pnpm --filter @whenever/shared build \
  && pnpm --filter @whenever/api build
 
 # ---------- runner ----------
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 ENV NODE_ENV=production
 RUN corepack enable
 WORKDIR /repo
@@ -39,7 +39,7 @@ WORKDIR /repo
 # 빌드 산출물 + node_modules(pnpm isolated 심링크 구조 포함) 통째로 복사
 COPY --from=builder /repo ./
 
-# node:20-slim 이미지에 내장된 비-root 유저(node, uid=1000) 사용.
+# node:24-slim 이미지에 내장된 비-root 유저(node, uid=1000) 사용.
 # /repo 소유권 이전 후 USER 전환 — runtime 에 root 권한 없음.
 RUN chown -R node:node /repo
 USER node
