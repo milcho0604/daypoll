@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.57.0",
+    "@sentry/nextjs": "^10.75.2",
     "@vercel/analytics": "^2.0.1",
     "@whenever/shared": "workspace:*",
     "date-fns": "^4.4.0",
