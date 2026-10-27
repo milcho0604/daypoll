@@ -13,6 +13,16 @@ export interface UpdateEntry {
 
 export const UPDATES: UpdateEntry[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-27',
+    title: '새 소식은 한 번만 알려드려요',
+    items: [
+      '새 기능 안내 팝업은 한 번 보면 그 기기에서 다시 안 떠요.',
+      '팝업 버튼을 누르면 소개하는 화면으로 바로 가요.',
+      '보안 업데이트로 더 안전해졌어요.',
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-09-27',
     title: '어디서 모일지도 같이 정해요',

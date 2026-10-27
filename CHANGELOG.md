@@ -9,16 +9,20 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-27
+
+공지를 한 번만 띄우고 바로 볼 곳으로 보내는 기능, 그리고 Node 24·의존성 보안 업데이트.
+
 ### 추가
-- 공지 팝업 "한 번만 보여주기" — 한 번 보면 그 기기에서 다시 안 뜸 (새 기능 안내용). 버튼 링크(사이트 안 경로만, 예: `/updates`)와 문구 지정
+- 공지 팝업 "한 번만 보여주기" — 한 번 보면 그 기기에서 다시 안 뜸 (새 기능 안내용). 버튼 링크(사이트 안 경로만, 예: `/updates`)와 문구 지정 ([#94](https://github.com/milcho0604/daypoll/pull/94))
 
 ### 보안
-- 의존성 업데이트: next 16.3.1 → 16.3.3 (+ eslint-config-next), js-yaml 4.3.2, sanitize-html 2.17.7, vitest 4.1.11
-- API 서버 Node.js 20 → 24 — 20은 지원 종료로 2026-10-21 보안 릴리스(Brotli 메모리 오류 등 High 4건)를 못 받는다. API 이미지·CI·`.nvmrc`·engines 를 Vercel(웹)과 같은 24로 통일
-- Dependabot 경고 49건 해소 (`pnpm audit` 0건) — 직접: next·eslint-config-next 16.3.3 → 16.4.3, @sentry/nextjs·@sentry/node 10.57 → 10.76, sanitize-html 2.17.7 → 2.18.1, vitest 4.1.11 → 4.1.12 · 전이: handlebars, proxy-addr, body-parser, multer, engine.io, fast-uri, brace-expansion, sharp, vite, zod, qs 등을 패치 버전으로. 루트 `pnpm.overrides` 의 정확 버전 고정(fast-uri 3.1.5 등)이 취약 버전에 묶고 있어 같은 메이저 안 범위(`^`)로 바꿈
+- 의존성 업데이트: next 16.3.1 → 16.3.3 (+ eslint-config-next), js-yaml 4.3.2, sanitize-html 2.17.7, vitest 4.1.11 ([#93](https://github.com/milcho0604/daypoll/pull/93))
+- API 서버 Node.js 20 → 24 — 20은 지원 종료로 2026-10-21 보안 릴리스(Brotli 메모리 오류 등 High 4건)를 못 받는다. API 이미지·CI·`.nvmrc`·engines 를 Vercel(웹)과 같은 24로 통일 ([#101](https://github.com/milcho0604/daypoll/pull/101))
+- Dependabot 경고 74건 해소 (`pnpm audit` 0건) — 직접: next·eslint-config-next 16.3.3 → 16.4.3, @sentry/nextjs·@sentry/node 10.57 → 10.76, sanitize-html 2.17.7 → 2.18.1, vitest 4.1.11 → 4.1.12 · 전이: handlebars, proxy-addr, body-parser, multer, engine.io, fast-uri, brace-expansion, sharp, vite, zod, qs 등을 패치 버전으로. 루트 `pnpm.overrides` 의 정확 버전 고정(fast-uri 3.1.5 등)이 취약 버전에 묶고 있어 같은 메이저 안 범위(`^`)로 바꿈 ([#104](https://github.com/milcho0604/daypoll/pull/104))
 
 ### 운영
-- DB 마이그레이션 `0016_notice_once_link` (notices 컬럼 3개 + 링크·문구 CHECK)
+- DB 마이그레이션 `0016_notice_once_link` (notices 컬럼 3개 + 링크·문구 CHECK) ([#94](https://github.com/milcho0604/daypoll/pull/94))
 
 ## [2.0.0] - 2026-09-27
 
@@ -184,7 +188,8 @@
 - 마감일, 방장 강퇴, PIN 으로 다른 기기 복원, 결과 캘린더(.ics), 공유 이미지(OG)
 - Socket.IO 실시간 반영, 어드민 페이지
 
-[Unreleased]: https://github.com/milcho0604/daypoll/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/milcho0604/daypoll/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/milcho0604/daypoll/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/milcho0604/daypoll/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/milcho0604/daypoll/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/milcho0604/daypoll/compare/v1.4.1...v1.5.0
