@@ -15,6 +15,7 @@
 ### 보안
 - 의존성 업데이트: next 16.3.1 → 16.3.3 (+ eslint-config-next), js-yaml 4.3.2, sanitize-html 2.17.7, vitest 4.1.11
 - API 서버 Node.js 20 → 24 — 20은 지원 종료로 2026-10-21 보안 릴리스(Brotli 메모리 오류 등 High 4건)를 못 받는다. API 이미지·CI·`.nvmrc`·engines 를 Vercel(웹)과 같은 24로 통일
+- Dependabot 경고 49건 해소 (`pnpm audit` 0건) — 직접: next·eslint-config-next 16.3.3 → 16.4.3, @sentry/nextjs·@sentry/node 10.57 → 10.76, sanitize-html 2.17.7 → 2.18.1, vitest 4.1.11 → 4.1.12 · 전이: handlebars, proxy-addr, body-parser, multer, engine.io, fast-uri, brace-expansion, sharp, vite, zod, qs 등을 패치 버전으로. 루트 `pnpm.overrides` 의 정확 버전 고정(fast-uri 3.1.5 등)이 취약 버전에 묶고 있어 같은 메이저 안 범위(`^`)로 바꿈
 
 ### 운영
 - DB 마이그레이션 `0016_notice_once_link` (notices 컬럼 3개 + 링크·문구 CHECK)
