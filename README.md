@@ -264,7 +264,7 @@ deploy/     맥미니 배포 + 운영 가이드 (cloudflared, compose)
 
 ## 문의 · 버그 제보
 
-- 일반 문의 : [hello.mealplan@gmail.com](mailto:hello.mealplan@gmail.com)
+- 일반 문의 : [admin@moilga.com](mailto:admin@moilga.com)
 - 버그 / 기능 제안 : [GitHub Issues](https://github.com/milcho0604/daypoll/issues/new)
 
 ---

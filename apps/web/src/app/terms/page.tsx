@@ -138,10 +138,10 @@ export default function TermsPage() {
             <li>
               일반 문의:{' '}
               <a
-                href="mailto:hello.mealplan@gmail.com"
+                href="mailto:admin@moilga.com"
                 className="text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
               >
-                hello.mealplan@gmail.com
+                admin@moilga.com
               </a>
             </li>
             <li>
