@@ -95,10 +95,10 @@ export default function RootLayout({
           <p>
             문의 ·{' '}
             <a
-              href="mailto:hello.mealplan@gmail.com"
+              href="mailto:admin@moilga.com"
               className="underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
             >
-              hello.mealplan@gmail.com
+              admin@moilga.com
             </a>
             <span aria-hidden className="mx-1.5">
               ·

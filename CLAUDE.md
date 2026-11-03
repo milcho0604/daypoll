@@ -153,7 +153,7 @@
 ## 6. 글로벌 footer
 
 `apps/web/src/app/layout.tsx` 의 footer 는 **모든 페이지에 자동 출력**:
-- 1줄: `문의 · hello.mealplan@gmail.com · 버그 제보(GitHub Issues)`
+- 1줄: `문의 · admin@moilga.com · 버그 제보(GitHub Issues)`
 - 2줄: `블로그 · 업데이트 소식 · 개인정보처리방침 · 이용약관`
 - `text-[11px] text-zinc-400` 사이즈 — 작게 유지
 - `pb-[calc(env(safe-area-inset-bottom)+1rem)]` — iOS 홈 인디케이터 영역 보호
