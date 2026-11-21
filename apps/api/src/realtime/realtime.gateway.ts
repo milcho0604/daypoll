@@ -8,10 +8,12 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
-import { secureEquals } from '../common/secure-compare';
+import { ADMIN_TOKEN_MIN_LENGTH, secureEquals } from '../common/secure-compare';
 
 // nanoid 형식 (영숫자 + `_` `-`, 8~16자). 임의 문자열로 enumeration 시도 차단.
 const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{8,16}$/;
+const MAX_ROOMS_PER_SOCKET = 20;
+const MAX_ADMIN_AUTH_FAILS = 5;
 
 // CORS_ORIGIN을 연결 시점에 lazy 평가한다.
 // (모듈 import 시점엔 ConfigModule의 .env 로딩이 아직 안 끝나 process.env가 비어있을 수 있다)
@@ -54,7 +56,13 @@ export class RealtimeGateway implements OnGatewayInit {
   ): { ok: boolean; room?: string } {
     const roomId = typeof data?.roomId === 'string' ? data.roomId : '';
     if (!ROOM_ID_PATTERN.test(roomId)) return { ok: false };
-    void client.join(`room:${roomId}`);
+    const room = `room:${roomId}`;
+    // 소켓 하나가 방을 무한히 구독해 서버 메모리를 늘리는 것 방지.
+    // client.rooms 에는 자기 id 방이 하나 들어 있다. 실제 사용은 1~2개.
+    if (!client.rooms.has(room) && client.rooms.size > MAX_ROOMS_PER_SOCKET) {
+      return { ok: false };
+    }
+    void client.join(room);
     return { ok: true, room: roomId };
   }
 
@@ -109,10 +117,18 @@ export class RealtimeGateway implements OnGatewayInit {
   ): { ok: boolean } {
     const expected = process.env.ADMIN_TOKEN ?? '';
     const got = typeof data?.token === 'string' ? data.token : '';
-    if (expected.length >= 8 && secureEquals(got, expected)) {
+    if (
+      expected.length >= ADMIN_TOKEN_MIN_LENGTH &&
+      secureEquals(got, expected)
+    ) {
       void client.join('admin');
       return { ok: true };
     }
+    // 소켓 하나로 토큰을 계속 대입하지 못하게 — 몇 번 틀리면 연결을 끊는다.
+    const fails =
+      ((client.data as { adminFails?: number }).adminFails ?? 0) + 1;
+    (client.data as { adminFails?: number }).adminFails = fails;
+    if (fails >= MAX_ADMIN_AUTH_FAILS) client.disconnect(true);
     return { ok: false };
   }
 

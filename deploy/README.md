@@ -264,7 +264,7 @@ git push → ubuntu runner → tailscale up (ephemeral)
 | `curl https://api.moilga.com/health` timeout | `launchctl list \| grep cloudflared` 로 데몬 가동 확인. 떴는데도 안 되면 `cloudflared tunnel list` + 토큰/route 매핑 점검. |
 | Cloudflare 대시보드의 SSL/TLS 가 "Not Active" | DNS propagation 미완 또는 SSL/TLS mode 설정 X. Edge Certificates 의 "Always Use HTTPS" + SSL/TLS Mode `Full` 권장. |
 | 프론트에서 CORS 에러 | `.env.prod` 의 `CORS_ORIGIN` 과 실제 Vercel 도메인 일치 확인 + 백엔드 재기동 |
-| 어드민 페이지 503 | `ADMIN_TOKEN` 이 비어있거나 8자 미만. `.env.prod` 확인 후 재기동. |
+| 어드민 페이지 503 | `ADMIN_TOKEN` 이 비어있거나 32자 미만. `.env.prod` 확인 후 재기동. |
 | Vercel 빌드 실패 (shared 미빌드) | Root Directory 가 `apps/web` 인지 확인. `apps/web/package.json` 의 build 가 shared 빌드 포함. |
 | 백엔드 health 가 503 + `db:"down"` | `whenever-postgres` 컨테이너 죽음. `docker ps` 확인. healthy 안 뜨면 `docker compose -f docker-compose.prod.yml logs postgres`. |
 

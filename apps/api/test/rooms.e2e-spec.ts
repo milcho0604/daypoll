@@ -243,9 +243,9 @@ describe('rooms + participants e2e', () => {
       expect(d1r.voters.map((v: { nickname: string }) => v.nickname)).toEqual([
         'alice',
       ]);
-      expect(res.body.declined.map((v: { nickname: string }) => v.nickname)).toEqual(
-        ['bob'],
-      );
+      expect(
+        res.body.declined.map((v: { nickname: string }) => v.nickname),
+      ).toEqual(['bob']);
 
       const me = await request(server())
         .get(`/rooms/${roomId}/participants/me`)
@@ -681,6 +681,105 @@ describe('rooms + participants e2e', () => {
       expect(locked.status).toBe(429);
     });
 
+    it('scopes the nickname lock to the IP — another IP can still recover', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin-ip-scope', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+      for (let i = 0; i < 5; i++) {
+        await request(server())
+          .post(`/rooms/${id}/participants/recover`)
+          .set('cf-connecting-ip', '203.0.113.1')
+          .send({ nickname: 'memo', pin: '9999' });
+      }
+      const troll = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .set('cf-connecting-ip', '203.0.113.1')
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(troll.status).toBe(429);
+      const owner = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .set('cf-connecting-ip', '198.51.100.7')
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(owner.status).toBe(201);
+    });
+
+    it('caps PIN-only failures per room even when the IP keeps changing', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin-room-cap', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+      // IPv6 /64 안에서 주소만 바꾸는 것도 같은 IP 로 묶이므로, 대역 자체를 바꿔 가며 30회
+      for (let i = 0; i < 30; i++) {
+        const r = await request(server())
+          .post(`/rooms/${id}/participants/recover`)
+          .set('cf-connecting-ip', `2001:db8:${i.toString(16)}::1`)
+          .send({ pin: String(5000 + i) });
+        expect(r.status).toBe(403);
+      }
+      const blocked = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .set('cf-connecting-ip', '2001:db8:ffff::1')
+        .send({ pin: '1234' });
+      expect(blocked.status).toBe(429);
+      // 닉네임을 같이 넣으면 본인은 여전히 복원된다
+      const withNick = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .set('cf-connecting-ip', '2001:db8:ffff::1')
+        .send({ nickname: 'memo', pin: '1234' });
+      expect(withNick.status).toBe(201);
+    });
+
+    it('groups IPv6 addresses in the same /64 for the IP lock', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin-v6', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'memo', pin: '1234' });
+      for (let i = 1; i <= 5; i++) {
+        await request(server())
+          .post(`/rooms/${id}/participants/recover`)
+          .set('cf-connecting-ip', `2001:db8:1:2::${i}`)
+          .send({ pin: '9999' });
+      }
+      const r = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .set('cf-connecting-ip', '2001:db8:1:2:abcd::99')
+        .send({ pin: '1234' });
+      expect(r.status).toBe(429);
+    });
+
+    it('counts the ambiguous (409) answer as an attempt', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'pin-409', dates: ['2026-05-15'] });
+      const id = create.body.roomId;
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'a', pin: '1234' });
+      await request(server())
+        .post(`/rooms/${id}/participants`)
+        .send({ nickname: 'b', pin: '1234' });
+      for (let i = 0; i < 5; i++) {
+        const r = await request(server())
+          .post(`/rooms/${id}/participants/recover`)
+          .send({ pin: '1234' });
+        expect(r.status).toBe(409);
+      }
+      const r = await request(server())
+        .post(`/rooms/${id}/participants/recover`)
+        .send({ pin: '1234' });
+      expect(r.status).toBe(429);
+    });
+
     it('403 if pin was never set', async () => {
       const create = await request(server())
         .post('/rooms')
@@ -692,6 +791,25 @@ describe('rooms + participants e2e', () => {
         .post(`/rooms/${create.body.roomId}/participants/recover`)
         .send({ nickname: 'a', pin: '1234' });
       expect(r.status).toBe(403);
+    });
+
+    it('400 on nickname or title with direction-override characters', async () => {
+      const create = await request(server())
+        .post('/rooms')
+        .send({ title: 'ctrl', dates: ['2026-05-15'] });
+      const nick = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: 'evil\u202Eeman' });
+      expect(nick.status).toBe(400);
+      const title = await request(server())
+        .post('/rooms')
+        .send({ title: 'line1\rX-INJECT', dates: ['2026-05-15'] });
+      expect(title.status).toBe(400);
+      // 이모지 결합(ZWJ)은 그대로 허용
+      const emoji = await request(server())
+        .post(`/rooms/${create.body.roomId}/participants`)
+        .send({ nickname: '👨\u200D👩' });
+      expect(emoji.status).toBe(201);
     });
 
     it('400 on malformed pin', async () => {

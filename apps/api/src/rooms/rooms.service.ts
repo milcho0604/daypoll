@@ -487,6 +487,7 @@ function nextDay(iso: string): string {
 function escapeIcsText(s: string): string {
   return s
     .replace(/\\/g, '\\\\')
+    .replace(/\r\n?/g, '\n') // 맨 CR 을 줄바꿈으로 읽는 캘린더 앱이 있어 속성 끼워 넣기가 된다
     .replace(/\n/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
