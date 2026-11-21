@@ -5,6 +5,11 @@
 // ~10~25% 확률로 엉뚱한 401/404 가 튄다(라우트·인증은 결정적이라 실제 버그 아님 —
 // 각 스펙을 단독 실행하면 항상 통과). 공유 DB 라 병렬은 truncate 레이스가 나므로,
 // "파일별 독립 프로세스 + 순차" 로 격리와 직렬성을 동시에 만족시킨다.
+//
+// 2026-11 추가: 엉뚱한 404 의 실제 원인은 supertest 가 요청마다 '::' 임시 포트를 열 때
+// 다른 프로세스가 127.0.0.1 로 잡은 포트와 겹치는 것이었다(macOS). 각 스펙이 이제
+// app.listen(0, '127.0.0.1') 로 한 번만 열고 URL 로 요청한다. 동시 실행은 setup.ts 의
+// advisory lock 이 줄 세운다.
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

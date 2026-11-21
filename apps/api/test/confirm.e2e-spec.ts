@@ -7,6 +7,7 @@ import { closeTestPool, resetDb } from './setup';
 // 모임 확정(방장이 최종 날짜 못박기) + 확정 시 투표 잠금 + 해제.
 describe('room confirm e2e', () => {
   let app: INestApplication;
+  let baseUrl: string;
 
   beforeAll(async () => {
     const ref = await Test.createTestingModule({
@@ -22,6 +23,11 @@ describe('room confirm e2e', () => {
       }),
     );
     await app.init();
+    // supertest 에 서버 객체를 넘기면 요청마다 '모든 주소(::)' 임시 포트를 연다.
+    // 그 포트를 다른 프로세스가 127.0.0.1 로 잡고 있으면 요청이 그쪽으로 가서
+    // 엉뚱한 404 가 난다(macOS 실측). 127.0.0.1 에 한 번만 열고 URL 로 요청한다.
+    await app.listen(0, '127.0.0.1');
+    baseUrl = await app.getUrl();
   });
 
   beforeEach(async () => {
@@ -33,7 +39,7 @@ describe('room confirm e2e', () => {
     await closeTestPool();
   });
 
-  const server = () => app.getHttpServer();
+  const server = () => baseUrl;
 
   async function makeRoom() {
     const r = await request(server())
