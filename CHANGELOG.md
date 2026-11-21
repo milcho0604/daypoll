@@ -9,6 +9,10 @@
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-21
+
+입장 화면에서 바로 날짜를 고르는 기능, 그리고 PIN 복원 대입 차단 등 보안 보강.
+
 ### 개선
 - 입장 화면의 후보 날짜 칩을 눌러 미리 고를 수 있게 — 눌리는 것처럼 보이는데 안 눌려 헷갈리던 문제. 고른 날은 들어가기와 함께 바로 저장, "외 N일 더 보기"로 전체 펼치기, 닉네임 없이 들어가기를 누르면 입력칸 아래에 안내 ([#110](https://github.com/milcho0604/daypoll/pull/110))
 
@@ -21,7 +25,11 @@
 - 웹 응답에 HSTS 와 CSP(base-uri·object-src·frame-ancestors·form-action) 헤더 추가 ([#111](https://github.com/milcho0604/daypoll/pull/111))
 
 ### 수정
-- 문의 메일을 공식 주소 admin@moilga.com 으로 변경 (footer·개인정보처리방침·이용약관)
+- 문의 메일을 공식 주소 admin@moilga.com 으로 변경 (footer·개인정보처리방침·이용약관) ([#106](https://github.com/milcho0604/daypoll/pull/106))
+
+### 운영
+- 통합 테스트(`scripts/test.sh`)가 운영 API 포트(:3001)를 죽이지 않게 테스트 전용 포트 사용, 스모크 문구 현행화 ([#113](https://github.com/milcho0604/daypoll/pull/113))
+- API e2e 가 가끔 엉뚱한 404 로 실패하던 원인 제거 — 테스트 서버를 127.0.0.1 에 고정(다른 프로세스 포트와 겹침), 같은 테스트 DB 동시 실행은 advisory lock 으로 줄 세움 ([#114](https://github.com/milcho0604/daypoll/pull/114))
 
 ## [2.1.0] - 2026-10-27
 
@@ -202,7 +210,8 @@
 - 마감일, 방장 강퇴, PIN 으로 다른 기기 복원, 결과 캘린더(.ics), 공유 이미지(OG)
 - Socket.IO 실시간 반영, 어드민 페이지
 
-[Unreleased]: https://github.com/milcho0604/daypoll/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/milcho0604/daypoll/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/milcho0604/daypoll/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/milcho0604/daypoll/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/milcho0604/daypoll/compare/v1.6.0...v2.0.0
 [1.6.0]: https://github.com/milcho0604/daypoll/compare/v1.5.0...v1.6.0
