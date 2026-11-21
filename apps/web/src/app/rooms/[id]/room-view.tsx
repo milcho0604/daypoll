@@ -82,6 +82,11 @@ export default function RoomView({
     if (last) setNickname(last);
   }, []);
   const [usePin, setUsePin] = useState(false);
+  // 입장 전에 미리 눌러 둔 날짜 — 들어가기 성공 직후 바로 저장한다.
+  const [preselected, setPreselected] = useState<Set<number>>(new Set());
+  const [showAllJoinDates, setShowAllJoinDates] = useState(false);
+  const [nicknameError, setNicknameError] = useState(false);
+  const nicknameInputRef = useRef<HTMLInputElement>(null);
   const [pin, setPin] = useState('');
   const [showRecover, setShowRecover] = useState(false);
   const [recoverNeedsNickname, setRecoverNeedsNickname] = useState(false);
@@ -393,14 +398,19 @@ export default function RoomView({
   );
 
   // 입장 폼에 보여줄 후보 날짜 (날짜순). 너무 길면 칩이 카드를 잡아먹어서 앞쪽만.
-  const joinPreviewDates = useMemo(
-    () =>
-      [...room.dates]
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, JOIN_PREVIEW),
-    [room.dates],
-  );
+  // '외 N일' 을 누르면 전부 펼친다.
+  const joinPreviewDates = useMemo(() => {
+    const sorted = [...room.dates].sort((a, b) => a.date.localeCompare(b.date));
+    return showAllJoinDates ? sorted : sorted.slice(0, JOIN_PREVIEW);
+  }, [room.dates, showAllJoinDates]);
   const joinPreviewHidden = room.dates.length - joinPreviewDates.length;
+  const togglePreselect = (id: number) =>
+    setPreselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // 사람별 뷰 — 참여자 → 그 사람이 가능 표시한 날짜들 (날짜별의 역집계).
   const byPerson = useMemo(() => {
@@ -598,7 +608,11 @@ export default function RoomView({
 
   async function onJoin(e: React.FormEvent) {
     e.preventDefault();
-    if (!nickname.trim()) return;
+    if (!nickname.trim()) {
+      setNicknameError(true);
+      nicknameInputRef.current?.focus();
+      return;
+    }
     if (usePin && !/^\d{4}$/.test(pin)) {
       setError('비밀번호는 숫자 4자리로 정해주세요.');
       return;
@@ -622,17 +636,40 @@ export default function RoomView({
       });
       // 다음 방 진입 때 자동 채워주기
       window.localStorage.setItem('whenever_last_nickname', nickname.trim());
+      // 미리 눌러 둔 날짜 — 그사이 방장이 지운 후보는 뺀다.
+      const validIds = new Set(room.dates.map((d) => d.id));
+      const picked = new Set([...preselected].filter((id) => validIds.has(id)));
       setClientToken(r.clientToken);
       setMe({
         participantId: r.participantId,
-        nickname: nickname.trim(),
-        dateIds: [],
+        nickname: r.nickname ?? nickname.trim(),
+        dateIds: [...picked],
         declined: false,
       });
-      setSelected(new Set());
+      setSelected(picked);
       setMyPlaceIds(new Set());
       setDeclined(false);
-      void tick(); // 참여자 수 즉시 반영
+      setPreselected(new Set());
+      if (picked.size > 0) {
+        // 입장 = "이 날 돼요" — 들어가자마자 저장. 토큰 state 는 아직 반영 전이라 응답 토큰을 직접 쓴다.
+        dirtyRef.current = true;
+        setSaveState('saving');
+        const seq = ++saveSeqRef.current;
+        try {
+          await updateAvailabilities(roomId, r.clientToken, { dateIds: [...picked] });
+          if (seq === saveSeqRef.current) {
+            dirtyRef.current = false;
+            setSaveState('saved');
+          }
+        } catch (err) {
+          // 선택은 화면에 남겨 둔다 — 아래 '다시 저장' 으로 재시도할 수 있다.
+          if (seq === saveSeqRef.current) {
+            setSaveState('error');
+            setError(extractMsg(err));
+          }
+        }
+      }
+      void tick(); // 참여자 수·순위 즉시 반영
     } catch (err) {
       setError(extractMsg(err));
     } finally {
@@ -1292,34 +1329,74 @@ export default function RoomView({
           )}
           {!isLocked && joinPreviewDates.length > 0 && (
             <div className="mt-3">
-              <p className="text-xs text-zinc-500">이 날짜들 중에 골라요</p>
+              <p className="text-xs text-zinc-500">
+                {preselected.size > 0
+                  ? `✓ ${preselected.size}일 골랐어요 · 들어가면 바로 저장돼요`
+                  : '되는 날을 눌러 두면 들어갈 때 같이 저장돼요'}
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {joinPreviewDates.map((d) => (
-                  <span
-                    key={d.id}
-                    className="inline-flex h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
-                  >
-                    {formatDateKR(d.date)}
-                  </span>
-                ))}
+                {joinPreviewDates.map((d) => {
+                  const on = preselected.has(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => togglePreselect(d.id)}
+                      className={
+                        on
+                          ? 'press inline-flex h-9 items-center rounded-full border border-emerald-500 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'press inline-flex h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-500'
+                      }
+                    >
+                      {on && <span aria-hidden className="mr-1">✓</span>}
+                      {formatDateKR(d.date)}
+                    </button>
+                  );
+                })}
                 {joinPreviewHidden > 0 && (
-                  <span className="inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                    외 {joinPreviewHidden}일
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllJoinDates(true)}
+                    className="press inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  >
+                    외 {joinPreviewHidden}일 더 보기
+                  </button>
+                )}
+                {showAllJoinDates && room.dates.length > JOIN_PREVIEW && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllJoinDates(false)}
+                    className="press inline-flex h-9 items-center rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  >
+                    접기
+                  </button>
                 )}
               </div>
             </div>
           )}
           <form onSubmit={onJoin} className="mt-4 flex flex-col gap-3">
             <input
+              ref={nicknameInputRef}
               type="text"
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              onChange={(e) => {
+                setNickname(e.target.value);
+                if (nicknameError) setNicknameError(false);
+              }}
               placeholder="예: 민철"
               maxLength={20}
-              className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-100"
-              required
+              aria-invalid={nicknameError}
+              aria-describedby={nicknameError ? 'nickname-error' : undefined}
+              className={`h-12 rounded-xl border bg-white px-4 text-base outline-none focus:border-zinc-900 dark:bg-zinc-950 dark:focus:border-zinc-100 ${
+                nicknameError ? 'border-rose-400 dark:border-rose-500' : 'border-zinc-200 dark:border-zinc-800'
+              }`}
             />
+            {nicknameError && (
+              <p id="nickname-error" role="alert" className="-mt-1 text-xs text-rose-600 dark:text-rose-400">
+                닉네임을 먼저 적어주세요
+              </p>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -1353,8 +1430,8 @@ export default function RoomView({
               </button>
               <button
                 type="submit"
-                disabled={busy || !nickname.trim() || (usePin && pin.length !== 4)}
-                className="h-12 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+                disabled={busy || (usePin && pin.length !== 4)}
+                className="press h-12 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-white dark:text-zinc-900 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
               >
                 들어가기
               </button>
