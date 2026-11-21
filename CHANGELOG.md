@@ -9,6 +9,9 @@
 
 ## [Unreleased]
 
+### 보안
+- next·eslint-config-next 16.4.3 → 16.4.5 (moderate 7건: 이미지 최적화 SVG 거부 우회 등), @sentry/nextjs 10.75 → 10.78. 남은 moderate 2건(glob·minimatch)은 Sentry 빌드 플러그인 안쪽이라 빌드 때만 쓰임, Sentry 11 메이저 업데이트 때 해소
+
 ### 수정
 - 문의 메일을 공식 주소 admin@moilga.com 으로 변경 (footer·개인정보처리방침·이용약관)
 
