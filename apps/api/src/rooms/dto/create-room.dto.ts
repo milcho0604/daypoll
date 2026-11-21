@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
@@ -19,10 +20,12 @@ import {
   type RegionCode,
 } from '@whenever/shared';
 import { AddPlaceDto } from './place.dto';
+import { NO_CONTROL } from '../../common/no-control';
 
 export class CreateRoomDto {
   @IsString()
   @Length(1, 100)
+  @Matches(NO_CONTROL, { message: 'title has invalid characters' })
   title!: string;
 
   @IsArray()
@@ -41,6 +44,7 @@ export class CreateRoomDto {
   @IsOptional()
   @IsString()
   @Length(1, 20)
+  @Matches(NO_CONTROL, { message: 'createdBy has invalid characters' })
   createdBy?: string;
 
   // 날씨용 지역 (옵션). 허용된 시·도 코드만. null/미지정 = 날씨 안 보임.

@@ -12,6 +12,16 @@ const SECURITY_HEADERS = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   },
+  // HTTPS 강제 (2년). 서브도메인 중 HTTPS 가 아닌 곳이 있을 수 있어 includeSubDomains 는 뺀다.
+  { key: "Strict-Transport-Security", value: "max-age=63072000" },
+  // CSP — 깨질 위험 없는 지시어만. script-src 를 좁히려면 Next 인라인 스크립트에
+  // nonce 가 필요하고(= 모든 페이지 동적 렌더, ISR 포기) 비용이 커서 보류.
+  // base 태그 끼워 넣기, 플러그인(object), 외부 iframe 삽입, 외부로 폼 전송을 막는다.
+  {
+    key: "Content-Security-Policy",
+    value:
+      "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'",
+  },
 ];
 
 const nextConfig: NextConfig = {

@@ -10,7 +10,12 @@
 ## [Unreleased]
 
 ### 보안
-- next·eslint-config-next 16.4.3 → 16.4.5 (moderate 7건: 이미지 최적화 SVG 거부 우회 등), @sentry/nextjs 10.75 → 10.78. 남은 moderate 2건(glob·minimatch)은 Sentry 빌드 플러그인 안쪽이라 빌드 때만 쓰임, Sentry 11 메이저 업데이트 때 해소
+- next·eslint-config-next 16.4.3 → 16.4.5 (moderate 7건: 이미지 최적화 SVG 거부 우회 등), @sentry/nextjs 10.75 → 10.78. 남은 moderate 2건(glob·minimatch)은 Sentry 빌드 플러그인 안쪽이라 빌드 때만 쓰임, Sentry 11 메이저 업데이트 때 해소 ([#112](https://github.com/milcho0604/daypoll/pull/112))
+- PIN 복원 대입 차단 강화 — IP 와 무관한 상한 추가(PIN 만 넣는 복원은 방당 1시간 30회, 닉네임 복원은 닉네임당 1시간 20회). IP 잠금은 (방, 닉네임, IP) 로 좁혀 남이 내 복원을 잠그기 어렵게. IPv6 는 /64 대역 단위로 셈. "같은 PIN 이 여러 명" 응답도 시도 1회로 셈 ([#111](https://github.com/milcho0604/daypoll/pull/111))
+- 방 제목·닉네임·개설자 이름에 보이지 않는 제어문자·방향 제어 문자(U+202E 등) 금지, 캘린더(.ics) 내보내기에서 CR 이스케이프 ([#111](https://github.com/milcho0604/daypoll/pull/111))
+- 어드민 토큰: 틀린 시도 IP 당 10분 10회 제한, 최소 길이 8 → 32자, 실시간 소켓은 5번 틀리면 연결 끊기 ([#111](https://github.com/milcho0604/daypoll/pull/111))
+- 실시간 소켓 하나당 구독 방 20개 상한 ([#111](https://github.com/milcho0604/daypoll/pull/111))
+- 웹 응답에 HSTS 와 CSP(base-uri·object-src·frame-ancestors·form-action) 헤더 추가 ([#111](https://github.com/milcho0604/daypoll/pull/111))
 
 ### 수정
 - 문의 메일을 공식 주소 admin@moilga.com 으로 변경 (footer·개인정보처리방침·이용약관)

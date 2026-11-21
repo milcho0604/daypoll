@@ -94,6 +94,16 @@ export class ParticipantsService {
   private static readonly PIN_MAX_ATTEMPTS = 5;
   private static readonly PIN_LOCKOUT_MS = 30 * 60 * 1000;
   private lastPinSweep = Date.now();
+  // IP 와 무관한 상한 — IP(또는 IPv6 대역)를 바꿔 가며 위 잠금을 피하는 대입을 막는다.
+  // PIN 만 넣는 경로는 방 전체가 후보라 방 단위로, 닉네임 경로는 그 닉네임 단위로 센다.
+  // 닉네임 상한을 IP 잠금(5)보다 넉넉하게 둬서 트롤이 한 IP 로 남의 복원을 막기 어렵게 한다.
+  private readonly pinWindows = new Map<
+    string,
+    { count: number; start: number }
+  >();
+  private static readonly PIN_WINDOW_MS = 60 * 60 * 1000;
+  static readonly PIN_ROOM_MAX_FAILURES = 30;
+  static readonly PIN_NICKNAME_MAX_FAILURES = 20;
 
   private pinKey(roomId: string, nickname: string): string {
     return `${roomId}::${nickname.trim().toLowerCase()}`;
@@ -107,6 +117,11 @@ export class ParticipantsService {
     for (const [k, v] of this.pinFailures) {
       if (now - v.ts > ParticipantsService.PIN_LOCKOUT_MS) {
         this.pinFailures.delete(k);
+      }
+    }
+    for (const [k, v] of this.pinWindows) {
+      if (now - v.start > ParticipantsService.PIN_WINDOW_MS) {
+        this.pinWindows.delete(k);
       }
     }
   }
@@ -205,13 +220,21 @@ export class ParticipantsService {
     nickname?: string,
     ip?: string,
   ): Promise<JoinRoomResponse> {
-    // lockout 키: 닉네임 있으면 (방, 닉네임), PIN-only 는 (방, IP).
-    // 방 단위로만 묶으면 트롤 한 명이 틀린 PIN 5회로 그 방 전원의 복원을
-    // 30분 잠글 수 있어(DoS), IP 로 스코프를 좁힌다. IP 회전 브루트는
-    // 컨트롤러의 IP+방 rate limit(10회/10분)이 1차로 막는다.
+    // 1) IP 단위 잠금 — (방, 닉네임, IP) 또는 (방, IP). 5회 실패 시 30분.
+    //    IP 로 좁혀서 트롤 한 명이 남의 복원을 통째로 잠그지 못하게 한다.
+    // 2) IP 무관 상한 — 닉네임 경로는 (방, 닉네임) 1시간 20회, PIN 만 넣는 경로는 방 1시간 30회.
+    //    IP/대역을 바꿔 가며 1) 을 피하는 대입을 막는다 (4자리 = 1만 가지).
+    //    PIN 만 넣는 경로가 막혀도 닉네임을 같이 넣으면 복원할 수 있다.
+    const ipKey = ip ?? 'unknown';
     const key = nickname
-      ? this.pinKey(roomId, nickname)
-      : `${roomId}::ip:${ip ?? 'unknown'}`;
+      ? `${this.pinKey(roomId, nickname)}::ip:${ipKey}`
+      : `${roomId}::ip:${ipKey}`;
+    const windowKey = nickname
+      ? `win::${this.pinKey(roomId, nickname)}`
+      : `win::${roomId}`;
+    const windowMax = nickname
+      ? ParticipantsService.PIN_NICKNAME_MAX_FAILURES
+      : ParticipantsService.PIN_ROOM_MAX_FAILURES;
     const now = Date.now();
     this.sweepPinFailures(now);
     let entry = this.pinFailures.get(key);
@@ -227,6 +250,29 @@ export class ParticipantsService {
       this.pinFailures.delete(key);
       entry = undefined;
     }
+    const win = this.pinWindows.get(windowKey);
+    if (win && now - win.start > ParticipantsService.PIN_WINDOW_MS) {
+      this.pinWindows.delete(windowKey);
+    } else if (win && win.count >= windowMax) {
+      throw new HttpException(
+        'too many failed attempts — try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    const recordFailure = () => {
+      const next = (entry?.count ?? 0) + 1;
+      this.pinFailures.set(key, {
+        count: next,
+        until:
+          next >= ParticipantsService.PIN_MAX_ATTEMPTS
+            ? now + ParticipantsService.PIN_LOCKOUT_MS
+            : 0,
+        ts: now,
+      });
+      const w = this.pinWindows.get(windowKey);
+      if (w) w.count += 1;
+      else this.pinWindows.set(windowKey, { count: 1, start: now });
+    };
 
     // 닉네임 있으면 그것만, 없으면 방 전체 PIN 후보 검색.
     // client_token 도 같이 SELECT — recover 는 새 토큰을 발급하지 않고 기존 토큰을 그대로 반환.
@@ -286,6 +332,8 @@ export class ParticipantsService {
 
     if (matches.length > 1 && !nickname) {
       // 같은 방에 같은 PIN 가입자 여러 명 — 모호. 닉네임으로 다시 시도하라고 클라이언트에 알림.
+      // 이 응답 자체가 "이 PIN 은 맞다" 는 신호라 시도 1회로 센다 (안 세면 무료 오라클).
+      recordFailure();
       throw new HttpException(
         'multiple matches — provide nickname',
         HttpStatus.CONFLICT,
@@ -293,16 +341,7 @@ export class ParticipantsService {
     }
 
     // 0 매칭 → 실패 카운트 증가
-    const next = (entry?.count ?? 0) + 1;
-    if (next >= ParticipantsService.PIN_MAX_ATTEMPTS) {
-      this.pinFailures.set(key, {
-        count: next,
-        until: now + ParticipantsService.PIN_LOCKOUT_MS,
-        ts: now,
-      });
-    } else {
-      this.pinFailures.set(key, { count: next, until: 0, ts: now });
-    }
+    recordFailure();
     throw new ForbiddenException('pin does not match');
   }
 
