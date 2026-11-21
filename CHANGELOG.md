@@ -9,6 +9,9 @@
 
 ## [Unreleased]
 
+### 개선
+- 입장 화면의 후보 날짜 칩을 눌러 미리 고를 수 있게 — 눌리는 것처럼 보이는데 안 눌려 헷갈리던 문제. 고른 날은 들어가기와 함께 바로 저장, "외 N일 더 보기"로 전체 펼치기, 닉네임 없이 들어가기를 누르면 입력칸 아래에 안내 ([#110](https://github.com/milcho0604/daypoll/pull/110))
+
 ### 보안
 - next·eslint-config-next 16.4.3 → 16.4.5 (moderate 7건: 이미지 최적화 SVG 거부 우회 등), @sentry/nextjs 10.75 → 10.78. 남은 moderate 2건(glob·minimatch)은 Sentry 빌드 플러그인 안쪽이라 빌드 때만 쓰임, Sentry 11 메이저 업데이트 때 해소 ([#112](https://github.com/milcho0604/daypoll/pull/112))
 - PIN 복원 대입 차단 강화 — IP 와 무관한 상한 추가(PIN 만 넣는 복원은 방당 1시간 30회, 닉네임 복원은 닉네임당 1시간 20회). IP 잠금은 (방, 닉네임, IP) 로 좁혀 남이 내 복원을 잠그기 어렵게. IPv6 는 /64 대역 단위로 셈. "같은 PIN 이 여러 명" 응답도 시도 1회로 셈 ([#111](https://github.com/milcho0604/daypoll/pull/111))
